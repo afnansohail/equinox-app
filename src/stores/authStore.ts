@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { supabase } from '../services/supabase';
+import { create } from "zustand";
+import { supabase } from "../services/supabase";
 
 interface AuthState {
   user: any | null;
@@ -35,7 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       });
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error("Auth initialization error:", error);
       set({ loading: false });
     }
   },
@@ -47,12 +47,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ user: data.user, session: data.session, loading: false });
 
-      await supabase.from('user_settings').upsert({
+      await supabase.from("user_settings").upsert({
         user_id: data.user!.id,
         refresh_interval_minutes: 30,
       });
     } catch (error) {
-      console.error('Anonymous sign-in error:', error);
+      console.error("[Auth] Anonymous sign-in error:", error);
       set({ loading: false });
     }
   },
@@ -62,8 +62,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await supabase.auth.signOut();
       set({ user: null, session: null });
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error("Sign out error:", error);
     }
   },
 }));
-

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RootNavigator from './src/navigation/RootNavigator';
 import { useAuthStore } from './src/stores/authStore';
 import './global.css';
@@ -25,8 +26,10 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StatusBar style="light" />
-      <RootNavigator />
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <RootNavigator />
+      </SafeAreaProvider>
     </QueryClientProvider>
   );
 }

@@ -3,20 +3,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BriefcaseBusiness, TrendingUp, Settings } from 'lucide-react-native';
-import { View } from 'react-native';
-
 import type { RootStackParamList, MainTabParamList } from './types';
-
-// Placeholder screens – will be implemented fully later
-const Placeholder = () => <View className="flex-1 bg-background" />;
-
-const DashboardScreen = Placeholder;
-const PortfolioScreen = Placeholder;
-const MarketsScreen = Placeholder;
-const SettingsScreen = Placeholder;
-const StockDetailScreen = Placeholder;
-const AddTransactionScreen = Placeholder;
-const TransactionHistoryScreen = Placeholder;
+import DashboardScreen from '../screens/DashboardScreen';
+import PortfolioScreen from '../screens/PortfolioScreen';
+import MarketsScreen from '../screens/MarketsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import StockDetailScreen from '../screens/StockDetailScreen';
+import AddTransactionScreen from '../screens/AddTransactionScreen';
+import TransactionHistoryScreen from '../screens/TransactionHistoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
