@@ -5,7 +5,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
   RefreshControl,
   ActivityIndicator,
   Platform,
@@ -25,42 +24,12 @@ import {
 import { useStock, useRefreshStocks } from "../hooks/useStocks";
 import { useIsInWishlist, useToggleWishlist } from "../hooks/useWishlist";
 import { usePortfolio } from "../hooks/usePortfolio";
+import StockLogo from "../components/shared/StockLogo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Route = RouteProp<RootStackParamList, "StockDetail">;
 type Nav = NativeStackNavigationProp<RootStackParamList, "StockDetail">;
-
-const AVATAR_COLORS = [
-  "#6366F1",
-  "#8B5CF6",
-  "#EC4899",
-  "#06B6D4",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#3B82F6",
-];
-
-function LetterAvatar({ text, size = 56 }: { text: string; size?: number }) {
-  const color = AVATAR_COLORS[text.charCodeAt(0) % AVATAR_COLORS.length];
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: color,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text style={{ color: "#fff", fontSize: size * 0.3, fontWeight: "700" }}>
-        {text.slice(0, 2).toUpperCase()}
-      </Text>
-    </View>
-  );
-}
 
 export default function StockDetailScreen() {
   const route = useRoute<Route>();
@@ -168,15 +137,7 @@ export default function StockDetailScreen() {
         >
           {/* Stock Identity */}
           <View style={styles.identityRow}>
-            {stock.logoUrl ? (
-              <Image
-                source={{ uri: stock.logoUrl }}
-                style={styles.stockLogo}
-                resizeMode="contain"
-              />
-            ) : (
-              <LetterAvatar text={symbol} size={56} />
-            )}
+            <StockLogo logoUrl={stock.logoUrl} symbol={symbol} size={56} />
             <View style={styles.identityMeta}>
               <Text style={styles.identitySymbol}>{symbol}</Text>
               <Text style={styles.identityName} numberOfLines={2}>
@@ -396,7 +357,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   retryText: { fontSize: 14, fontWeight: "700", color: colors.textInverse },
-  scroll: { paddingHorizontal: 20, paddingTop: 8 },
+  scroll: { paddingHorizontal: 20, paddingTop: 12 },
   identityRow: {
     flexDirection: "row",
     alignItems: "center",

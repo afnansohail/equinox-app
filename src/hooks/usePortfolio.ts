@@ -3,6 +3,8 @@ import {
   addTransaction,
   getPortfolioHoldings,
   getTransactions,
+  updateTransaction,
+  deleteTransaction,
   type PortfolioHolding,
   type Transaction,
 } from "../services/api";
@@ -39,6 +41,48 @@ export function useAddTransaction() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       // Bust the stock cache so StockDetail shows fresh price immediately
       queryClient.invalidateQueries({ queryKey: ["stock", tx.stockSymbol] });
+      queryClient.invalidateQueries({ queryKey: ["stocks"] });
+    },
+  });
+}
+
+export function useUpdateTransaction() {
+  const user = useAuthStore((state) => state.user);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: {
+      id: string;
+      quantity: number;
+      pricePerShare: number;
+      totalAmount: number;
+      transactionDate: string;
+      notes: string | null;
+    }) =>
+      updateTransaction(user!.id, params.id, {
+        quantity: params.quantity,
+        pricePerShare: params.pricePerShare,
+        totalAmount: params.totalAmount,
+        transactionDate: params.transactionDate,
+        notes: params.notes,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["stocks"] });
+    },
+  });
+}
+
+export function useDeleteTransaction() {
+  const user = useAuthStore((state) => state.user);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteTransaction(user!.id, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["stocks"] });
     },
   });

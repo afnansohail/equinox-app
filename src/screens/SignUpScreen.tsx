@@ -9,13 +9,13 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft } from "lucide-react-native";
 import { useAuthStore } from "../stores/authStore";
 import { colors } from "../constants/theme";
+import CustomModal from "../components/ui/CustomModal";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 interface Props {
@@ -24,35 +24,51 @@ interface Props {
 
 export default function SignUpScreen({ navigation }: Props) {
   const { signUpWithEmail } = useAuthStore();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+
+  const showModal = (title: string, message: string) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalVisible(true);
+  };
+
   const handleSignUp = async () => {
+    if (!name.trim()) {
+      showModal("Error", "Please enter your name");
+      return;
+    }
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
+      showModal("Error", "Please fill in all fields");
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      showModal("Error", "Passwords do not match");
       return;
     }
     if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+      showModal("Error", "Password must be at least 6 characters");
       return;
     }
     setLoading(true);
-    const { error } = await signUpWithEmail(email.trim(), password);
+    const { error } = await signUpWithEmail(
+      email.trim(),
+      password,
+      name.trim(),
+    );
     setLoading(false);
     if (error) {
-      Alert.alert("Sign Up Failed", error);
-    } else {
-      Alert.alert(
-        "Check Your Email",
-        "We sent a confirmation link. Click it to activate your account.",
-      );
+      showModal("Sign Up Failed", error);
     }
+    // No modal on success - user is automatically signed in and navigated to main app
   };
 
   return (
@@ -85,6 +101,19 @@ export default function SignUpScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.form}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Your name"
+                placeholderTextColor={colors.textMuted}
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
               <TextInput
@@ -145,6 +174,20 @@ export default function SignUpScreen({ navigation }: Props) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <CustomModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        title={modalTitle}
+        message={modalMessage}
+        buttons={[
+          {
+            text: "OK",
+            onPress: () => setModalVisible(false),
+            style: "default",
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }

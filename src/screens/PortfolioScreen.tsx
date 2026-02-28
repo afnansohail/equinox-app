@@ -5,7 +5,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -19,6 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { usePortfolio } from "../hooks/usePortfolio";
+import StockLogo from "../components/shared/StockLogo";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
@@ -26,38 +26,6 @@ type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Portfolio">,
   NativeStackNavigationProp<RootStackParamList>
 >;
-
-const AVATAR_COLORS = [
-  "#6366F1",
-  "#8B5CF6",
-  "#EC4899",
-  "#06B6D4",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#3B82F6",
-];
-
-function LetterAvatar({ text, size = 44 }: { text: string; size?: number }) {
-  const color = AVATAR_COLORS[text.charCodeAt(0) % AVATAR_COLORS.length];
-  return (
-    <View
-      style={[
-        styles.letterAvatar,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: color,
-        },
-      ]}
-    >
-      <Text style={[styles.letterAvatarText, { fontSize: size * 0.32 }]}>
-        {text.slice(0, 2).toUpperCase()}
-      </Text>
-    </View>
-  );
-}
 
 export default function PortfolioScreen() {
   const navigation = useNavigation<Nav>();
@@ -176,15 +144,11 @@ export default function PortfolioScreen() {
                     })
                   }
                 >
-                  {h.stock?.logoUrl ? (
-                    <Image
-                      source={{ uri: h.stock.logoUrl }}
-                      style={styles.stockLogo}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <LetterAvatar text={h.stockSymbol} size={44} />
-                  )}
+                  <StockLogo
+                    logoUrl={h.stock?.logoUrl}
+                    symbol={h.stockSymbol}
+                    size={44}
+                  />
 
                   <View style={styles.holdingMeta}>
                     <View style={styles.holdingTop}>
@@ -283,7 +247,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  scroll: { paddingHorizontal: 20 },
+  scroll: { paddingHorizontal: 20, paddingTop: 12 },
   // Summary
   summaryRow: {
     flexDirection: "row",

@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -22,42 +21,12 @@ import {
 } from "lucide-react-native";
 import { getStock } from "../services/api";
 import { useWishlist } from "../hooks/useWishlist";
+import StockLogo from "../components/shared/StockLogo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type SearchState = "idle" | "loading" | "not_found" | "error";
-
-const AVATAR_COLORS = [
-  "#6366F1",
-  "#8B5CF6",
-  "#EC4899",
-  "#06B6D4",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#3B82F6",
-];
-
-function LetterAvatar({ text, size = 44 }: { text: string; size?: number }) {
-  const color = AVATAR_COLORS[text.charCodeAt(0) % AVATAR_COLORS.length];
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: color,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text style={{ color: "#fff", fontSize: size * 0.32, fontWeight: "700" }}>
-        {text.slice(0, 2).toUpperCase()}
-      </Text>
-    </View>
-  );
-}
 
 export default function SearchScreen() {
   const navigation = useNavigation<Nav>();
@@ -196,15 +165,11 @@ export default function SearchScreen() {
                     })
                   }
                 >
-                  {stock.logoUrl ? (
-                    <Image
-                      source={{ uri: stock.logoUrl }}
-                      style={styles.stockLogo}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <LetterAvatar text={stock.symbol} size={44} />
-                  )}
+                  <StockLogo
+                    logoUrl={stock.logoUrl}
+                    symbol={stock.symbol}
+                    size={44}
+                  />
                   <View style={styles.stockMeta}>
                     <Text style={styles.stockSymbol}>{stock.symbol}</Text>
                     <Text style={styles.stockName} numberOfLines={1}>
@@ -317,7 +282,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   // Watchlist list
-  scroll: { paddingHorizontal: 20 },
+  scroll: { paddingHorizontal: 20, paddingTop: 12 },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",

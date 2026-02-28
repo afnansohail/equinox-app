@@ -16,6 +16,7 @@ interface AuthState {
   signUpWithEmail: (
     email: string,
     password: string,
+    name?: string,
   ) => Promise<{ error?: string }>;
   linkAnonymousToEmail: (
     email: string,
@@ -24,6 +25,7 @@ interface AuthState {
   resetPassword: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   setOnboardingComplete: () => void;
+  getDisplayName: () => string;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -116,11 +118,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUpWithEmail: async (email: string, password: string) => {
+  signUpWithEmail: async (email: string, password: string, name?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            display_name: name || email.split("@")[0],
+          },
+        },
       });
 
       if (error) {
@@ -204,5 +211,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setOnboardingComplete: () => {
     set({ hasCompletedOnboarding: true });
+  },
+
+  getDisplayName: () => {
+    const { user, isAnonymous } = get();
+    if (isAnonymous) return "Guest";
+    const displayName = user?.user_metadata?.display_name;
+    if (displayName) return displayName;
+    return user?.email?.split("@")[0] ?? "User";
   },
 }));

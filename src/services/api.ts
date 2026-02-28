@@ -432,6 +432,202 @@ export async function addTransaction(
   }
 }
 
+export async function updateTransaction(
+  userId: string,
+  id: string,
+  updates: Partial<
+    Omit<Transaction, "id" | "stockSymbol" | "transactionType"> & {
+      quantity: number;
+      pricePerShare: number;
+      totalAmount: number;
+      transactionDate: string;
+      notes: string | null;
+    }
+  >,
+): Promise<boolean> {
+  try {
+    const { data: existingTx, error: fetchError } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single<any>();
+
+    if (fetchError || !existingTx)
+      throw new Error("Transaction not found or unauthorized");
+
+    // Build the update payload for the transaction
+    const updatePayload: any = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.quantity !== undefined)
+      updatePayload.quantity = updates.quantity;
+    if (updates.pricePerShare !== undefined)
+      updatePayload.price_per_share = updates.pricePerShare;
+    if (updates.totalAmount !== undefined)
+      updatePayload.total_amount = updates.totalAmount;
+    if (updates.transactionDate !== undefined)
+      updatePayload.transaction_date = updates.transactionDate;
+    if ("notes" in updates) updatePayload.notes = updates.notes;
+
+    // Update the transaction record
+    const { error: txUpdateError } = await supabase
+      .from("transactions")
+      .update(updatePayload)
+      .eq("id", id);
+
+    if (txUpdateError) throw txUpdateError;
+
+    // Recalculate portfolio holdings based on all transactions for this stock
+    const { data: allTxs } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("stock_symbol", existingTx.stock_symbol)
+      .order("transaction_date", { ascending: true });
+
+    if (allTxs && allTxs.length > 0) {
+      let totalQuantity = 0;
+      let totalInvested = 0;
+
+      for (const tx of allTxs) {
+        if (tx.transaction_type === "BUY") {
+          totalQuantity += Number(tx.quantity);
+          totalInvested += Number(tx.total_amount);
+        } else {
+          totalQuantity -= Number(tx.quantity);
+          totalInvested -= Number(tx.total_amount);
+        }
+      }
+
+      const avgPrice = totalQuantity > 0 ? totalInvested / totalQuantity : 0;
+
+      const { data: holding } = await supabase
+        .from("portfolio_holdings")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("stock_symbol", existingTx.stock_symbol)
+        .maybeSingle<any>();
+
+      if (totalQuantity > 0) {
+        if (holding) {
+          await supabase
+            .from("portfolio_holdings")
+            .update({
+              quantity: totalQuantity,
+              average_buy_price: avgPrice,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", holding.id);
+        } else {
+          await supabase.from("portfolio_holdings").insert({
+            user_id: userId,
+            stock_symbol: existingTx.stock_symbol,
+            quantity: totalQuantity,
+            average_buy_price: avgPrice,
+          });
+        }
+      } else if (holding) {
+        await supabase.from("portfolio_holdings").delete().eq("id", holding.id);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error updating transaction", error);
+    return false;
+  }
+}
+
+export async function deleteTransaction(
+  userId: string,
+  id: string,
+): Promise<boolean> {
+  try {
+    const { data: existingTx, error: fetchError } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single<any>();
+
+    if (fetchError || !existingTx)
+      throw new Error("Transaction not found or unauthorized");
+
+    // Delete the transaction
+    const { error: deleteError } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) throw deleteError;
+
+    // Recalculate portfolio holdings based on remaining transactions for this stock
+    const { data: allTxs } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("stock_symbol", existingTx.stock_symbol)
+      .order("transaction_date", { ascending: true });
+
+    if (!allTxs || allTxs.length === 0) {
+      // No more transactions for this stock, delete the holding
+      const { data: holding } = await supabase
+        .from("portfolio_holdings")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("stock_symbol", existingTx.stock_symbol)
+        .maybeSingle<any>();
+
+      if (holding) {
+        await supabase.from("portfolio_holdings").delete().eq("id", holding.id);
+      }
+    } else {
+      let totalQuantity = 0;
+      let totalInvested = 0;
+
+      for (const tx of allTxs) {
+        if (tx.transaction_type === "BUY") {
+          totalQuantity += Number(tx.quantity);
+          totalInvested += Number(tx.total_amount);
+        } else {
+          totalQuantity -= Number(tx.quantity);
+          totalInvested -= Number(tx.total_amount);
+        }
+      }
+
+      const avgPrice = totalQuantity > 0 ? totalInvested / totalQuantity : 0;
+      const { data: holding } = await supabase
+        .from("portfolio_holdings")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("stock_symbol", existingTx.stock_symbol)
+        .maybeSingle<any>();
+
+      if (totalQuantity > 0) {
+        if (holding) {
+          await supabase
+            .from("portfolio_holdings")
+            .update({
+              quantity: totalQuantity,
+              average_buy_price: avgPrice,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", holding.id);
+        }
+      } else if (holding) {
+        await supabase.from("portfolio_holdings").delete().eq("id", holding.id);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error deleting transaction", error);
+    return false;
+  }
+}
+
 export async function getTransactions(userId: string): Promise<Transaction[]> {
   const { data, error } = await supabase
     .from("transactions")
@@ -588,7 +784,9 @@ export async function removeFromWishlist(
  * Deletes all user-owned data: portfolio holdings, transactions, and wishlist.
  * Runs the three deletes in parallel for minimum latency.
  */
-export async function deleteAllUserData(userId: string): Promise<{ error: string | null }> {
+export async function deleteAllUserData(
+  userId: string,
+): Promise<{ error: string | null }> {
   const [holdingsRes, txRes, wishlistRes] = await Promise.all([
     supabase.from("portfolio_holdings").delete().eq("user_id", userId),
     supabase.from("transactions").delete().eq("user_id", userId),

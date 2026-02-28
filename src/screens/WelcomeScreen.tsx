@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { TrendingUp, ShieldCheck, Lock } from "lucide-react-native";
 import { colors } from "../constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -45,9 +46,18 @@ export default function WelcomeScreen({ navigation }: Props) {
 
         {/* Feature list */}
         <View style={styles.features}>
-          <FeatureRow emoji="📈" text="Real-time PSX stock data" />
-          <FeatureRow emoji="✅" text="Shariah compliance screening" />
-          <FeatureRow emoji="🔒" text="Your data, fully private" />
+          <FeatureRow
+            icon={<TrendingUp size={20} color={colors.secondary} />}
+            text="Real-time PSX stock data"
+          />
+          <FeatureRow
+            icon={<ShieldCheck size={20} color={colors.secondary} />}
+            text="Shariah compliance screening"
+          />
+          <FeatureRow
+            icon={<Lock size={20} color={colors.secondary} />}
+            text="Your data, fully private"
+          />
         </View>
 
         {/* Auth Buttons */}
@@ -81,10 +91,10 @@ export default function WelcomeScreen({ navigation }: Props) {
   );
 }
 
-function FeatureRow({ emoji, text }: { emoji: string; text: string }) {
+function FeatureRow({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <View style={styles.featureRow}>
-      <Text style={styles.featureEmoji}>{emoji}</Text>
+      <View style={styles.featureIcon}>{icon}</View>
       <Text style={styles.featureText}>{text}</Text>
     </View>
   );
@@ -136,11 +146,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 16,
   },
-  featureEmoji: { fontSize: 20 },
+  featureIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(41, 253, 230, 0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   featureText: {
     fontSize: 15,
     color: colors.textPrimary,
     fontWeight: "500",
+    flex: 1,
   },
   authSection: { gap: 12 },
   primaryBtn: {

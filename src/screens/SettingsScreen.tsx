@@ -60,7 +60,8 @@ function SettingsRow({
 }
 
 export default function SettingsScreen() {
-  const { user, isAnonymous, signOut, linkAnonymousToEmail } = useAuthStore();
+  const { user, isAnonymous, signOut, linkAnonymousToEmail, getDisplayName } =
+    useAuthStore();
   const navigation = useNavigation<Nav>();
   const queryClient = useQueryClient();
   const [showLinkModal, setShowLinkModal] = useState(false);
@@ -121,12 +122,10 @@ export default function SettingsScreen() {
     Alert.alert("Done", "All your data has been deleted.");
   }, [user?.id, queryClient]);
 
-  const displayName = isAnonymous
-    ? "Guest Account"
-    : (user?.email ?? "Signed In");
+  const displayName = isAnonymous ? "Guest Account" : getDisplayName();
   const avatarLetter = isAnonymous
     ? "G"
-    : (user?.email?.[0]?.toUpperCase() ?? "U");
+    : (displayName[0]?.toUpperCase() ?? "U");
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -370,7 +369,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingHorizontal: 20, paddingTop: 8 },
+  scroll: { paddingHorizontal: 20, paddingTop: 12 },
   title: {
     fontSize: 28,
     fontWeight: "800",

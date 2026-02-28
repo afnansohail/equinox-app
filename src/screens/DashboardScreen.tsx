@@ -22,7 +22,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react-native";
-import { LineChart } from "react-native-gifted-charts";
+import PortfolioChart from "../components/charts/PortfolioChart";
 import { usePortfolio, useTransactions } from "../hooks/usePortfolio";
 import { useRefreshStocks } from "../hooks/useStocks";
 import { useAuthStore } from "../stores/authStore";
@@ -87,13 +87,10 @@ function buildChartFromTransactions(
 ): ChartPoint[] {
   const today = new Date().toISOString().slice(0, 10);
 
-  // Fallback: flat line
-  const fallback = (): ChartPoint[] => [
-    { value: 0, label: fmtLabel(today) },
-    { value: Math.round(totalValue), label: fmtLabel(today) },
-  ];
-
-  if (!transactions || transactions.length === 0) return fallback();
+  // Return empty array when no transactions - no flat line
+  if (!transactions || transactions.length === 0) {
+    return [];
+  }
 
   // Sort oldest → newest
   const sorted = [...transactions].sort(
@@ -143,7 +140,10 @@ function buildChartFromTransactions(
     rawPoints.push({ value: v, label: fmtLabel(date) });
   }
 
-  if (rawPoints.length < 2) return fallback();
+  // Need at least 2 points for a meaningful chart
+  if (rawPoints.length < 2) {
+    return [];
+  }
 
   // Smart label selection: edges + up to 2 evenly-spaced middle points
   const n = rawPoints.length;
@@ -163,7 +163,7 @@ function buildChartFromTransactions(
 
 export default function DashboardScreen() {
   const navigation = useNavigation<Nav>();
-  const { user, isAnonymous } = useAuthStore();
+  const { isAnonymous, getDisplayName } = useAuthStore();
   const { data: holdings, refetch, isLoading } = usePortfolio();
   const { data: transactions } = useTransactions();
   const refreshMutation = useRefreshStocks();
@@ -203,14 +203,8 @@ export default function DashboardScreen() {
     totalValue,
     chartFilter,
   );
-  const chartColor = isPositive ? "#22C55E" : colors.danger;
-  // Add 15% headroom so the peak of the line is never clipped
-  const chartRawMax = Math.max(...chartData.map((p) => p.value), 1);
-  const chartMaxValue = Math.ceil(chartRawMax * 1.15);
 
-  const displayName = isAnonymous
-    ? "Guest"
-    : (user?.email?.split("@")[0] ?? "User");
+  const displayName = getDisplayName();
   const avatarLetter = displayName[0]?.toUpperCase() ?? "U";
 
   const recentTx = (transactions ?? []).slice(0, 3);
@@ -314,17 +308,42 @@ export default function DashboardScreen() {
               ]}
             >
               <Text style={styles.pnlRowLabel}>Today</Text>
-              <Text
-                style={[
-                  styles.pnlRowAmount,
-                  { color: dayPnL >= 0 ? "#22C55E" : colors.danger },
-                ]}
-              >
-                {dayPnL >= 0 ? "+" : "-"}PKR{" "}
-                {Math.abs(dayPnL).toLocaleString("en-PK", {
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
+              <View style={styles.pnlRowRight}>
+                <Text
+                  style={[
+                    styles.pnlRowAmount,
+                    { color: dayPnL >= 0 ? "#22C55E" : colors.danger },
+                  ]}
+                >
+                  {dayPnL >= 0 ? "+" : "-"}PKR{" "}
+                  {Math.abs(dayPnL).toLocaleString("en-PK", {
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+                {totalValue > 0 && (
+                  <View
+                    style={[
+                      styles.pnlBadge,
+                      {
+                        backgroundColor:
+                          dayPnL >= 0
+                            ? "rgba(34,197,94,0.14)"
+                            : "rgba(239,68,68,0.14)",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pnlBadgeText,
+                        { color: dayPnL >= 0 ? "#22C55E" : colors.danger },
+                      ]}
+                    >
+                      {dayPnL >= 0 ? "+" : ""}
+                      {((dayPnL / (totalValue - dayPnL)) * 100).toFixed(2)}%
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
 
@@ -353,67 +372,11 @@ export default function DashboardScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <LineChart
+              <PortfolioChart
                 data={chartData}
-                // screen - scroll padding (20x2) - card padding (20x2) - yAxisLabelWidth (42)
-                width={Dimensions.get("window").width - 122}
-                height={120}
-                maxValue={chartMaxValue}
-                hideDataPoints={false}
-                dataPointsColor={chartColor}
-                dataPointsRadius={3}
-                color={chartColor}
-                thickness={2}
-                curved
-                areaChart
-                startFillColor={
-                  isPositive ? "rgba(34,197,94,0.20)" : "rgba(239,68,68,0.20)"
-                }
-                endFillColor="transparent"
-                rulesColor="rgba(255,255,255,0.07)"
-                rulesType="solid"
-                showVerticalLines={false}
-                xAxisColor="rgba(255,255,255,0.12)"
-                yAxisColor="transparent"
-                yAxisLabelWidth={42}
-                yAxisTextStyle={{
-                  color: colors.textMuted,
-                  fontSize: 9,
-                }}
-                xAxisLabelTextStyle={{
-                  color: colors.textMuted,
-                  fontSize: 9,
-                  textAlign: "center",
-                }}
-                noOfSections={3}
-                yAxisLabelPrefix="₨"
-                initialSpacing={28}
-                endSpacing={12}
-                labelsExtraHeight={20}
-                pointerConfig={{
-                  pointerStripHeight: 120,
-                  pointerStripColor: "rgba(255,255,255,0.18)",
-                  pointerStripWidth: 1,
-                  pointerColor: chartColor,
-                  radius: 5,
-                  pointerLabelWidth: 130,
-                  pointerLabelHeight: 44,
-                  activatePointersOnLongPress: false,
-                  autoAdjustPointerLabelPosition: true,
-                  pointerLabelComponent: (items: any[]) => (
-                    <View style={styles.tooltipBox}>
-                      <Text style={styles.tooltipVal}>
-                        PKR{" "}
-                        {Number(items[0].value).toLocaleString("en-PK", {
-                          maximumFractionDigits: 0,
-                        })}
-                      </Text>
-                      {items[0].label ? (
-                        <Text style={styles.tooltipDate}>{items[0].label}</Text>
-                      ) : null}
-                    </View>
-                  ),
-                }}
+                isPositive={isPositive}
+                width={Dimensions.get("window").width - 80}
+                height={160}
               />
             </View>
           )}
@@ -584,7 +547,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 12,
   },
   // Balance card
   balanceCard: {
@@ -692,25 +655,6 @@ const styles = StyleSheet.create({
   pnlBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-  },
-  // Tooltip
-  tooltipBox: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  tooltipVal: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  tooltipDate: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 1,
   },
   // Actions
   actionsRow: {

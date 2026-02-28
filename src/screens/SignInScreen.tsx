@@ -9,13 +9,13 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft } from "lucide-react-native";
 import { useAuthStore } from "../stores/authStore";
 import { colors } from "../constants/theme";
+import CustomModal from "../components/ui/CustomModal";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 interface Props {
@@ -28,15 +28,26 @@ export default function SignInScreen({ navigation }: Props) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalMessage, setModalMessage] = useState("");
+
+  const showModal = (title: string, message: string) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalVisible(true);
+  };
+
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please enter your email and password");
+      showModal("Error", "Please enter your email and password");
       return;
     }
     setLoading(true);
     const { error } = await signInWithEmail(email.trim(), password);
     setLoading(false);
-    if (error) Alert.alert("Sign In Failed", error);
+    if (error) showModal("Sign In Failed", error);
   };
 
   return (
@@ -115,6 +126,20 @@ export default function SignInScreen({ navigation }: Props) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <CustomModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        title={modalTitle}
+        message={modalMessage}
+        buttons={[
+          {
+            text: "OK",
+            onPress: () => setModalVisible(false),
+            style: "default",
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }

@@ -1,9 +1,11 @@
 import React from "react";
 import { ActivityIndicator, View, Platform } from "react-native";
+import { BlurView } from "expo-blur";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Home, Search, BriefcaseBusiness, Settings } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../stores/authStore";
 import { colors } from "../constants/theme";
 import type {
@@ -34,7 +36,7 @@ function AuthNavigator() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
-        animationEnabled: false,
+        animation: "none",
       }}
     >
       <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
@@ -67,17 +69,24 @@ function GuestLoaderScreen() {
 }
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  // Android gesture bar needs extra padding
+  const bottomPadding =
+    Platform.OS === "android"
+      ? Math.max(insets.bottom, 16) + 10 // Extra padding for gesture bar
+      : insets.bottom;
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        sceneContainerStyle: { backgroundColor: colors.background },
+        tabBarBackground: () => <BlurView intensity={80} style={{ flex: 1 }} />,
         tabBarStyle: {
-          backgroundColor: "rgba(12, 12, 12, 0.92)",
+          backgroundColor: "rgba(12, 12, 12, 0.5)",
           borderTopColor: "rgba(255,255,255,0.08)",
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 84 : 70,
-          paddingBottom: Platform.OS === "ios" ? 24 : 10,
+          height: Platform.OS === "ios" ? 84 : 70 + bottomPadding,
+          paddingBottom: bottomPadding,
           paddingTop: 10,
           position: "absolute",
         },
@@ -153,6 +162,7 @@ export default function RootNavigator() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.background },
+            animation: "none",
           }}
         >
           <Stack.Screen name="MainTabs" component={MainTabs} />
@@ -161,7 +171,7 @@ export default function RootNavigator() {
             component={StockDetailScreen}
             options={{
               headerShown: false,
-              animation: "slide_from_right",
+              animation: "none",
             }}
           />
           <Stack.Screen
@@ -169,7 +179,7 @@ export default function RootNavigator() {
             component={AddTransactionScreen}
             options={{
               headerShown: false,
-              animation: "slide_from_right",
+              animation: "none",
             }}
           />
           <Stack.Screen
@@ -177,7 +187,7 @@ export default function RootNavigator() {
             component={TransactionHistoryScreen}
             options={{
               headerShown: false,
-              animation: "slide_from_right",
+              animation: "none",
             }}
           />
         </Stack.Navigator>
