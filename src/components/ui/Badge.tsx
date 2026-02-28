@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { colors, borderRadius, fonts } from "../../constants/theme";
 
 interface BadgeProps {
   value: number;
@@ -8,13 +9,21 @@ interface BadgeProps {
 
 export function Badge({ value, showSign = true }: BadgeProps) {
   const isPositive = value >= 0;
-  const bgColor = isPositive ? 'bg-success/20' : 'bg-danger/20';
-  const textColor = isPositive ? 'text-success' : 'text-danger';
-  const sign = showSign ? (isPositive ? '+' : '') : '';
+  const sign = showSign ? (isPositive ? "+" : "") : "";
 
   return (
-    <View className={`${bgColor} rounded-lg px-2 py-1`}>
-      <Text className={`${textColor} text-xs font-semibold`}>
+    <View
+      style={[
+        styles.badge,
+        isPositive ? styles.badgePositive : styles.badgeNegative,
+      ]}
+    >
+      <Text
+        style={[
+          styles.badgeText,
+          isPositive ? styles.textPositive : styles.textNegative,
+        ]}
+      >
         {sign}
         {value.toFixed(2)}%
       </Text>
@@ -22,3 +31,26 @@ export function Badge({ value, showSign = true }: BadgeProps) {
   );
 }
 
+const styles = StyleSheet.create({
+  badge: {
+    borderRadius: borderRadius.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  badgePositive: {
+    backgroundColor: colors.successMuted,
+  },
+  badgeNegative: {
+    backgroundColor: colors.dangerMuted,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontFamily: fonts.sans.semibold,
+  },
+  textPositive: {
+    color: colors.success,
+  },
+  textNegative: {
+    color: colors.danger,
+  },
+});

@@ -1,20 +1,25 @@
 import React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTransactions } from '../hooks/usePortfolio';
 import { Card } from '../components/ui/Card';
+import { EmptyState } from '../components/shared/EmptyState';
+import { colors, theme } from '../constants/theme';
 
 export default function TransactionHistoryScreen() {
   const { data: transactions } = useTransactions();
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView className="flex-1 px-4 pt-4">
-        <View className="mb-4">
-          <Text className="text-text-primary text-2xl font-bold">
+    <SafeAreaView style={theme.screen} edges={['top']}>
+      <ScrollView
+        style={theme.screen}
+        contentContainerStyle={[theme.screenPadding, { paddingTop: 16 }]}
+      >
+        <View style={{ marginBottom: 16 }}>
+          <Text style={[theme.title, { fontSize: 24 }]}>
             Transaction history
           </Text>
-          <Text className="text-text-secondary text-xs mt-1">
+          <Text style={theme.subtitle}>
             All recorded buys and sells.
           </Text>
         </View>
@@ -22,60 +27,53 @@ export default function TransactionHistoryScreen() {
         {transactions?.map((tx) => {
           const isBuy = tx.transactionType === 'BUY';
           return (
-            <Card key={tx.id} className="mb-3">
-              <View className="flex-row justify-between mb-1">
-                <Text className="text-text-primary text-base font-semibold">
-                  {tx.stockSymbol}
-                </Text>
+            <Card key={tx.id} style={{ marginBottom: 12 }}>
+              <View style={[theme.rowBetween, { marginBottom: 4 }]}>
+                <Text style={theme.value}>{tx.stockSymbol}</Text>
                 <Text
-                  className={`text-xs font-semibold ${
-                    isBuy ? 'text-success' : 'text-danger'
-                  }`}
+                  style={[
+                    theme.textMuted,
+                    { fontWeight: '600' },
+                    isBuy ? theme.success : theme.danger,
+                  ]}
                 >
                   {isBuy ? 'BUY' : 'SELL'}
                 </Text>
               </View>
-              <View className="flex-row justify-between mt-1">
+              <View style={[theme.rowBetween, { marginTop: 8 }]}>
                 <View>
-                  <Text className="text-text-secondary text-xs mb-1">Qty</Text>
-                  <Text className="text-text-primary text-sm font-semibold">
-                    {tx.quantity}
-                  </Text>
+                  <Text style={theme.label}>Qty</Text>
+                  <Text style={theme.valueSmall}>{tx.quantity}</Text>
                 </View>
                 <View>
-                  <Text className="text-text-secondary text-xs mb-1">
-                    Price (PKR)
-                  </Text>
-                  <Text className="text-text-primary text-sm font-semibold">
+                  <Text style={theme.label}>Price (PKR)</Text>
+                  <Text style={theme.valueSmall}>
                     {tx.pricePerShare.toFixed(2)}
                   </Text>
                 </View>
                 <View>
-                  <Text className="text-text-secondary text-xs mb-1">Total</Text>
-                  <Text className="text-text-primary text-sm font-semibold">
+                  <Text style={theme.label}>Total</Text>
+                  <Text style={theme.valueSmall}>
                     {tx.totalAmount.toFixed(2)}
                   </Text>
                 </View>
               </View>
-              <Text className="text-text-muted text-xs mt-2">
+              <Text style={[theme.textMuted, { marginTop: 8 }]}>
                 {tx.transactionDate}
               </Text>
-              {tx.notes && (
-                <Text className="text-text-secondary text-xs mt-1">{tx.notes}</Text>
-              )}
+              {tx.notes ? (
+                <Text style={[theme.textMuted, { marginTop: 4 }]}>
+                  {tx.notes}
+                </Text>
+              ) : null}
             </Card>
           );
         })}
 
         {(!transactions || transactions.length === 0) && (
-          <View className="items-center justify-center py-16">
-            <Text className="text-text-muted text-sm">
-              No transactions recorded yet.
-            </Text>
-          </View>
+          <EmptyState message="No transactions recorded yet. Add a buy or sell from Portfolio or Stock detail." />
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
-

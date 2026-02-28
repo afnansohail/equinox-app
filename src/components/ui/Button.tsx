@@ -1,12 +1,13 @@
-import React from 'react';
+import React from "react";
 import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
   type TouchableOpacityProps,
-} from 'react-native';
+} from "react-native";
+import { colors, borderRadius, fonts } from "../../constants/theme";
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = "primary" | "secondary" | "ghost";
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
@@ -17,33 +18,50 @@ interface ButtonProps extends TouchableOpacityProps {
 
 export function Button({
   title,
-  variant = 'primary',
+  variant = "primary",
   loading = false,
   disabled,
-  className = '',
+  style,
   ...props
 }: ButtonProps) {
-  const baseClasses = 'rounded-xl py-3 px-6 items-center justify-center';
-  const variantClasses: Record<ButtonVariant, string> = {
-    primary: 'bg-primary active:opacity-80',
-    secondary: 'bg-card border border-border active:opacity-80',
-    ghost: 'bg-transparent active:opacity-60',
-  };
+  const isPrimary = variant === "primary";
+  const touchableStyle = [
+    {
+      borderRadius: borderRadius.md,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    isPrimary && {
+      backgroundColor: colors.primaryMuted,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    variant === "secondary" && {
+      backgroundColor: colors.glass,
+      borderWidth: 1,
+      borderColor: colors.glassBorder,
+    },
+    variant === "ghost" && { backgroundColor: "transparent" },
+  ];
 
   return (
     <TouchableOpacity
-      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+      style={touchableStyle}
       disabled={disabled || loading}
       activeOpacity={0.8}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color="#FFFFFF" />
+        <ActivityIndicator color={colors.primary} />
       ) : (
         <Text
-          className={`font-semibold ${
-            variant === 'primary' ? 'text-text-primary' : 'text-text-secondary'
-          }`}
+          style={{
+            fontSize: 16,
+            fontFamily: fonts.sans.semibold,
+            color: isPrimary ? colors.primary : colors.textSecondary,
+          }}
         >
           {title}
         </Text>
@@ -51,4 +69,3 @@ export function Button({
     </TouchableOpacity>
   );
 }
-

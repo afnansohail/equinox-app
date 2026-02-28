@@ -42,4 +42,6 @@ yarn-error.*
 /android
 
 # misc
-AGENTS.md
+*.md
+!README.md
+!readme.md
