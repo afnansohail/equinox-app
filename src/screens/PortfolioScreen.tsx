@@ -19,6 +19,7 @@ import {
 } from "lucide-react-native";
 import { usePortfolio } from "../hooks/usePortfolio";
 import StockLogo from "../components/shared/StockLogo";
+import SectorPieChart from "../components/charts/SectorPieChart";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
@@ -103,6 +104,11 @@ export default function PortfolioScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Sector Allocation Chart */}
+        {(holdings?.length ?? 0) > 0 && (
+          <SectorPieChart holdings={holdings ?? []} />
+        )}
 
         {/* Holdings List */}
         {!holdings || holdings.length === 0 ? (
