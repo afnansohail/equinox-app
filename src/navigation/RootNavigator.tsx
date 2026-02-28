@@ -34,7 +34,7 @@ function AuthNavigator() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
-        animation: "fade",
+        animationEnabled: false,
       }}
     >
       <AuthStack.Screen name="Welcome" component={WelcomeScreen} />

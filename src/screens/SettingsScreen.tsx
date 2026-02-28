@@ -35,11 +35,13 @@ function SettingsRow({
   label,
   onPress,
   destructive = false,
+  showChevron = true,
 }: {
   icon: React.ReactNode;
   label: string;
   onPress: () => void;
   destructive?: boolean;
+  showChevron?: boolean;
 }) {
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
@@ -47,10 +49,12 @@ function SettingsRow({
       <Text style={[styles.rowLabel, destructive && { color: colors.danger }]}>
         {label}
       </Text>
-      <ChevronRight
-        size={18}
-        color={destructive ? colors.danger : colors.textMuted}
-      />
+      {showChevron && (
+        <ChevronRight
+          size={18}
+          color={destructive ? colors.danger : colors.textMuted}
+        />
+      )}
     </TouchableOpacity>
   );
 }
@@ -191,12 +195,14 @@ export default function SettingsScreen() {
               icon={<Info size={18} color={colors.textSecondary} />}
               label="Equinox v1.0"
               onPress={() => {}}
+              showChevron={false}
             />
             <View style={styles.divider} />
             <SettingsRow
               icon={<Shield size={18} color={colors.textSecondary} />}
-              label="PSX data by Sarmaaya.pk"
+              label="Created by Afnan Sohail"
               onPress={() => {}}
+              showChevron={false}
             />
           </View>
         </View>
@@ -221,9 +227,7 @@ export default function SettingsScreen() {
               <Text style={[styles.rowLabel, { color: colors.danger }]}>
                 {deleting ? "Deleting..." : "Delete All Data"}
               </Text>
-              {!deleting && (
-                <ChevronRight size={18} color={colors.danger} />
-              )}
+              {!deleting && <ChevronRight size={18} color={colors.danger} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -257,8 +261,12 @@ export default function SettingsScreen() {
             </View>
             <Text style={styles.modalTitle}>Delete All Data?</Text>
             <Text style={styles.modalSubtitle}>
-              This will permanently erase your entire portfolio, all transactions, and your watchlist.{"\n\n"}This action{" "}
-              <Text style={{ color: colors.danger, fontWeight: "700" }}>cannot be undone</Text>.
+              This will permanently erase your entire portfolio, all
+              transactions, and your watchlist.{"\n\n"}This action{" "}
+              <Text style={{ color: colors.danger, fontWeight: "700" }}>
+                cannot be undone
+              </Text>
+              .
             </Text>
 
             <TouchableOpacity

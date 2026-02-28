@@ -9,11 +9,6 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
-      },
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "REPLACE_WITH_YOUR_SUPABASE_URL",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY",
-        "EXPO_PUBLIC_VERCEL_API_URL": "REPLACE_WITH_YOUR_VERCEL_API_URL"
       }
     },
     "production": {
