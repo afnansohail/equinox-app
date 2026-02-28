@@ -61,6 +61,8 @@ type DbStockRow = {
   market_cap?: string | number | null;
   high_52week?: string | number | null;
   low_52week?: string | number | null;
+  day_high?: string | number | null;
+  day_low?: string | number | null;
   logo_url?: string | null;
   is_shariah_compliant?: boolean | null;
   last_updated?: string | null;
@@ -74,26 +76,44 @@ const toNumber = (value: string | number | null | undefined): number =>
       ? value
       : Number(value.replace(/,/g, "")) || 0;
 
-const mapDbStock = (row: DbStockRow): Stock => ({
-  symbol: row.symbol,
-  name: row.name,
-  currentPrice: toNumber(row.current_price),
-  previousClose: toNumber(row.previous_close),
-  changePercent: toNumber(row.change_percent),
-  volume: Math.trunc(toNumber(row.volume)),
-  marketCap:
-    row.market_cap !== undefined
-      ? Math.trunc(toNumber(row.market_cap))
-      : undefined,
-  high52Week:
-    row.high_52week !== undefined ? toNumber(row.high_52week) : undefined,
-  low52Week:
-    row.low_52week !== undefined ? toNumber(row.low_52week) : undefined,
-  sector: row.sector ?? undefined,
-  logoUrl: row.logo_url ?? undefined,
-  isShariahCompliant: row.is_shariah_compliant ?? undefined,
-  lastUpdated: row.last_updated ?? new Date().toISOString(),
-});
+const mapDbStock = (row: DbStockRow): Stock => {
+  const currentPrice = toNumber(row.current_price);
+  const previousClose =
+    row.previous_close !== null &&
+    row.previous_close !== undefined &&
+    toNumber(row.previous_close) > 0
+      ? toNumber(row.previous_close)
+      : 0;
+  return {
+    symbol: row.symbol,
+    name: row.name,
+    currentPrice,
+    previousClose,
+    change: previousClose > 0 ? currentPrice - previousClose : 0,
+    changePercent: toNumber(row.change_percent),
+    volume: Math.trunc(toNumber(row.volume)),
+    marketCap:
+      row.market_cap !== undefined
+        ? Math.trunc(toNumber(row.market_cap))
+        : undefined,
+    high:
+      row.day_high !== undefined && row.day_high !== null
+        ? toNumber(row.day_high)
+        : undefined,
+    low:
+      row.day_low !== undefined && row.day_low !== null
+        ? toNumber(row.day_low)
+        : undefined,
+    high52Week:
+      row.high_52week !== undefined ? toNumber(row.high_52week) : undefined,
+    low52Week:
+      row.low_52week !== undefined ? toNumber(row.low_52week) : undefined,
+    sector: row.sector ?? undefined,
+    logoUrl: row.logo_url ?? undefined,
+    isShariahCompliant: row.is_shariah_compliant ?? undefined,
+    lastUpdated: row.last_updated ?? new Date().toISOString(),
+  };
+};
 
 const isRecent = (
   timestamp: string | null | undefined,
@@ -117,7 +137,17 @@ export async function getStock(symbol: string): Promise<Stock | null> {
       .eq("symbol", upper)
       .maybeSingle<DbStockRow>();
 
-    if (dbStock && isRecent(dbStock.last_updated)) {
+    // Only serve from cache if recent, has a real price, AND previousClose
+    // is not suspiciously equal to currentPrice (sign of a bad old scrape)
+    const cpNum = toNumber(dbStock?.current_price);
+    const pcNum = toNumber(dbStock?.previous_close);
+    const prevCloseSeemsSane = pcNum > 0 && pcNum !== cpNum;
+    if (
+      dbStock &&
+      isRecent(dbStock.last_updated) &&
+      cpNum > 0 &&
+      prevCloseSeemsSane
+    ) {
       return mapDbStock(dbStock);
     }
   } catch (error) {
@@ -164,6 +194,8 @@ export async function getStock(symbol: string): Promise<Stock | null> {
       market_cap: scraped.marketCap,
       high_52week: scraped.high52Week,
       low_52week: scraped.low52Week,
+      day_high: scraped.high,
+      day_low: scraped.low,
       logo_url: scraped.logoUrl,
       is_shariah_compliant: scraped.isShariahCompliant,
       last_updated: scraped.lastUpdated,
@@ -240,21 +272,7 @@ export async function getPortfolioHoldings(
       stock_symbol,
       quantity,
       average_buy_price,
-      total_invested,
-      stocks (
-        symbol,
-        name,
-        current_price,
-        previous_close,
-        change_percent,
-        volume,
-        market_cap,
-        high_52week,
-        low_52week,
-        logo_url,
-        is_shariah_compliant,
-        last_updated
-      )
+      total_invested
     `,
     )
     .eq("user_id", userId);
@@ -264,16 +282,51 @@ export async function getPortfolioHoldings(
     return [];
   }
 
-  return (
-    data?.map((row: any) => ({
-      id: row.id,
-      stockSymbol: row.stock_symbol,
-      quantity: row.quantity,
-      averageBuyPrice: Number(row.average_buy_price),
-      totalInvested: Number(row.total_invested),
-      stock: row.stocks ? mapDbStock(row.stocks as DbStockRow) : undefined,
-    })) ?? []
-  );
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Fetch fresh stock data for all symbols in portfolio
+  const symbols = data.map((row: any) => row.stock_symbol);
+  const { data: stocksData } = await supabase
+    .from("stocks")
+    .select("*")
+    .in("symbol", symbols);
+
+  const stocksMap = new Map<string, Stock>();
+  if (stocksData) {
+    for (const row of stocksData) {
+      stocksMap.set(row.symbol, mapDbStock(row as DbStockRow));
+    }
+  }
+
+  // For any symbol with a zero/missing price, try to scrape fresh data
+  const staleSymbols = symbols.filter((sym) => {
+    const s = stocksMap.get(sym);
+    return !s || s.currentPrice <= 0;
+  });
+  if (staleSymbols.length > 0) {
+    await Promise.all(staleSymbols.map((sym) => getStock(sym)));
+    const { data: freshData } = await supabase
+      .from("stocks")
+      .select("*")
+      .in("symbol", staleSymbols);
+    if (freshData) {
+      for (const row of freshData) {
+        stocksMap.set(row.symbol, mapDbStock(row as DbStockRow));
+      }
+    }
+  }
+
+  return data.map((row: any) => ({
+    id: row.id,
+    stockSymbol: row.stock_symbol,
+    quantity: Number(row.quantity),
+    averageBuyPrice: Number(row.average_buy_price),
+    // Compute from stored fields — total_invested may be a generated column that rejects writes
+    totalInvested: Number(row.quantity) * Number(row.average_buy_price),
+    stock: stocksMap.get(row.stock_symbol),
+  }));
 }
 
 export async function addTransaction(
@@ -281,6 +334,32 @@ export async function addTransaction(
   tx: Omit<Transaction, "id">,
 ): Promise<boolean> {
   try {
+    // Guarantee a stock row exists with at least the symbol before doing anything
+    // else, so FK constraints on transactions/portfolio_holdings never fail even
+    // if the scraper is temporarily unavailable.
+    const { error: seedError } = await supabase.from("stocks").upsert(
+      {
+        symbol: tx.stockSymbol.toUpperCase(),
+        name: tx.stockSymbol.toUpperCase(),
+      },
+      { onConflict: "symbol", ignoreDuplicates: true },
+    );
+
+    if (seedError) {
+      // 403 = missing GRANT on stocks table in Supabase.
+      // Run the SQL in /database/schema.sql (GRANT section) in the Supabase SQL editor.
+      console.error(
+        "Cannot seed stock row — check Supabase GRANT permissions:",
+        seedError,
+      );
+      throw new Error(
+        `Cannot write stock '${tx.stockSymbol}' to DB (${seedError.code}): ${seedError.message}`,
+      );
+    }
+
+    // Now try to enrich with live price data (non-blocking — failure is OK)
+    await getStock(tx.stockSymbol).catch(() => null);
+
     const { error: txError } = await supabase.from("transactions").insert({
       user_id: userId,
       stock_symbol: tx.stockSymbol,
@@ -304,8 +383,10 @@ export async function addTransaction(
     if (tx.transactionType === "BUY") {
       if (holding) {
         const newQuantity = holding.quantity + tx.quantity;
-        const newTotalInvested =
-          Number(holding.total_invested) + tx.totalAmount;
+        // Derive current invested from stored fields (avoids dependency on potentially broken total_invested column)
+        const existingInvested =
+          Number(holding.quantity) * Number(holding.average_buy_price);
+        const newTotalInvested = existingInvested + tx.totalAmount;
         const newAvgPrice = newTotalInvested / newQuantity;
 
         await supabase

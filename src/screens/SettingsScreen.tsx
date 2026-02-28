@@ -2,39 +2,56 @@ import React, { useState } from "react";
 import {
   ScrollView,
   Text,
-  Pressable,
   View,
   StyleSheet,
+  TouchableOpacity,
   Alert,
   TextInput,
   Modal,
   ActivityIndicator,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
 import {
   ChevronRight,
   History,
   Mail,
   LogOut,
-  Shield,
-  RefreshCw,
+  User,
   Info,
+  Shield,
 } from "lucide-react-native";
 import { useAuthStore } from "../stores/authStore";
 import type { RootStackParamList } from "../navigation/types";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import {
-  colors,
-  theme,
-  spacing,
-  borderRadius,
-  fonts,
-} from "../constants/theme";
+import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+function SettingsRow({
+  icon,
+  label,
+  onPress,
+  destructive = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.rowIcon}>{icon}</View>
+      <Text style={[styles.rowLabel, destructive && { color: colors.danger }]}>
+        {label}
+      </Text>
+      <ChevronRight
+        size={18}
+        color={destructive ? colors.danger : colors.textMuted}
+      />
+    </TouchableOpacity>
+  );
+}
 
 export default function SettingsScreen() {
   const { user, isAnonymous, signOut, linkAnonymousToEmail } = useAuthStore();
@@ -58,179 +75,145 @@ export default function SettingsScreen() {
       Alert.alert("Error", "Password must be at least 6 characters");
       return;
     }
-
     setLinking(true);
     const { error } = await linkAnonymousToEmail(email.trim(), password);
     setLinking(false);
-
     if (error) {
       Alert.alert("Error", error);
     } else {
       setShowLinkModal(false);
       Alert.alert(
         "Success",
-        "Your account has been linked! You can now sign in on any device.",
+        "Account linked! You can now sign in on any device.",
       );
     }
   };
 
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: signOut },
+    ]);
+  };
+
+  const displayName = isAnonymous
+    ? "Guest Account"
+    : (user?.email ?? "Signed In");
+  const avatarLetter = isAnonymous
+    ? "G"
+    : (user?.email?.[0]?.toUpperCase() ?? "U");
+
   return (
-    <SafeAreaView style={theme.screen} edges={["top"]}>
-      <LinearGradient
-        colors={["rgba(41, 255, 232, 0.03)", "transparent"]}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.3 }}
-      />
+    <SafeAreaView style={styles.screen} edges={["top"]}>
       <ScrollView
-        style={theme.screen}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={[
-          theme.screenPadding,
-          { paddingBottom: spacing.xxl },
+          styles.scroll,
+          { paddingBottom: TAB_BAR_HEIGHT + 24 },
         ]}
       >
-        <View style={theme.titleSection}>
-          <Text style={theme.title}>Settings</Text>
-          <Text style={theme.subtitle}>
-            Manage your account and preferences
-          </Text>
-        </View>
+        <Text style={styles.title}>Settings</Text>
 
-        {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ACCOUNT</Text>
-          <View style={styles.card}>
-            <View style={styles.accountRow}>
-              <View style={styles.avatarContainer}>
-                <LinearGradient
-                  colors={["#29FFE8", "#06B6D4"]}
-                  style={styles.avatarGradient}
-                >
-                  <Ionicons
-                    name="person"
-                    size={24}
-                    color={colors.textInverse}
-                  />
-                </LinearGradient>
+        {/* Account Card */}
+        <View style={styles.accountCard}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{avatarLetter}</Text>
+          </View>
+          <View style={styles.accountInfo}>
+            <Text style={styles.accountName}>{displayName}</Text>
+            {isAnonymous ? (
+              <View style={styles.guestBadge}>
+                <Text style={styles.guestBadgeText}>Guest</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.accountLabel}>
-                  {isAnonymous ? "Guest Account" : (user?.email ?? "Signed In")}
-                </Text>
-                <Text style={styles.accountId}>
-                  ID: {user?.id?.slice(0, 8)}...
-                </Text>
-              </View>
-              {isAnonymous && (
-                <View style={styles.guestBadge}>
-                  <Text style={styles.guestBadgeText}>Guest</Text>
-                </View>
-              )}
-            </View>
-
-            {isAnonymous && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.linkAccountBtn,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => setShowLinkModal(true)}
-              >
-                <Mail color={colors.primary} size={18} />
-                <Text style={styles.linkAccountText}>
-                  Link Email to Save Your Data
-                </Text>
-                <ChevronRight color={colors.primary} size={18} />
-              </Pressable>
+            ) : (
+              <Text style={styles.accountId}>
+                ID: {user?.id?.slice(0, 8)}...
+              </Text>
             )}
           </View>
         </View>
 
-        {/* Quick Actions */}
+        {/* Link Account (guests only) */}
+        {isAnonymous && (
+          <TouchableOpacity
+            style={styles.linkBanner}
+            onPress={() => setShowLinkModal(true)}
+            activeOpacity={0.8}
+          >
+            <Mail size={18} color={colors.secondary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.linkBannerTitle}>Link Email Address</Text>
+              <Text style={styles.linkBannerSub}>
+                Save your data and sync across devices
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.secondary} />
+          </TouchableOpacity>
+        )}
+
+        {/* Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+          <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.card}>
-            <MenuItem
-              icon={<History color={colors.icon} size={20} />}
+            <SettingsRow
+              icon={<History size={18} color={colors.textSecondary} />}
               label="Transaction History"
               onPress={() => navigation.navigate("TransactionHistory")}
             />
           </View>
         </View>
 
-        {/* App Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ABOUT</Text>
+          <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
-            <View style={styles.infoRow}>
-              <RefreshCw color={colors.icon} size={18} />
-              <View style={{ flex: 1, marginLeft: spacing.md }}>
-                <Text style={styles.infoLabel}>Data Refresh</Text>
-                <Text style={styles.infoValue}>
-                  Prices update automatically every 30 minutes during trading
-                  hours
-                </Text>
-              </View>
-            </View>
-            <View style={[styles.infoRow, { marginTop: spacing.md }]}>
-              <Info color={colors.icon} size={18} />
-              <View style={{ flex: 1, marginLeft: spacing.md }}>
-                <Text style={styles.infoLabel}>Equinox</Text>
-                <Text style={styles.infoValue}>
-                  Personal PSX portfolio tracker built with Expo & Supabase
-                </Text>
-              </View>
-            </View>
+            <SettingsRow
+              icon={<Info size={18} color={colors.textSecondary} />}
+              label="Equinox v1.0"
+              onPress={() => {}}
+            />
+            <View style={styles.divider} />
+            <SettingsRow
+              icon={<Shield size={18} color={colors.textSecondary} />}
+              label="PSX data by Sarmaaya.pk"
+              onPress={() => {}}
+            />
           </View>
         </View>
 
         {/* Sign Out */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.signOutBtn,
-            pressed && { opacity: 0.8 },
-          ]}
-          onPress={() => {
-            Alert.alert(
-              "Sign Out",
-              isAnonymous
-                ? "Your data will be lost if you sign out of a guest account. Are you sure?"
-                : "Are you sure you want to sign out?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Sign Out",
-                  style: "destructive",
-                  onPress: () => signOut(),
-                },
-              ],
-            );
-          }}
-        >
-          <LogOut color={colors.danger} size={20} />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </Pressable>
+        {!isAnonymous && (
+          <View style={styles.section}>
+            <View style={styles.card}>
+              <SettingsRow
+                icon={<LogOut size={18} color={colors.danger} />}
+                label="Sign Out"
+                onPress={handleSignOut}
+                destructive
+              />
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Link Account Modal */}
       <Modal
         visible={showLinkModal}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowLinkModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Link Your Account</Text>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Link Email Account</Text>
             <Text style={styles.modalSubtitle}>
-              Add an email and password to access your portfolio on any device
+              Your data is saved locally. Link an email to sync across devices.
             </Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <TextInput
                 style={styles.input}
-                placeholder="your@email.com"
+                placeholder="you@example.com"
                 placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={setEmail}
@@ -248,7 +231,6 @@ export default function SettingsScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                autoCapitalize="none"
               />
             </View>
 
@@ -261,29 +243,27 @@ export default function SettingsScreen() {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
-                autoCapitalize="none"
               />
             </View>
 
-            <View style={styles.modalButtons}>
-              <Pressable
-                style={styles.modalCancelBtn}
-                onPress={() => setShowLinkModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalLinkBtn, linking && { opacity: 0.6 }]}
-                onPress={handleLinkAccount}
-                disabled={linking}
-              >
-                {linking ? (
-                  <ActivityIndicator color={colors.textInverse} size="small" />
-                ) : (
-                  <Text style={styles.modalLinkText}>Link Account</Text>
-                )}
-              </Pressable>
-            </View>
+            <TouchableOpacity
+              style={styles.linkBtn}
+              onPress={handleLinkAccount}
+              disabled={linking}
+            >
+              {linking ? (
+                <ActivityIndicator color={colors.textInverse} />
+              ) : (
+                <Text style={styles.linkBtnText}>Link Account</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setShowLinkModal(false)}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -291,225 +271,163 @@ export default function SettingsScreen() {
   );
 }
 
-function MenuItem({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.menuItem,
-        pressed && { backgroundColor: colors.cardHover },
-      ]}
-      onPress={onPress}
-    >
-      {icon}
-      <Text style={styles.menuItemLabel}>{label}</Text>
-      <ChevronRight color={colors.icon} size={18} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  section: {
-    marginBottom: spacing.xl,
+  screen: { flex: 1, backgroundColor: colors.background },
+  scroll: { paddingHorizontal: 20, paddingTop: 8 },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
-  },
-  card: {
-    backgroundColor: colors.glass,
-    borderRadius: borderRadius.lg,
+  // Account card
+  accountCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    overflow: "hidden",
-  },
-  accountRow: {
+    borderColor: colors.border,
+    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.lg,
+    gap: 14,
+    marginBottom: 12,
   },
-  avatarContainer: {
-    marginRight: spacing.md,
-  },
-  avatarGradient: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    alignItems: "center",
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.secondary,
     justifyContent: "center",
+    alignItems: "center",
   },
-  accountLabel: {
+  avatarText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.textInverse,
+  },
+  accountInfo: { flex: 1, gap: 4 },
+  accountName: {
     fontSize: 16,
-    fontFamily: fonts.sans.semibold,
+    fontWeight: "700",
     color: colors.textPrimary,
   },
-  accountId: {
-    fontSize: 12,
-    fontFamily: fonts.sans.regular,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
+  accountId: { fontSize: 13, color: colors.textSecondary },
   guestBadge: {
-    backgroundColor: colors.primaryMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.xs,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,184,0,0.15)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   guestBadgeText: {
     fontSize: 11,
-    fontFamily: fonts.sans.semibold,
-    color: colors.primary,
+    color: colors.warning,
+    fontWeight: "600",
   },
-  linkAccountBtn: {
+  // Link Banner
+  linkBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.primaryMuted,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    backgroundColor: "rgba(41,253,230,0.07)",
+    borderColor: "rgba(41,253,230,0.25)",
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+    gap: 12,
   },
-  linkAccountText: {
-    flex: 1,
+  linkBannerTitle: {
     fontSize: 14,
-    fontFamily: fonts.sans.semibold,
-    color: colors.primary,
+    fontWeight: "600",
+    color: colors.secondary,
   },
-  menuItem: {
+  linkBannerSub: { fontSize: 12, color: colors.textSecondary },
+  // Sections
+  section: { marginBottom: 20 },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 8,
+    paddingLeft: 2,
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+  },
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: 16,
+    gap: 12,
   },
-  menuItemLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: fonts.sans.medium,
-    color: colors.textPrimary,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: spacing.lg,
-    paddingBottom: 0,
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 13,
-    fontFamily: fonts.sans.regular,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-  signOutBtn: {
-    flexDirection: "row",
-    alignItems: "center",
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: "center",
-    backgroundColor: colors.dangerMuted,
-    padding: spacing.lg,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    alignItems: "center",
   },
-  signOutText: {
+  rowLabel: {
+    flex: 1,
     fontSize: 15,
-    fontFamily: fonts.sans.semibold,
-    color: colors.danger,
+    color: colors.textPrimary,
+    fontWeight: "500",
   },
+  divider: { height: 1, backgroundColor: colors.border, marginLeft: 60 },
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: spacing.xl,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
   },
-  modalContent: {
-    backgroundColor: colors.glass,
-    borderRadius: borderRadius.lg,
+  modalCard: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    gap: 14,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    padding: spacing.xl,
-    width: "100%",
-    maxWidth: 400,
+    borderColor: colors.border,
   },
   modalTitle: {
     fontSize: 20,
-    fontFamily: fonts.serif.bold,
+    fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
-  modalSubtitle: {
-    fontSize: 14,
-    fontFamily: fonts.sans.regular,
-    color: colors.textMuted,
-    marginBottom: spacing.xl,
-    lineHeight: 20,
-  },
-  inputGroup: {
-    marginBottom: spacing.md,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
+  modalSubtitle: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
+  inputGroup: { gap: 6 },
+  inputLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
   input: {
+    height: 48,
     backgroundColor: colors.backgroundSecondary,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
     fontSize: 15,
-    fontFamily: fonts.sans.regular,
     color: colors.textPrimary,
   },
-  modalButtons: {
-    flexDirection: "row",
-    gap: spacing.md,
-    marginTop: spacing.lg,
+  linkBtn: {
+    height: 50,
+    backgroundColor: colors.secondary,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 4,
   },
-  modalCancelBtn: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.glass,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
+  linkBtnText: { fontSize: 15, fontWeight: "700", color: colors.textInverse },
+  cancelBtn: {
+    height: 44,
+    justifyContent: "center",
     alignItems: "center",
   },
-  modalCancelText: {
-    fontSize: 15,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textSecondary,
-  },
-  modalLinkBtn: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryMuted,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    alignItems: "center",
-  },
-  modalLinkText: {
-    fontSize: 15,
-    fontFamily: fonts.sans.semibold,
-    color: colors.primary,
-  },
+  cancelBtnText: { fontSize: 15, color: colors.textSecondary },
 });

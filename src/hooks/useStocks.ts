@@ -12,7 +12,9 @@ export function useStock(symbol: string) {
     queryKey: ["stock", symbol],
     queryFn: () => getStock(symbol),
     enabled: !!symbol,
-    staleTime: 30 * 60 * 1000,
+    // Always re-check DB so we never serve a cached 0-price result.
+    // getStock() handles its own 30-min scrape throttle internally.
+    staleTime: 0,
   });
 }
 

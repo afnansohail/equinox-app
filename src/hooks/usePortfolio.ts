@@ -34,9 +34,12 @@ export function useAddTransaction() {
 
   return useMutation({
     mutationFn: (tx: Omit<Transaction, "id">) => addTransaction(user!.id, tx),
-    onSuccess: () => {
+    onSuccess: (_, tx) => {
       queryClient.invalidateQueries({ queryKey: ["portfolio"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      // Bust the stock cache so StockDetail shows fresh price immediately
+      queryClient.invalidateQueries({ queryKey: ["stock", tx.stockSymbol] });
+      queryClient.invalidateQueries({ queryKey: ["stocks"] });
     },
   });
 }

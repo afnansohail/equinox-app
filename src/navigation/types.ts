@@ -9,6 +9,7 @@ export type AuthStackParamList = {
 
 export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
+  StockDetail: { symbol: string };
   AddTransaction: {
     symbol?: string;
     currentPrice?: number;

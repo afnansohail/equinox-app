@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -15,6 +15,7 @@ import DashboardScreen from "../screens/DashboardScreen";
 import SearchScreen from "../screens/SearchScreen";
 import PortfolioScreen from "../screens/PortfolioScreen";
 import SettingsScreen from "../screens/SettingsScreen";
+import StockDetailScreen from "../screens/StockDetailScreen";
 import AddTransactionScreen from "../screens/AddTransactionScreen";
 import TransactionHistoryScreen from "../screens/TransactionHistoryScreen";
 import WelcomeScreen from "../screens/WelcomeScreen";
@@ -72,18 +73,20 @@ function MainTabs() {
         headerShown: false,
         sceneContainerStyle: { backgroundColor: colors.background },
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
+          backgroundColor: "rgba(12, 12, 12, 0.92)",
+          borderTopColor: "rgba(255,255,255,0.08)",
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
+          height: Platform.OS === "ios" ? 84 : 70,
+          paddingBottom: Platform.OS === "ios" ? 24 : 10,
           paddingTop: 10,
+          position: "absolute",
         },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: colors.primary, // #f5f5f5 near-white when selected
+        tabBarInactiveTintColor: colors.textMuted, // #555 dimmed when inactive
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
+          fontSize: 11,
+          fontFamily: "Inter_500Medium",
+          marginTop: 2,
         },
       }}
     >
@@ -136,7 +139,7 @@ export default function RootNavigator() {
           alignItems: "center",
         }}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.secondary} />
       </View>
     );
   }
@@ -154,25 +157,27 @@ export default function RootNavigator() {
         >
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen
+            name="StockDetail"
+            component={StockDetailScreen}
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+            }}
+          />
+          <Stack.Screen
             name="AddTransaction"
             component={AddTransactionScreen}
             options={{
-              headerShown: true,
-              title: "Add Transaction",
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.textPrimary,
-              headerShadowVisible: false,
+              headerShown: false,
+              animation: "slide_from_right",
             }}
           />
           <Stack.Screen
             name="TransactionHistory"
             component={TransactionHistoryScreen}
             options={{
-              headerShown: true,
-              title: "Transaction History",
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.textPrimary,
-              headerShadowVisible: false,
+              headerShown: false,
+              animation: "slide_from_right",
             }}
           />
         </Stack.Navigator>

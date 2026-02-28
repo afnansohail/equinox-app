@@ -3,719 +3,760 @@ import {
   ScrollView,
   Text,
   View,
-  RefreshControl,
   StyleSheet,
   TouchableOpacity,
-  Pressable,
+  RefreshControl,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import {
+  Settings,
+  ArrowUpRight,
+  ArrowDownRight,
+  History,
+  RefreshCw,
   TrendingUp,
   TrendingDown,
-  Clock,
-  ChevronRight,
 } from "lucide-react-native";
-import { CartesianChart, Area } from "victory-native";
-import { LoadingState } from "../components/shared/LoadingState";
+import { LineChart } from "react-native-gifted-charts";
 import { usePortfolio, useTransactions } from "../hooks/usePortfolio";
 import { useRefreshStocks } from "../hooks/useStocks";
-import type { RootStackParamList } from "../navigation/types";
-import {
-  colors,
-  theme,
-  spacing,
-  borderRadius,
-  fonts,
-} from "../constants/theme";
+import { useAuthStore } from "../stores/authStore";
+import type { RootStackParamList, MainTabParamList } from "../navigation/types";
+import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import type { Transaction } from "../services/api";
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, "Dashboard">,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
-type ChartPeriod = "1D" | "1W" | "1M" | "6M" | "1Y" | "ALL";
+function fmtLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-PK", { month: "short", day: "numeric" });
+}
 
-const PERIOD_OPTIONS: { label: string; value: ChartPeriod }[] = [
-  { label: "1D", value: "1D" },
-  { label: "1W", value: "1W" },
-  { label: "1M", value: "1M" },
-  { label: "6M", value: "6M" },
-  { label: "1Y", value: "1Y" },
-  { label: "All", value: "ALL" },
-];
+type ChartPoint = { value: number; label?: string; dataPointText?: string };
 
-// Generate portfolio performance data based on transactions and current value
-function generatePortfolioData(
+function buildChartFromTransactions(
+  transactions: Transaction[] | undefined,
   totalValue: number,
-  totalInvested: number,
-  period: ChartPeriod,
-): { x: number; y: number }[] {
-  if (totalValue <= 0) {
-    return Array.from({ length: 12 }, (_, i) => ({ x: i + 1, y: 0 }));
+): ChartPoint[] {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!transactions || transactions.length === 0) {
+    return [{ value: totalValue, label: fmtLabel(today) }];
   }
 
-  const pointsMap: Record<ChartPeriod, number> = {
-    "1D": 24,
-    "1W": 7,
-    "1M": 30,
-    "6M": 26,
-    "1Y": 52,
-    ALL: 100,
-  };
-  const points = pointsMap[period];
+  // Sort oldest → newest
+  const sorted = [...transactions].sort(
+    (a, b) =>
+      new Date(a.transactionDate).getTime() -
+      new Date(b.transactionDate).getTime(),
+  );
 
-  // Simulate portfolio growth with variance
-  const volatility = period === "1D" ? 0.02 : period === "1W" ? 0.05 : 0.15;
-  const periodYears: Record<ChartPeriod, number> = {
-    "1D": 1 / 365,
-    "1W": 7 / 365,
-    "1M": 1 / 12,
-    "6M": 0.5,
-    "1Y": 1,
-    ALL: 3,
-  };
-
-  // Use invested amount as starting point
-  const startValue = totalInvested > 0 ? totalInvested : totalValue * 0.9;
-
-  const data: { x: number; y: number }[] = [];
-  for (let i = 0; i < points; i++) {
-    const progress = i / (points - 1);
-    const randomFactor = 1 + (Math.random() - 0.5) * volatility;
-    const value =
-      startValue + (totalValue - startValue) * progress * randomFactor;
-    data.push({ x: i + 1, y: Math.round(value) });
+  // Build cumulative portfolio cost basis per transaction date
+  let cumulative = 0;
+  const points: ChartPoint[] = [];
+  for (const tx of sorted) {
+    if (tx.transactionType === "BUY") cumulative += tx.totalAmount;
+    else cumulative = Math.max(0, cumulative - tx.totalAmount);
+    points.push({
+      value: Math.round(cumulative),
+      label: fmtLabel(tx.transactionDate),
+    });
   }
 
-  // Ensure last point is current value
-  data[data.length - 1].y = Math.round(totalValue);
+  // Final point = today's current market value
+  if (totalValue > 0) {
+    points.push({ value: Math.round(totalValue), label: fmtLabel(today) });
+  }
 
-  return data;
+  if (points.length < 2) {
+    return [{ value: 0, label: points[0]?.label }, points[0]];
+  }
+
+  // Only show labels on first, last, and ~2 middle points to avoid clutter
+  const labelIdxs = new Set([0, points.length - 1]);
+  if (points.length > 4) {
+    labelIdxs.add(Math.floor(points.length / 3));
+    labelIdxs.add(Math.floor((2 * points.length) / 3));
+  }
+  return points.map((p, i) => ({
+    ...p,
+    label: labelIdxs.has(i) ? p.label : undefined,
+  }));
 }
 
 export default function DashboardScreen() {
   const navigation = useNavigation<Nav>();
+  const { user, isAnonymous } = useAuthStore();
   const { data: holdings, refetch, isLoading } = usePortfolio();
   const { data: transactions } = useTransactions();
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>("1M");
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     const symbols = holdings?.map((h) => h.stockSymbol) ?? [];
-    if (symbols.length > 0) {
-      await refreshMutation.mutateAsync(symbols);
-    }
+    if (symbols.length > 0) await refreshMutation.mutateAsync(symbols);
     await refetch();
     setRefreshing(false);
   }, [holdings, refreshMutation, refetch]);
 
-  // Calculate portfolio metrics
   const totalValue =
-    holdings?.reduce((sum, h) => {
-      const price = h.stock?.currentPrice ?? 0;
-      return sum + price * h.quantity;
-    }, 0) ?? 0;
-
-  const totalInvested =
-    holdings?.reduce((sum, h) => sum + h.totalInvested, 0) ?? 0;
-
+    holdings?.reduce(
+      (s, h) => s + (h.stock?.currentPrice ?? 0) * h.quantity,
+      0,
+    ) ?? 0;
+  const totalInvested = holdings?.reduce((s, h) => s + h.totalInvested, 0) ?? 0;
   const totalPnL = totalValue - totalInvested;
-  const totalPnLPercent =
-    totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
-
-  // Calculate day's P&L (sum of daily changes)
-  const dayPnL =
-    holdings?.reduce((sum, h) => {
-      const price = h.stock?.currentPrice ?? 0;
-      const prevClose = h.stock?.previousClose ?? price;
-      const dayChange = (price - prevClose) * h.quantity;
-      return sum + dayChange;
-    }, 0) ?? 0;
-
-  const dayPnLPercent =
-    totalValue - dayPnL > 0 ? (dayPnL / (totalValue - dayPnL)) * 100 : 0;
-
-  const chartData = generatePortfolioData(
-    totalValue,
-    totalInvested,
-    selectedPeriod,
-  );
+  const totalPnLPct = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
   const isPositive = totalPnL >= 0;
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={theme.screen} edges={["top"]}>
-        <View style={[theme.titleSection, theme.screenPadding]}>
-          <Text style={theme.title}>Dashboard</Text>
-        </View>
-        <LoadingState message="Loading portfolio..." />
-      </SafeAreaView>
-    );
-  }
+  const dayPnL =
+    holdings?.reduce((s, h) => {
+      const price = h.stock?.currentPrice ?? 0;
+      const prev =
+        h.stock?.previousClose && h.stock.previousClose > 0
+          ? h.stock.previousClose
+          : price;
+      return s + (price - prev) * h.quantity;
+    }, 0) ?? 0;
+
+  const chartData = buildChartFromTransactions(transactions, totalValue);
+  const chartColor = isPositive ? "#22C55E" : colors.danger;
+
+  const displayName = isAnonymous
+    ? "Guest"
+    : (user?.email?.split("@")[0] ?? "User");
+  const avatarLetter = displayName[0]?.toUpperCase() ?? "U";
+
+  const recentTx = (transactions ?? []).slice(0, 3);
 
   return (
-    <SafeAreaView style={theme.screen} edges={["top"]}>
-      <LinearGradient
-        colors={["rgba(41, 255, 232, 0.03)", "transparent"]}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.3 }}
-      />
+    <SafeAreaView style={styles.screen} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={styles.userAvatar}>
+            <Text style={styles.userAvatarText}>{avatarLetter}</Text>
+          </View>
+          <View>
+            <Text style={styles.welcomeLabel}>Welcome back,</Text>
+            <Text style={styles.welcomeName}>{displayName} 👋</Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() =>
+            navigation.navigate("MainTabs", { screen: "Settings" })
+          }
+        >
+          <Settings size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
-        style={theme.screen}
-        contentContainerStyle={theme.screenPadding}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: TAB_BAR_HEIGHT + 24 },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
+            tintColor={colors.secondary}
           />
         }
       >
-        <View style={theme.titleSection}>
-          <Text style={theme.title}>Dashboard</Text>
-          <Text style={theme.subtitle}>Your PSX portfolio at a glance</Text>
-        </View>
+        {/* Balance Card */}
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Portfolio balance</Text>
+          <Text style={styles.balanceValue}>
+            PKR{" "}
+            {totalValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
+          </Text>
 
-        {/* Portfolio Summary Card with Gradient Border */}
-        <View style={styles.cardWrapper}>
-          <LinearGradient
-            colors={[
-              "rgba(41, 255, 232, 0.2)",
-              "rgba(139, 92, 246, 0.1)",
-              "transparent",
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cardGradientBorder}
-          />
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>CURRENT MARKET VALUE</Text>
-            <Text style={styles.valueLarge}>
-              <Text style={styles.currencyPrefix}>PKR </Text>
-              {totalValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
-            </Text>
-
-            {/* P&L Cards */}
+          {/* P/L rows */}
+          <View style={styles.pnlBlock}>
             <View style={styles.pnlRow}>
-              <View
-                style={[
-                  styles.pnlCard,
-                  dayPnL >= 0 ? styles.pnlPositive : styles.pnlNegative,
-                ]}
-              >
-                <Text style={styles.pnlLabel}>Day's P&L</Text>
+              <Text style={styles.pnlRowLabel}>Total P/L</Text>
+              <View style={styles.pnlRowRight}>
                 <Text
                   style={[
-                    styles.pnlValue,
-                    dayPnL >= 0
-                      ? styles.pnlValuePositive
-                      : styles.pnlValueNegative,
+                    styles.pnlRowAmount,
+                    { color: isPositive ? "#22C55E" : colors.danger },
                   ]}
                 >
-                  {dayPnL >= 0 ? "+" : ""}PKR{" "}
-                  {Math.abs(dayPnL).toLocaleString("en-PK", {
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-                <Text
-                  style={[
-                    styles.pnlPercent,
-                    dayPnL >= 0
-                      ? styles.pnlValuePositive
-                      : styles.pnlValueNegative,
-                  ]}
-                >
-                  ({dayPnLPercent >= 0 ? "+" : ""}
-                  {dayPnLPercent.toFixed(2)}%)
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.pnlCard,
-                  totalPnL >= 0 ? styles.pnlPositive : styles.pnlNegative,
-                ]}
-              >
-                <Text style={styles.pnlLabel}>Total P&L</Text>
-                <Text
-                  style={[
-                    styles.pnlValue,
-                    totalPnL >= 0
-                      ? styles.pnlValuePositive
-                      : styles.pnlValueNegative,
-                  ]}
-                >
-                  {totalPnL >= 0 ? "+" : ""}PKR{" "}
+                  {isPositive ? "+" : ""}PKR{" "}
                   {Math.abs(totalPnL).toLocaleString("en-PK", {
                     maximumFractionDigits: 0,
                   })}
                 </Text>
-                <Text
-                  style={[
-                    styles.pnlPercent,
-                    totalPnL >= 0
-                      ? styles.pnlValuePositive
-                      : styles.pnlValueNegative,
-                  ]}
-                >
-                  ({totalPnLPercent >= 0 ? "+" : ""}
-                  {totalPnLPercent.toFixed(2)}%)
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Portfolio Chart */}
-        <View style={[styles.cardWrapper, { marginTop: spacing.lg }]}>
-          <View style={styles.card}>
-            <View style={[theme.rowBetween, { marginBottom: spacing.sm }]}>
-              <Text style={styles.sectionLabel}>PORTFOLIO HISTORY</Text>
-              {isPositive ? (
-                <TrendingUp color={colors.success} size={20} />
-              ) : (
-                <TrendingDown color={colors.danger} size={20} />
-              )}
-            </View>
-
-            {/* Period Selector */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginBottom: spacing.md }}
-            >
-              <View style={styles.periodSelector}>
-                {PERIOD_OPTIONS.map((option) => (
-                  <Pressable
-                    key={option.value}
-                    style={({ pressed }) => [
-                      styles.periodBtn,
-                      selectedPeriod === option.value && styles.periodBtnActive,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                    onPress={() => setSelectedPeriod(option.value)}
-                  >
-                    <Text
-                      style={[
-                        styles.periodText,
-                        selectedPeriod === option.value &&
-                          styles.periodTextActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
-
-            {/* Chart */}
-            {totalValue > 0 ? (
-              <View style={{ height: 180 }}>
-                <CartesianChart
-                  data={chartData}
-                  xKey="x"
-                  yKeys={["y"]}
-                  domainPadding={{ left: 10, right: 10, top: 20, bottom: 10 }}
-                >
-                  {({ points, chartBounds }) => (
-                    <Area
-                      points={points.y}
-                      y0={chartBounds.bottom}
-                      color={isPositive ? colors.success : colors.danger}
-                      opacity={0.3}
-                      curveType="natural"
-                      animate={{ type: "timing", duration: 300 }}
-                    />
-                  )}
-                </CartesianChart>
-              </View>
-            ) : (
-              <View style={styles.emptyChart}>
-                <Text style={theme.textMuted}>
-                  Add investments to see portfolio history
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Holdings Quick View */}
-        {holdings && holdings.length > 0 && (
-          <View style={[styles.cardWrapper, { marginTop: spacing.lg }]}>
-            <View style={styles.card}>
-              <View style={[theme.rowBetween, { marginBottom: spacing.md }]}>
-                <Text style={styles.sectionLabel}>
-                  HOLDINGS ({holdings.length})
-                </Text>
-                <Pressable
-                  style={styles.viewAllBtn}
-                  onPress={() =>
-                    navigation.navigate("MainTabs", { screen: "Portfolio" })
-                  }
-                >
-                  <Text style={styles.viewAllText}>View All</Text>
-                  <ChevronRight color={colors.primary} size={14} />
-                </Pressable>
-              </View>
-
-              {holdings.slice(0, 4).map((holding, index) => {
-                const currentPrice = holding.stock?.currentPrice ?? 0;
-                const currentValue = currentPrice * holding.quantity;
-                const gainLoss = currentValue - holding.totalInvested;
-                const gainLossPercent =
-                  holding.totalInvested > 0
-                    ? (gainLoss / holding.totalInvested) * 100
-                    : 0;
-
-                return (
-                  <View
-                    key={holding.id}
-                    style={[
-                      styles.holdingRow,
-                      index === Math.min(holdings.length - 1, 3) && {
-                        borderBottomWidth: 0,
-                      },
-                    ]}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.holdingSymbol}>
-                        {holding.stockSymbol}
-                      </Text>
-                      <Text style={styles.holdingShares}>
-                        {holding.quantity} shares
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={styles.holdingValue}>
-                        PKR{" "}
-                        {currentValue.toLocaleString("en-PK", {
-                          maximumFractionDigits: 0,
-                        })}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.holdingChange,
-                          gainLoss >= 0
-                            ? { color: colors.success }
-                            : { color: colors.danger },
-                        ]}
-                      >
-                        {gainLoss >= 0 ? "+" : ""}
-                        {gainLossPercent.toFixed(2)}%
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Recent Transactions */}
-        {transactions && transactions.length > 0 && (
-          <View
-            style={[
-              styles.cardWrapper,
-              { marginTop: spacing.lg, marginBottom: spacing.xl },
-            ]}
-          >
-            <View style={styles.card}>
-              <View style={[theme.rowBetween, { marginBottom: spacing.md }]}>
-                <Text style={styles.sectionLabel}>RECENT TRANSACTIONS</Text>
-                <Pressable
-                  style={styles.viewAllBtn}
-                  onPress={() => navigation.navigate("TransactionHistory")}
-                >
-                  <Text style={styles.viewAllText}>View All</Text>
-                  <ChevronRight color={colors.primary} size={14} />
-                </Pressable>
-              </View>
-
-              {transactions.slice(0, 3).map((tx, index) => (
                 <View
-                  key={tx.id}
                   style={[
-                    styles.transactionRow,
-                    index === Math.min(transactions.length - 1, 2) && {
-                      borderBottomWidth: 0,
+                    styles.pnlBadge,
+                    {
+                      backgroundColor: isPositive
+                        ? "rgba(34,197,94,0.14)"
+                        : "rgba(239,68,68,0.14)",
                     },
                   ]}
                 >
-                  <View
+                  {isPositive ? (
+                    <TrendingUp size={11} color="#22C55E" />
+                  ) : (
+                    <TrendingDown size={11} color={colors.danger} />
+                  )}
+                  <Text
                     style={[
-                      styles.txIconContainer,
-                      tx.transactionType === "BUY"
-                        ? { backgroundColor: colors.successMuted }
-                        : { backgroundColor: colors.dangerMuted },
+                      styles.pnlBadgeText,
+                      { color: isPositive ? "#22C55E" : colors.danger },
                     ]}
                   >
-                    {tx.transactionType === "BUY" ? (
-                      <TrendingUp color={colors.success} size={16} />
+                    {isPositive ? "+" : ""}
+                    {totalPnLPct.toFixed(2)}%
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.pnlRow,
+                {
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                  paddingTop: 8,
+                },
+              ]}
+            >
+              <Text style={styles.pnlRowLabel}>Today</Text>
+              <Text
+                style={[
+                  styles.pnlRowAmount,
+                  { color: dayPnL >= 0 ? "#22C55E" : colors.danger },
+                ]}
+              >
+                {dayPnL >= 0 ? "+" : ""}PKR{" "}
+                {Math.abs(dayPnL).toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+            </View>
+          </View>
+
+          {/* Chart */}
+          {chartData.length >= 2 && (
+            <View style={styles.chartWrap}>
+              <LineChart
+                data={chartData}
+                height={110}
+                adjustToWidth
+                hideDataPoints={false}
+                dataPointsColor={chartColor}
+                dataPointsRadius={3}
+                color={chartColor}
+                thickness={2}
+                curved
+                areaChart
+                startFillColor={
+                  isPositive ? "rgba(34,197,94,0.20)" : "rgba(239,68,68,0.20)"
+                }
+                endFillColor="transparent"
+                rulesColor="rgba(255,255,255,0.07)"
+                rulesType="solid"
+                showVerticalLines={false}
+                xAxisColor="rgba(255,255,255,0.12)"
+                yAxisColor="transparent"
+                yAxisTextStyle={{
+                  color: colors.textMuted,
+                  fontSize: 9,
+                }}
+                xAxisLabelTextStyle={{
+                  color: colors.textMuted,
+                  fontSize: 9,
+                }}
+                noOfSections={3}
+                yAxisLabelPrefix="₨"
+                initialSpacing={6}
+                endSpacing={6}
+                pointerConfig={{
+                  pointerStripHeight: 110,
+                  pointerStripColor: "rgba(255,255,255,0.18)",
+                  pointerStripWidth: 1,
+                  pointerColor: chartColor,
+                  radius: 5,
+                  pointerLabelWidth: 130,
+                  pointerLabelHeight: 44,
+                  activatePointersOnLongPress: false,
+                  autoAdjustPointerLabelPosition: true,
+                  pointerLabelComponent: (items: any[]) => (
+                    <View style={styles.tooltipBox}>
+                      <Text style={styles.tooltipVal}>
+                        PKR{" "}
+                        {Number(items[0].value).toLocaleString("en-PK", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </Text>
+                      {items[0].label ? (
+                        <Text style={styles.tooltipDate}>{items[0].label}</Text>
+                      ) : null}
+                    </View>
+                  ),
+                }}
+              />
+            </View>
+          )}
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.actionsRow}>
+          <ActionBtn
+            icon={<ArrowUpRight size={22} color="#22C55E" />}
+            label="Buy"
+            onPress={() =>
+              navigation.navigate("AddTransaction", { type: "BUY" })
+            }
+          />
+          <ActionBtn
+            icon={<ArrowDownRight size={22} color={colors.danger} />}
+            label="Sell"
+            onPress={() =>
+              navigation.navigate("AddTransaction", { type: "SELL" })
+            }
+          />
+          <ActionBtn
+            icon={<History size={22} color={colors.icon} />}
+            label="History"
+            onPress={() => navigation.navigate("TransactionHistory")}
+          />
+          <ActionBtn
+            icon={<RefreshCw size={22} color={colors.icon} />}
+            label="Refresh"
+            onPress={onRefresh}
+          />
+        </View>
+
+        {/* Latest Activity */}
+        {recentTx.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Latest activity</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("TransactionHistory")}
+              >
+                <Text style={styles.seeAllText}>View all →</Text>
+              </TouchableOpacity>
+            </View>
+            {recentTx.map((tx) => {
+              const isBuy = tx.transactionType === "BUY";
+              return (
+                <View key={tx.id} style={styles.txRow}>
+                  <View
+                    style={[
+                      styles.txIconCircle,
+                      {
+                        backgroundColor: isBuy
+                          ? "rgba(34,197,94,0.12)"
+                          : "rgba(239,68,68,0.12)",
+                      },
+                    ]}
+                  >
+                    {isBuy ? (
+                      <ArrowUpRight size={18} color="#22C55E" />
                     ) : (
-                      <TrendingDown color={colors.danger} size={16} />
+                      <ArrowDownRight size={18} color={colors.danger} />
                     )}
                   </View>
-                  <View style={{ flex: 1, marginLeft: spacing.md }}>
+                  <View style={styles.txMeta}>
                     <Text style={styles.txTitle}>
-                      {tx.transactionType} {tx.stockSymbol}
+                      {isBuy ? "Bought" : "Sold"} {tx.quantity} {tx.stockSymbol}
                     </Text>
-                    <Text style={styles.txSubtitle}>
-                      {tx.quantity} @ PKR {tx.pricePerShare.toFixed(2)}
-                    </Text>
+                    <Text style={styles.txDate}>{tx.transactionDate}</Text>
                   </View>
-                  <View style={{ alignItems: "flex-end" }}>
+                  <View style={styles.txRight}>
                     <Text style={styles.txAmount}>
                       PKR{" "}
                       {tx.totalAmount.toLocaleString("en-PK", {
                         maximumFractionDigits: 0,
                       })}
                     </Text>
-                    <Text style={styles.txDate}>
-                      {new Date(tx.transactionDate).toLocaleDateString()}
+                    <Text
+                      style={[
+                        styles.txStatus,
+                        { color: isBuy ? colors.danger : "#22C55E" },
+                      ]}
+                    >
+                      {isBuy ? "Debited" : "Credited"}
                     </Text>
                   </View>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Empty State */}
-        {(!holdings || holdings.length === 0) && (
-          <View style={[styles.cardWrapper, { marginTop: spacing.lg }]}>
-            <View style={[styles.card, styles.emptyState]}>
-              <View style={styles.emptyIconContainer}>
-                <Clock color={colors.icon} size={28} />
-              </View>
-              <Text style={styles.emptyTitle}>No Holdings Yet</Text>
-              <Text style={styles.emptyDescription}>
-                Search for stocks and add them to your portfolio to see your
-                investment performance.
-              </Text>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.emptyButton,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() =>
-                  navigation.navigate("MainTabs", { screen: "Search" })
-                }
-              >
-                <Text style={styles.emptyButtonText}>Find Stocks</Text>
-              </Pressable>
-            </View>
-          </View>
+              );
+            })}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function ActionBtn({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.actionBtn}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.actionIconCircle}>{icon}</View>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  cardWrapper: {
-    position: "relative",
-    borderRadius: borderRadius.lg,
-    overflow: "hidden",
-  },
-  cardGradientBorder: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  card: {
-    backgroundColor: colors.glass,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    padding: spacing.lg,
-    margin: 1,
-  },
-  cardLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    letterSpacing: 1.5,
-    marginBottom: spacing.xs,
-  },
-  sectionLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    letterSpacing: 1.5,
-  },
-  valueLarge: {
-    fontSize: 34,
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  currencyPrefix: {
-    fontSize: 18,
-    color: colors.textSecondary,
-  },
-  pnlRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  pnlCard: {
+  screen: {
     flex: 1,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    alignItems: "center",
+    backgroundColor: colors.background,
   },
-  pnlPositive: {
-    backgroundColor: colors.successMuted,
-  },
-  pnlNegative: {
-    backgroundColor: colors.dangerMuted,
-  },
-  pnlLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-    letterSpacing: 0.5,
-  },
-  pnlValue: {
-    fontSize: 14,
-  },
-  pnlValuePositive: {
-    color: colors.success,
-  },
-  pnlValueNegative: {
-    color: colors.danger,
-  },
-  pnlPercent: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  periodSelector: {
+  header: {
     flexDirection: "row",
-    gap: spacing.xs,
-  },
-  periodBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.glassLight,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  periodBtnActive: {
-    backgroundColor: colors.glass,
-    borderColor: colors.glassBorder,
-  },
-  periodText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  periodTextActive: {
-    color: colors.textPrimary,
-  },
-  emptyChart: {
-    height: 120,
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  userAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.secondary,
     justifyContent: "center",
-  },
-  viewAllBtn: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 2,
   },
-  viewAllText: {
-    fontSize: 11,
+  userAvatarText: {
+    color: colors.textInverse,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  welcomeLabel: {
+    fontSize: 12,
     color: colors.textSecondary,
+    letterSpacing: 0.2,
   },
-  holdingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  holdingSymbol: {
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  holdingShares: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  holdingValue: {
-    fontSize: 13,
-    color: colors.textPrimary,
-  },
-  holdingChange: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  transactionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  txIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  txTitle: {
-    fontSize: 13,
-    color: colors.textPrimary,
-  },
-  txSubtitle: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  txAmount: {
-    fontSize: 13,
-    color: colors.textPrimary,
-  },
-  txDate: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: spacing.xl,
-  },
-  emptyIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.glassLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: {
+  welcomeName: {
     fontSize: 16,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    fontWeight: "700",
   },
-  emptyDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  emptyButton: {
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  emptyButtonText: {
+  scroll: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+  // Balance card
+  balanceCard: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+    marginBottom: 16,
+  },
+  balanceLabel: {
     fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+  balanceValue: {
+    fontSize: 32,
+    fontWeight: "800",
     color: colors.textPrimary,
+    letterSpacing: -0.5,
+    marginBottom: 10,
+  },
+  balanceMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 14,
+  },
+  pnlChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  pnlChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  dayPnLText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  chartWrap: {
+    marginTop: 12,
+    marginHorizontal: -4,
+    overflow: "hidden",
+  },
+  // P/L block
+  pnlBlock: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  pnlRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pnlRowLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  pnlRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  pnlRowAmount: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  pnlBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  pnlBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  // Tooltip
+  tooltipBox: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  tooltipVal: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  tooltipDate: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  // Actions
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  actionBtn: {
+    flex: 1,
+    alignItems: "center",
+    gap: 6,
+  },
+  actionIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+  // Section header
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  // Stock rows
+  stockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 12,
+  },
+  letterAvatar: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  letterAvatarText: {
+    color: "#fff",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  stockLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.card,
+  },
+  stockMeta: {
+    flex: 1,
+    gap: 3,
+  },
+  stockSymbol: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  stockName: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    maxWidth: 140,
+  },
+  stockRight: {
+    alignItems: "flex-end",
+    gap: 3,
+  },
+  stockValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  stockChange: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  seeAllRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 12,
+  },
+  seeAllText: {
+    fontSize: 13,
+    color: colors.secondary,
+    fontWeight: "500",
+  },
+  // Empty state
+  emptyCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 28,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 24,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  emptyBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: colors.secondary,
+    borderRadius: 20,
+  },
+  emptyBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textInverse,
+  },
+  // Transaction rows
+  txRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 12,
+  },
+  txIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  txMeta: {
+    flex: 1,
+    gap: 3,
+  },
+  txTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  txDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  txRight: {
+    alignItems: "flex-end",
+    gap: 3,
+  },
+  txAmount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  txStatus: {
+    fontSize: 12,
+    fontWeight: "500",
   },
 });

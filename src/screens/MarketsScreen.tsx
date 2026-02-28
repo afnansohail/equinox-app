@@ -2,351 +2,308 @@ import React, { useState } from "react";
 import {
   ScrollView,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
   StyleSheet,
-  ActivityIndicator,
+  TextInput,
+  TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Search, TrendingUp } from "lucide-react-native";
-import { Card } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
-import { EmptyState } from "../components/shared/EmptyState";
-import {
-  useAllStocks,
-  useStockSearch,
-  usePsxSymbolSearch,
-} from "../hooks/useStocks";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Search, X, TrendingUp, TrendingDown } from "lucide-react-native";
+import { useAllStocks, useStockSearch } from "../hooks/useStocks";
 import { useWishlist } from "../hooks/useWishlist";
 import type { RootStackParamList } from "../navigation/types";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { colors, theme, borderRadius, fonts } from "../constants/theme";
+import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type TabType = "all" | "wishlist";
+type TabType = "all" | "watchlist";
+
+const AVATAR_COLORS = [
+  "#6366F1",
+  "#8B5CF6",
+  "#EC4899",
+  "#06B6D4",
+  "#10B981",
+  "#F59E0B",
+  "#EF4444",
+  "#3B82F6",
+];
+
+function LetterAvatar({ text, size = 44 }: { text: string; size?: number }) {
+  const color = AVATAR_COLORS[text.charCodeAt(0) % AVATAR_COLORS.length];
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: color,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ color: "#fff", fontSize: size * 0.32, fontWeight: "700" }}>
+        {text.slice(0, 2).toUpperCase()}
+      </Text>
+    </View>
+  );
+}
 
 export default function MarketsScreen() {
   const navigation = useNavigation<Nav>();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("all");
-  const { data: allStocks } = useAllStocks();
-  const { data: searchedStocks } = useStockSearch(query.trim());
-  const { data: psxSymbols, isLoading: psxSearching } = usePsxSymbolSearch(
-    query.trim(),
+
+  const { data: allStocks, isLoading: allLoading } = useAllStocks();
+  const { data: searchResults, isLoading: searchLoading } = useStockSearch(
+    query.trim().length >= 1 ? query.trim() : "",
   );
   const { data: wishlistItems } = useWishlist();
 
   const wishlistStocks =
     wishlistItems?.map((item) => item.stock).filter(Boolean) ?? [];
 
-  // Get symbols already in local DB to avoid duplicates
-  const localSymbols = new Set([
-    ...(searchedStocks?.map((s) => s.symbol) ?? []),
-    ...(allStocks?.map((s) => s.symbol) ?? []),
-  ]);
-
-  // PSX symbols not in local DB
-  const additionalPsxSymbols =
-    psxSymbols?.filter((s) => !localSymbols.has(s.symbol)) ?? [];
-
   const getDisplayStocks = () => {
-    if (activeTab === "wishlist") {
+    if (activeTab === "watchlist") {
       if (query.trim()) {
         return wishlistStocks.filter(
-          (stock) =>
-            stock?.symbol.toLowerCase().includes(query.toLowerCase()) ||
-            stock?.name.toLowerCase().includes(query.toLowerCase()),
+          (s) =>
+            s?.symbol.toLowerCase().includes(query.toLowerCase()) ||
+            s?.name.toLowerCase().includes(query.toLowerCase()),
         );
       }
       return wishlistStocks;
     }
-    return query.trim() ? (searchedStocks ?? []) : (allStocks ?? []);
+    return query.trim().length >= 1 ? (searchResults ?? []) : (allStocks ?? []);
   };
 
   const stocks = getDisplayStocks();
+  const isLoading =
+    activeTab === "all" &&
+    (query.trim().length >= 1 ? searchLoading : allLoading);
 
   return (
-    <SafeAreaView style={theme.screen} edges={["top"]}>
-      <View style={[theme.screenPadding, { paddingTop: 24, paddingBottom: 8 }]}>
-        <Text style={[theme.title, { marginBottom: 16 }]}>Markets</Text>
-        <View style={styles.searchRow}>
-          <Search color={colors.icon} size={18} />
+    <SafeAreaView style={styles.screen} edges={["top"]}>
+      <View style={styles.topSection}>
+        <Text style={styles.title}>Markets</Text>
+
+        <View style={styles.searchBar}>
+          <Search size={18} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search stocks by symbol or name"
+            placeholder="Search stocks..."
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
             autoCapitalize="characters"
           />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery("")}>
+              <X size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
+
         <View style={styles.tabRow}>
-          <TouchableOpacity
-            onPress={() => setActiveTab("all")}
-            style={[styles.tab, activeTab === "all" && styles.tabActive]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "all" && styles.tabTextActive,
-              ]}
+          {(["all", "watchlist"] as TabType[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
             >
-              All Stocks
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setActiveTab("wishlist")}
-            style={[styles.tab, activeTab === "wishlist" && styles.tabActive]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "wishlist" && styles.tabTextActive,
-              ]}
-            >
-              Wishlist
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === tab && styles.tabTextActive,
+                ]}
+              >
+                {tab === "all" ? "All Stocks" : "Watchlist"}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
       <ScrollView
-        style={theme.screen}
-        contentContainerStyle={theme.screenPadding}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: TAB_BAR_HEIGHT + 24 },
+        ]}
+        keyboardShouldPersistTaps="handled"
       >
-        {stocks.map(
-          (stock) =>
-            stock && (
+        {isLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.secondary} />
+          </View>
+        ) : stocks.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={styles.emptyText}>
+              {activeTab === "watchlist"
+                ? "No watchlist items yet"
+                : query
+                  ? `No results for "${query}"`
+                  : "No stocks available"}
+            </Text>
+          </View>
+        ) : (
+          stocks.map((stock) => {
+            if (!stock) return null;
+            const isUp = (stock.changePercent ?? 0) >= 0;
+            return (
               <TouchableOpacity
                 key={stock.symbol}
+                style={styles.stockRow}
+                activeOpacity={0.7}
                 onPress={() =>
                   navigation.navigate("StockDetail", { symbol: stock.symbol })
                 }
               >
-                <Card style={{ marginBottom: 12 }}>
-                  <View style={theme.rowBetween}>
-                    <View style={[theme.row, { flex: 1, marginRight: 12 }]}>
-                      {stock.logoUrl && (
-                        <Image
-                          source={{ uri: stock.logoUrl }}
-                          style={styles.stockLogo}
-                          resizeMode="contain"
-                        />
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <View style={theme.row}>
-                          <Text style={[theme.value, { fontSize: 18 }]}>
-                            {stock.symbol}
-                          </Text>
-                          {stock.isShariahCompliant && (
-                            <View style={styles.shariahBadge}>
-                              <Text style={styles.shariahText}>S</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text
-                          style={theme.textMuted}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {stock.name}
-                        </Text>
+                {stock.logoUrl ? (
+                  <Image
+                    source={{ uri: stock.logoUrl }}
+                    style={styles.stockLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <LetterAvatar text={stock.symbol} size={44} />
+                )}
+                <View style={styles.stockMeta}>
+                  <View style={styles.stockTopRow}>
+                    <Text style={styles.stockSymbol}>{stock.symbol}</Text>
+                    {stock.isShariahCompliant && (
+                      <View style={styles.shariahBadge}>
+                        <Text style={styles.shariahText}>S</Text>
                       </View>
-                    </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      {stock.currentPrice > 0 ? (
-                        <>
-                          <Text style={theme.valueSmall}>
-                            PKR {stock.currentPrice.toFixed(2)}
-                          </Text>
-                          <Badge value={stock.changePercent} />
-                        </>
-                      ) : (
-                        <Text style={[theme.textMuted, { fontSize: 12 }]}>
-                          Tap to load
-                        </Text>
-                      )}
-                    </View>
+                    )}
                   </View>
-                </Card>
+                  <Text style={styles.stockName} numberOfLines={1}>
+                    {stock.name}
+                  </Text>
+                </View>
+                <View style={styles.stockRight}>
+                  <Text style={styles.stockPrice}>
+                    PKR{" "}
+                    {stock.currentPrice.toLocaleString("en-PK", {
+                      maximumFractionDigits: 2,
+                    })}
+                  </Text>
+                  <View
+                    style={[
+                      styles.changeChip,
+                      {
+                        backgroundColor: isUp
+                          ? "rgba(34,197,94,0.12)"
+                          : "rgba(239,68,68,0.12)",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.changeText,
+                        { color: isUp ? "#22C55E" : colors.danger },
+                      ]}
+                    >
+                      {isUp ? "+" : ""}
+                      {(stock.changePercent ?? 0).toFixed(2)}%
+                    </Text>
+                  </View>
+                </View>
               </TouchableOpacity>
-            ),
+            );
+          })
         )}
-
-        {/* Additional PSX symbols (not in local DB) */}
-        {activeTab === "all" &&
-          query.trim().length >= 2 &&
-          additionalPsxSymbols.length > 0 && (
-            <>
-              <View style={styles.psxHeader}>
-                <TrendingUp color={colors.icon} size={16} />
-                <Text style={styles.psxHeaderText}>
-                  More from PSX ({additionalPsxSymbols.length})
-                </Text>
-              </View>
-              {additionalPsxSymbols.map((psxStock) => (
-                <TouchableOpacity
-                  key={psxStock.symbol}
-                  onPress={() =>
-                    navigation.navigate("StockDetail", {
-                      symbol: psxStock.symbol,
-                    })
-                  }
-                >
-                  <Card style={{ marginBottom: 12 }}>
-                    <View style={theme.rowBetween}>
-                      <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={[theme.value, { fontSize: 18 }]}>
-                          {psxStock.symbol}
-                        </Text>
-                        <Text
-                          style={theme.textMuted}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {psxStock.name}
-                        </Text>
-                        <Text
-                          style={[
-                            theme.textMuted,
-                            { fontSize: 10, marginTop: 2 },
-                          ]}
-                        >
-                          {psxStock.sector}
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={[theme.textMuted, { fontSize: 12 }]}>
-                          Tap to load
-                        </Text>
-                      </View>
-                    </View>
-                  </Card>
-                </TouchableOpacity>
-              ))}
-            </>
-          )}
-
-        {/* Loading indicator for PSX search */}
-        {activeTab === "all" && query.trim().length >= 2 && psxSearching && (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[theme.textMuted, { marginLeft: 8 }]}>
-              Searching all PSX stocks...
-            </Text>
-          </View>
-        )}
-
-        {stocks.length === 0 &&
-          additionalPsxSymbols.length === 0 &&
-          activeTab === "wishlist" && (
-            <EmptyState message="Your wishlist is empty. Add stocks from the All Stocks tab." />
-          )}
-        {stocks.length === 0 &&
-          additionalPsxSymbols.length === 0 &&
-          activeTab === "all" &&
-          !psxSearching && (
-            <EmptyState
-              message={
-                query.trim().length >= 2
-                  ? "No stocks found matching your search."
-                  : "Type at least 2 characters to search all PSX stocks."
-              }
-            />
-          )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  searchRow: {
+  screen: { flex: 1, backgroundColor: colors.background },
+  topSection: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.glass,
+    backgroundColor: colors.card,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 16,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    gap: 10,
+    height: 46,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    fontFamily: fonts.sans.regular,
+    fontSize: 15,
     color: colors.textPrimary,
-    paddingVertical: 4,
+    height: "100%",
   },
   tabRow: {
     flexDirection: "row",
-    backgroundColor: colors.glass,
-    borderRadius: borderRadius.md,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
+    gap: 8,
   },
   tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: borderRadius.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tabActive: {
-    backgroundColor: colors.primaryMuted,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    backgroundColor: colors.textPrimary,
+    borderColor: "transparent",
   },
-  tabText: {
-    textAlign: "center",
-    fontFamily: fonts.sans.semibold,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  tabTextActive: {
-    color: colors.primary,
-  },
-  psxHeader: {
+  tabText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary },
+  tabTextActive: { color: colors.textInverse },
+  scroll: { paddingHorizontal: 20 },
+  centered: { paddingTop: 60, alignItems: "center" },
+  emptyText: { fontSize: 15, color: colors.textSecondary },
+  stockRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 16,
-    marginBottom: 12,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.glassBorder,
-  },
-  psxHeaderText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textSecondary,
-  },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 12,
   },
   stockLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.sm,
-    marginRight: 10,
-    backgroundColor: colors.glass,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.card,
   },
+  stockMeta: { flex: 1, gap: 4 },
+  stockTopRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  stockSymbol: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   shariahBadge: {
-    marginLeft: 6,
+    backgroundColor: "rgba(34,197,94,0.12)",
+    borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: borderRadius.xs,
-    backgroundColor: colors.successMuted,
   },
-  shariahText: {
-    fontSize: 9,
-    fontFamily: fonts.sans.bold,
-    color: colors.success,
+  shariahText: { fontSize: 10, color: "#22C55E", fontWeight: "700" },
+  stockName: { fontSize: 12, color: colors.textSecondary },
+  stockRight: { alignItems: "flex-end", gap: 5 },
+  stockPrice: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  changeChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
+  changeText: { fontSize: 12, fontWeight: "600" },
 });

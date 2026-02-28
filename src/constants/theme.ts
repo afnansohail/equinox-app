@@ -1,50 +1,95 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, Platform } from "react-native";
+
+// ─── Theme Presets ────────────────────────────────────────────────────────────
+export const THEME_PRESETS = {
+  teal: {
+    name: "Teal",
+    color: "#29fde6",
+    gradient: ["#29fde6", "#06B6D4"] as [string, string],
+  },
+  blue: {
+    name: "Blue",
+    color: "#0A84FF",
+    gradient: ["#0A84FF", "#005FCC"] as [string, string],
+  },
+  purple: {
+    name: "Purple",
+    color: "#BF5AF2",
+    gradient: ["#BF5AF2", "#9A3DD4"] as [string, string],
+  },
+  pink: {
+    name: "Pink",
+    color: "#FF2D8A",
+    gradient: ["#FF2D8A", "#CC1166"] as [string, string],
+  },
+  orange: {
+    name: "Orange",
+    color: "#FF6B35",
+    gradient: ["#FF6B35", "#E84F22"] as [string, string],
+  },
+  red: {
+    name: "Red",
+    color: "#FF3B30",
+    gradient: ["#FF3B30", "#CC1F15"] as [string, string],
+  },
+  gold: {
+    name: "Gold",
+    color: "#FFD60A",
+    gradient: ["#FFD60A", "#F5A623"] as [string, string],
+  },
+} as const;
+
+export type ThemePreset = keyof typeof THEME_PRESETS;
 
 export const colors = {
-  // Core palette - Bloomberg-style deep charcoal
-  background: "#0A0A0A",
-  backgroundSecondary: "#121212",
-  card: "#161616",
-  cardHover: "#1C1C1C",
+  // Core palette
+  background: "#0c0c0c",
+  backgroundSecondary: "#111111",
+  card: "#171717",
+  cardHover: "#1e1e1e",
   border: "#252525",
   borderLight: "#333333",
 
-  // Primary - Use sparingly (accent only)
-  primary: "#29FFE8",
-  primaryDark: "#1AD4C3",
-  primaryMuted: "rgba(41, 255, 232, 0.12)",
-  primaryGlow: "rgba(41, 255, 232, 0.25)",
+  // Primary - near-white; used for selected nav icons, main brand text
+  primary: "#f5f5f5",
 
-  // Glass/Frost effect colors
-  glass: "rgba(22, 22, 22, 0.85)",
-  glassBorder: "rgba(255, 255, 255, 0.08)",
+  // Secondary - default teal accent (overridden dynamically by theme store)
+  secondary: "#29fde6",
+  secondaryDark: "#1AD4C3",
+  secondaryMuted: "rgba(41, 253, 230, 0.12)",
+  secondaryGlow: "rgba(41, 253, 230, 0.25)",
+
+  // Glass / Frosted
+  glass: "rgba(255, 255, 255, 0.05)",
+  glassBorder: "rgba(255, 255, 255, 0.10)",
+  glassBorderStrong: "rgba(255, 255, 255, 0.16)",
   glassLight: "rgba(255, 255, 255, 0.03)",
 
-  // Semantic - Electric neon green for gains, coral for losses
+  // Semantic
   success: "#00FF88",
   successMuted: "rgba(0, 255, 136, 0.12)",
   danger: "#FF6B6B",
   dangerMuted: "rgba(255, 107, 107, 0.12)",
   warning: "#FFB800",
 
-  // Text - White and light grey hierarchy
+  // Text hierarchy
   textPrimary: "#FFFFFF",
-  textSecondary: "#B8B8B8",
-  textMuted: "#6B6B6B",
-  textInverse: "#0A0A0A",
+  textSecondary: "#A8A8A8",
+  textMuted: "#555555",
+  textInverse: "#0c0c0c",
 
-  // Icon/button colors - Light grey focus
-  icon: "#E0E0E0",
-  iconMuted: "#888888",
-  buttonText: "#F0F0F0",
+  // Icons
+  icon: "#D4D4D4",
+  iconMuted: "#5A5A5A",
+  buttonText: "#f5f5f5",
 
-  // Gradients (as arrays for LinearGradient)
-  gradientPrimary: ["#29FFE8", "#06B6D4"] as const,
+  // Gradients
+  gradientSecondary: ["#29fde6", "#06B6D4"] as const,
   gradientGlass: [
     "rgba(255, 255, 255, 0.08)",
     "rgba(255, 255, 255, 0.02)",
   ] as const,
-  gradientDark: ["#161616", "#0A0A0A"] as const,
+  gradientDark: ["#171717", "#0c0c0c"] as const,
   gradientSuccess: ["#00FF88", "#00CC6A"] as const,
   gradientDanger: ["#FF6B6B", "#E05555"] as const,
 } as const;
@@ -59,16 +104,11 @@ export const spacing = {
   xxxl: 40,
 } as const;
 
-// Font families
+// Tab bar height for proper bottom padding
+export const TAB_BAR_HEIGHT = Platform.OS === "ios" ? 84 : 70;
+
+// Font families — sans-serif only
 export const fonts = {
-  // Serif - for headings and values
-  serif: {
-    regular: "PlayfairDisplay_400Regular",
-    medium: "PlayfairDisplay_500Medium",
-    semibold: "PlayfairDisplay_600SemiBold",
-    bold: "PlayfairDisplay_700Bold",
-  },
-  // Sans-serif - for body and UI
   sans: {
     regular: "Inter_400Regular",
     medium: "Inter_500Medium",
@@ -77,13 +117,14 @@ export const fonts = {
   },
 } as const;
 
-// Reduced roundness - more angular, modern
+// Border radius — reduced roundness for modern 2026 aesthetic
 export const borderRadius = {
-  xs: 4,
-  sm: 6,
+  xs: 2,
+  sm: 4,
   md: 8,
-  lg: 10,
-  xl: 12,
+  lg: 12,
+  xl: 16,
+  xxl: 20,
   full: 9999,
 } as const;
 
@@ -98,16 +139,16 @@ export const theme = StyleSheet.create({
   titleSection: {
     paddingVertical: spacing.xl,
   },
-  // Titles - serif font for elegance
+  // Titles — sans-serif
   title: {
     fontSize: 28,
-    fontFamily: fonts.serif.bold,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   titleLarge: {
     fontSize: 36,
-    fontFamily: fonts.serif.bold,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     letterSpacing: -1,
   },
@@ -117,11 +158,11 @@ export const theme = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
-  // Cards - glassmorphism style
+  // Cards — frosted glass
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.glass,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -152,7 +193,7 @@ export const theme = StyleSheet.create({
   },
   valueLarge: {
     fontSize: 32,
-    fontFamily: fonts.serif.bold,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
@@ -198,9 +239,9 @@ export const theme = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.sm,
   },
-  // Buttons - reduced roundness, light grey text
+  // Buttons
   primaryButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
@@ -216,7 +257,7 @@ export const theme = StyleSheet.create({
   outlineButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
@@ -242,9 +283,9 @@ export const theme = StyleSheet.create({
     fontFamily: fonts.sans.medium,
   },
   input: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.glass,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -253,9 +294,9 @@ export const theme = StyleSheet.create({
     color: colors.textPrimary,
   },
   inputFocused: {
-    borderColor: colors.primary,
+    borderColor: colors.secondary,
   },
-  // Pill/badge styles
+  // Badge
   badge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,

@@ -33,7 +33,7 @@ export function Badge({ value, showSign = true }: BadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    borderRadius: borderRadius.xs,
+    borderRadius: borderRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },

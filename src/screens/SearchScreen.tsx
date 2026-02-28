@@ -1,665 +1,395 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   ScrollView,
   Text,
   View,
   StyleSheet,
   TextInput,
-  Pressable,
-  Image,
+  TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
+  Image,
+  Platform,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RouteProp } from "@react-navigation/native";
 import {
   Search,
-  RefreshCw,
+  AlertCircle,
+  Heart,
+  ChevronRight,
   TrendingUp,
   TrendingDown,
-  ArrowUp,
-  ArrowDown,
 } from "lucide-react-native";
-import { Badge } from "../components/ui/Badge";
-import { useStock, useRefreshStocks } from "../hooks/useStocks";
-import type { RootStackParamList, MainTabParamList } from "../navigation/types";
-import { colors, theme, spacing, borderRadius } from "../constants/theme";
+import { getStock } from "../services/api";
+import { useWishlist } from "../hooks/useWishlist";
+import type { RootStackParamList } from "../navigation/types";
+import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Route = RouteProp<MainTabParamList, "Search">;
+type SearchState = "idle" | "loading" | "not_found" | "error";
 
-export default function SearchScreen() {
-  const navigation = useNavigation<Nav>();
-  const route = useRoute<Route>();
-  const initialSymbol = route.params?.symbol;
+const AVATAR_COLORS = [
+  "#6366F1",
+  "#8B5CF6",
+  "#EC4899",
+  "#06B6D4",
+  "#10B981",
+  "#F59E0B",
+  "#EF4444",
+  "#3B82F6",
+];
 
-  const [searchQuery, setSearchQuery] = useState(initialSymbol ?? "");
-  const [searchedSymbol, setSearchedSymbol] = useState<string | null>(
-    initialSymbol ?? null,
-  );
-  const refreshMutation = useRefreshStocks();
-
-  // Auto-search when symbol is passed from navigation
-  useEffect(() => {
-    if (initialSymbol) {
-      setSearchQuery(initialSymbol);
-      setSearchedSymbol(initialSymbol);
-    }
-  }, [initialSymbol]);
-
-  const {
-    data: stock,
-    isLoading,
-    refetch,
-    isError,
-  } = useStock(searchedSymbol ?? "");
-
-  const handleSearch = () => {
-    const symbol = searchQuery.trim().toUpperCase();
-    if (symbol) {
-      setSearchedSymbol(symbol);
-    }
-  };
-
-  const handleRefresh = async () => {
-    if (searchedSymbol) {
-      await refreshMutation.mutateAsync([searchedSymbol]);
-      await refetch();
-    }
-  };
-
-  const handleBuy = () => {
-    if (searchedSymbol && stock) {
-      navigation.navigate("AddTransaction", {
-        symbol: searchedSymbol,
-        currentPrice: stock.currentPrice,
-        type: "BUY",
-      });
-    }
-  };
-
-  const handleSell = () => {
-    if (searchedSymbol && stock) {
-      navigation.navigate("AddTransaction", {
-        symbol: searchedSymbol,
-        currentPrice: stock.currentPrice,
-        type: "SELL",
-      });
-    }
-  };
-
-  const dayChange = stock ? stock.currentPrice - stock.previousClose : 0;
-
+function LetterAvatar({ text, size = 44 }: { text: string; size?: number }) {
+  const color = AVATAR_COLORS[text.charCodeAt(0) % AVATAR_COLORS.length];
   return (
-    <SafeAreaView style={theme.screen} edges={["top"]}>
-      <LinearGradient
-        colors={["rgba(41, 255, 232, 0.03)", "transparent"]}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.3 }}
-      />
-      <ScrollView
-        style={theme.screen}
-        contentContainerStyle={[
-          theme.screenPadding,
-          { paddingBottom: spacing.xxl },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshMutation.isPending}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        <View style={theme.titleSection}>
-          <Text style={theme.title}>Search</Text>
-          <Text style={theme.subtitle}>Find PSX stocks by symbol</Text>
-        </View>
-
-        {/* Search Input */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputWrapper}>
-            <Search color={colors.textMuted} size={20} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Enter stock symbol (e.g., OGDC)"
-              placeholderTextColor={colors.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="characters"
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-            />
-          </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.searchBtn,
-              !searchQuery.trim() && styles.searchBtnDisabled,
-              pressed && { opacity: 0.8 },
-            ]}
-            onPress={handleSearch}
-            disabled={!searchQuery.trim()}
-          >
-            <Text style={styles.searchBtnText}>Search</Text>
-          </Pressable>
-        </View>
-
-        {/* Loading State */}
-        {isLoading && searchedSymbol && (
-          <View style={styles.card}>
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={colors.primary} size="large" />
-              <Text style={styles.loadingText}>
-                Fetching data for {searchedSymbol}...
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Error State */}
-        {isError && searchedSymbol && !isLoading && (
-          <View style={styles.card}>
-            <View style={styles.errorContainer}>
-              <View style={styles.errorIcon}>
-                <Search color={colors.danger} size={24} />
-              </View>
-              <Text style={styles.errorTitle}>Stock Not Found</Text>
-              <Text style={styles.errorText}>
-                Could not find data for "{searchedSymbol}". Please check the
-                symbol and try again.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Stock Data */}
-        {stock && !isLoading && (
-          <>
-            {/* Main Stock Card */}
-            <View style={styles.cardWrapper}>
-              <LinearGradient
-                colors={
-                  dayChange >= 0
-                    ? ["rgba(16, 185, 129, 0.1)", "transparent"]
-                    : ["rgba(239, 68, 68, 0.1)", "transparent"]
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.card}>
-                <View style={[theme.rowBetween, { marginBottom: spacing.md }]}>
-                  <View style={[theme.row, { flex: 1 }]}>
-                    {stock.logoUrl && (
-                      <Image
-                        source={{ uri: stock.logoUrl }}
-                        style={styles.logo}
-                        resizeMode="contain"
-                      />
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.stockName} numberOfLines={1}>
-                        {stock.name}
-                      </Text>
-                      <View style={theme.row}>
-                        <Text style={styles.stockSymbol}>{stock.symbol}</Text>
-                        {stock.isShariahCompliant && (
-                          <View style={styles.shariahBadge}>
-                            <Text style={styles.shariahText}>Shariah</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                  <Pressable
-                    onPress={handleRefresh}
-                    disabled={refreshMutation.isPending}
-                    style={({ pressed }) => [
-                      styles.refreshBtn,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <RefreshCw
-                      color={colors.textMuted}
-                      size={18}
-                      style={
-                        refreshMutation.isPending ? { opacity: 0.5 } : undefined
-                      }
-                    />
-                  </Pressable>
-                </View>
-
-                {/* Price */}
-                <Text style={styles.priceLarge}>
-                  <Text style={styles.currencyPrefix}>PKR </Text>
-                  {stock.currentPrice.toFixed(2)}
-                </Text>
-
-                <View
-                  style={[
-                    theme.row,
-                    { marginTop: spacing.sm, gap: spacing.sm },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.changeBadge,
-                      dayChange >= 0
-                        ? styles.changeBadgePositive
-                        : styles.changeBadgeNegative,
-                    ]}
-                  >
-                    {dayChange >= 0 ? (
-                      <ArrowUp color={colors.success} size={14} />
-                    ) : (
-                      <ArrowDown color={colors.danger} size={14} />
-                    )}
-                    <Text
-                      style={[
-                        styles.changeText,
-                        dayChange >= 0
-                          ? { color: colors.success }
-                          : { color: colors.danger },
-                      ]}
-                    >
-                      {dayChange >= 0 ? "+" : ""}
-                      {dayChange.toFixed(2)} (
-                      {stock.changePercent >= 0 ? "+" : ""}
-                      {stock.changePercent.toFixed(2)}%)
-                    </Text>
-                  </View>
-                  {stock.lastUpdated && (
-                    <Text style={styles.updateTime}>
-                      {new Date(stock.lastUpdated).toLocaleTimeString()}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* Buy/Sell Buttons */}
-            <View style={styles.actionButtons}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.buyBtn,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={handleBuy}
-              >
-                <TrendingUp color="#fff" size={18} />
-                <Text style={styles.actionBtnText}>Buy</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.sellBtn,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={handleSell}
-              >
-                <TrendingDown color="#fff" size={18} />
-                <Text style={styles.actionBtnText}>Sell</Text>
-              </Pressable>
-            </View>
-
-            {/* Key Statistics */}
-            <View style={[styles.card, { marginTop: spacing.lg }]}>
-              <Text style={styles.sectionLabel}>KEY STATISTICS</Text>
-              <View style={styles.statsGrid}>
-                <StatItem
-                  label="Previous Close"
-                  value={`PKR ${stock.previousClose.toFixed(2)}`}
-                />
-                {stock.volume > 0 && (
-                  <StatItem
-                    label="Volume"
-                    value={stock.volume.toLocaleString("en-PK")}
-                  />
-                )}
-                {stock.open && (
-                  <StatItem
-                    label="Open"
-                    value={`PKR ${stock.open.toFixed(2)}`}
-                  />
-                )}
-                {stock.high && (
-                  <StatItem
-                    label="Day High"
-                    value={`PKR ${stock.high.toFixed(2)}`}
-                  />
-                )}
-                {stock.low && (
-                  <StatItem
-                    label="Day Low"
-                    value={`PKR ${stock.low.toFixed(2)}`}
-                  />
-                )}
-                {stock.marketCap && (
-                  <StatItem
-                    label="Market Cap"
-                    value={`PKR ${(stock.marketCap / 1000000).toFixed(1)}M`}
-                  />
-                )}
-                {stock.high52Week && (
-                  <StatItem
-                    label="52W High"
-                    value={`PKR ${stock.high52Week.toFixed(2)}`}
-                  />
-                )}
-                {stock.low52Week && (
-                  <StatItem
-                    label="52W Low"
-                    value={`PKR ${stock.low52Week.toFixed(2)}`}
-                  />
-                )}
-              </View>
-              {stock.sector && (
-                <View style={styles.sectorRow}>
-                  <Text style={styles.sectorLabel}>Sector</Text>
-                  <Text style={styles.sectorValue}>{stock.sector}</Text>
-                </View>
-              )}
-            </View>
-
-            {stock.source && (
-              <Text style={styles.sourceText}>Data source: {stock.source}</Text>
-            )}
-          </>
-        )}
-
-        {/* Empty State */}
-        {!searchedSymbol && (
-          <View style={[styles.card, styles.emptyCard]}>
-            <View style={styles.emptyIconContainer}>
-              <Search color={colors.primary} size={28} />
-            </View>
-            <Text style={styles.emptyTitle}>Search for a Stock</Text>
-            <Text style={styles.emptyText}>
-              Enter a PSX stock symbol above to view its details and add it to
-              your portfolio.
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function StatItem({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statItem}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: color,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ color: "#fff", fontSize: size * 0.32, fontWeight: "700" }}>
+        {text.slice(0, 2).toUpperCase()}
+      </Text>
     </View>
   );
 }
 
+export default function SearchScreen() {
+  const navigation = useNavigation<Nav>();
+  const [query, setQuery] = useState("");
+  const [state, setState] = useState<SearchState>("idle");
+  const { data: wishlistItems, isLoading: wishlistLoading } = useWishlist();
+
+  const isSearching = query.trim().length > 0;
+
+  const handleSearch = async () => {
+    const symbol = query.trim().toUpperCase();
+    if (!symbol) return;
+    setState("loading");
+    try {
+      const stock = await getStock(symbol);
+      if (stock) {
+        setState("idle");
+        navigation.navigate("StockDetail", { symbol: stock.symbol });
+      } else {
+        setState("not_found");
+      }
+    } catch {
+      setState("error");
+    }
+  };
+
+  const handleChangeText = (text: string) => {
+    setQuery(text);
+    if (state !== "idle") setState("idle");
+  };
+
+  return (
+    <SafeAreaView style={styles.screen} edges={["top"]}>
+      {/* Fixed top: title + search row */}
+      <View style={styles.topSection}>
+        <Text style={styles.title}>Search</Text>
+        <View style={styles.inputRow}>
+          <View
+            style={[
+              styles.inputWrap,
+              (state === "not_found" || state === "error") && styles.inputError,
+            ]}
+          >
+            <Search size={18} color={colors.textMuted} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter PSX symbol…"
+              placeholderTextColor={colors.textMuted}
+              value={query}
+              onChangeText={handleChangeText}
+              autoCapitalize="characters"
+              returnKeyType="search"
+              onSubmitEditing={handleSearch}
+              editable={state !== "loading"}
+            />
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.searchBtn,
+              (state === "loading" || query.trim().length === 0) &&
+                styles.searchBtnDisabled,
+            ]}
+            onPress={handleSearch}
+            activeOpacity={0.8}
+            disabled={state === "loading" || query.trim().length === 0}
+          >
+            {state === "loading" ? (
+              <ActivityIndicator color={colors.textInverse} size="small" />
+            ) : (
+              <Text style={styles.searchBtnText}>Go</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Inline feedback */}
+        {state === "not_found" && (
+          <View style={styles.feedback}>
+            <AlertCircle size={15} color={colors.danger} />
+            <Text style={styles.feedbackText}>
+              No stock found for &ldquo;{query.trim().toUpperCase()}&rdquo;
+            </Text>
+          </View>
+        )}
+        {state === "error" && (
+          <View style={styles.feedback}>
+            <AlertCircle size={15} color={colors.danger} />
+            <Text style={styles.feedbackText}>
+              Network error — check your connection
+            </Text>
+          </View>
+        )}
+        {state === "loading" && (
+          <Text style={styles.loadingHint}>
+            Looking up {query.trim().toUpperCase()}…
+          </Text>
+        )}
+      </View>
+
+      {/* Watchlist — shown when not actively searching */}
+      {!isSearching && (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: TAB_BAR_HEIGHT + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.sectionHeader}>
+            <Heart size={15} color={colors.secondary} fill={colors.secondary} />
+            <Text style={styles.sectionTitle}>Watchlist</Text>
+          </View>
+
+          {wishlistLoading ? (
+            <ActivityIndicator
+              color={colors.secondary}
+              style={{ marginTop: 32 }}
+            />
+          ) : !wishlistItems || wishlistItems.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>Nothing saved yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Tap the <Text style={{ color: colors.danger }}>♥</Text> on any
+                stock detail page to add it here
+              </Text>
+            </View>
+          ) : (
+            wishlistItems.map((item) => {
+              const stock = item.stock;
+              if (!stock) return null;
+              const changePct = stock.changePercent ?? 0;
+              const isUp = changePct >= 0;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.stockRow}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate("StockDetail", {
+                      symbol: stock.symbol,
+                    })
+                  }
+                >
+                  {stock.logoUrl ? (
+                    <Image
+                      source={{ uri: stock.logoUrl }}
+                      style={styles.stockLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <LetterAvatar text={stock.symbol} size={44} />
+                  )}
+                  <View style={styles.stockMeta}>
+                    <Text style={styles.stockSymbol}>{stock.symbol}</Text>
+                    <Text style={styles.stockName} numberOfLines={1}>
+                      {stock.name}
+                    </Text>
+                  </View>
+                  <View style={styles.stockRight}>
+                    <Text style={styles.stockPrice}>
+                      PKR{" "}
+                      {stock.currentPrice.toLocaleString("en-PK", {
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                    <View
+                      style={[
+                        styles.changeChip,
+                        {
+                          backgroundColor: isUp
+                            ? "rgba(34,197,94,0.12)"
+                            : "rgba(239,68,68,0.12)",
+                        },
+                      ]}
+                    >
+                      {isUp ? (
+                        <TrendingUp size={11} color="#22C55E" />
+                      ) : (
+                        <TrendingDown size={11} color={colors.danger} />
+                      )}
+                      <Text
+                        style={[
+                          styles.changeText,
+                          { color: isUp ? "#22C55E" : colors.danger },
+                        ]}
+                      >
+                        {isUp ? "+" : ""}
+                        {changePct.toFixed(2)}%
+                      </Text>
+                    </View>
+                  </View>
+                  <ChevronRight size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
-  searchContainer: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+  screen: { flex: 1, backgroundColor: colors.background },
+  topSection: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 12,
   },
-  searchInputWrapper: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    marginLeft: spacing.sm,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  searchBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 48,
-  },
-  searchBtnDisabled: {
-    opacity: 0.4,
-  },
-  searchBtnText: {
-    color: colors.textInverse,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
-  },
-  cardWrapper: {
-    borderRadius: borderRadius.xl,
-    overflow: "hidden",
-    marginTop: spacing.lg,
-  },
-  loadingContainer: {
-    alignItems: "center",
-    paddingVertical: spacing.xxl,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginTop: spacing.md,
-  },
-  errorContainer: {
-    alignItems: "center",
-    paddingVertical: spacing.xl,
-  },
-  errorIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.dangerMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.danger,
-    marginBottom: spacing.sm,
-  },
-  errorText: {
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  logo: {
-    width: 52,
-    height: 52,
-    borderRadius: borderRadius.lg,
-    marginRight: spacing.md,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  stockName: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  stockSymbol: {
-    fontSize: 24,
+  title: {
+    fontSize: 28,
     fontWeight: "800",
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
-  shariahBadge: {
-    marginLeft: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.successMuted,
+  inputRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "stretch",
   },
-  shariahText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.success,
-  },
-  refreshBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+  inputWrap: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.card,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: 14,
+    gap: 10,
+    height: 50,
   },
-  priceLarge: {
-    fontSize: 36,
-    fontWeight: "800",
+  inputError: {
+    borderColor: colors.danger,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
     color: colors.textPrimary,
-    letterSpacing: -1,
-  },
-  currencyPrefix: {
-    fontSize: 18,
     fontWeight: "600",
-    color: colors.textSecondary,
+    letterSpacing: 0.5,
+    height: "100%",
   },
-  changeBadge: {
+  searchBtn: {
+    height: 50,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    backgroundColor: colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 64,
+  },
+  searchBtnDisabled: { opacity: 0.45 },
+  searchBtnText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.textInverse,
+  },
+  feedback: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    gap: 4,
+    gap: 7,
+    paddingHorizontal: 4,
   },
-  changeBadgePositive: {
-    backgroundColor: colors.successMuted,
-  },
-  changeBadgeNegative: {
-    backgroundColor: colors.dangerMuted,
-  },
-  changeText: {
+  feedbackText: {
     fontSize: 13,
-    fontWeight: "600",
+    color: colors.danger,
   },
-  updateTime: {
-    fontSize: 11,
-    color: colors.textMuted,
+  loadingHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    paddingHorizontal: 4,
   },
-  actionButtons: {
-    flexDirection: "row",
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  buyBtn: {
-    flex: 1,
+  // Watchlist list
+  scroll: { paddingHorizontal: 20 },
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.success,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
+    gap: 7,
+    marginTop: 20,
+    marginBottom: 4,
   },
-  sellBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.danger,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
-  },
-  actionBtnText: {
-    color: "#fff",
+  sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: spacing.md,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -spacing.xs,
-  },
-  statItem: {
-    width: "50%",
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: colors.textMuted,
-    marginBottom: 2,
-  },
-  statValue: {
-    fontSize: 15,
-    fontWeight: "600",
     color: colors.textPrimary,
   },
-  sectorRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-    marginTop: spacing.xs,
-  },
-  sectorLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: colors.textMuted,
-    marginBottom: 2,
-  },
-  sectorValue: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  sourceText: {
-    marginTop: spacing.lg,
-    textAlign: "center",
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  emptyCard: {
+  emptyWrap: {
+    paddingTop: 48,
     alignItems: "center",
-    paddingVertical: spacing.xxl,
-  },
-  emptyIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primaryMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.lg,
+    gap: 8,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
-  emptyText: {
+  emptySubtitle: {
     fontSize: 14,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
-    paddingHorizontal: spacing.lg,
   },
+  stockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 12,
+  },
+  stockLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+  },
+  stockMeta: { flex: 1, gap: 3 },
+  stockSymbol: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
+  stockName: { fontSize: 12, color: colors.textSecondary },
+  stockRight: { alignItems: "flex-end", gap: 4 },
+  stockPrice: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  changeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  changeText: { fontSize: 11, fontWeight: "600" },
 });

@@ -5,12 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import {
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_500Medium,
-  PlayfairDisplay_600SemiBold,
-  PlayfairDisplay_700Bold,
-} from "@expo-google-fonts/playfair-display";
-import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
@@ -19,6 +13,7 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { useAuthStore } from "./src/stores/authStore";
+import { useThemeStore } from "./src/stores/themeStore";
 import { colors } from "./src/constants/theme";
 import "./global.css";
 
@@ -29,12 +24,9 @@ const queryClient = new QueryClient();
 
 export default function App() {
   const { loading, initialize } = useAuthStore();
+  const { loadSavedTheme } = useThemeStore();
 
   const [fontsLoaded] = useFonts({
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_500Medium,
-    PlayfairDisplay_600SemiBold,
-    PlayfairDisplay_700Bold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -43,7 +35,8 @@ export default function App() {
 
   useEffect(() => {
     void initialize();
-  }, [initialize]);
+    void loadSavedTheme();
+  }, [initialize, loadSavedTheme]);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded && !loading) {
@@ -60,7 +53,7 @@ export default function App() {
   if (!fontsLoaded || loading) {
     return (
       <View style={styles.loadingRoot}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.secondary} />
       </View>
     );
   }

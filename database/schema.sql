@@ -19,10 +19,20 @@ CREATE TABLE IF NOT EXISTS stocks (
   market_cap BIGINT,
   high_52week DECIMAL(12, 2),
   low_52week DECIMAL(12, 2),
+  day_high DECIMAL(12, 2),
+  day_low DECIMAL(12, 2),
+  logo_url TEXT,
+  is_shariah_compliant BOOLEAN DEFAULT FALSE,
   last_updated TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Migration: run this if the table already exists
+-- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS day_high DECIMAL(12, 2);
+-- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS day_low DECIMAL(12, 2);
+-- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS logo_url TEXT;
+-- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS is_shariah_compliant BOOLEAN DEFAULT FALSE;
 
 -- ==========================================
 -- PORTFOLIO HOLDINGS - User's stock holdings
@@ -117,17 +127,22 @@ ALTER TABLE wishlist ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
 
--- Stocks table - public read access
+-- Stocks table - public read/write access
+-- GRANTs are required in addition to RLS policies; without them Supabase
+-- returns 403 before RLS is even evaluated.
+GRANT SELECT, INSERT, UPDATE ON TABLE public.stocks TO anon;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.stocks TO authenticated;
+
 DROP POLICY IF EXISTS "Anyone can view stocks" ON stocks;
 CREATE POLICY "Anyone can view stocks" ON stocks 
   FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Service can insert stocks" ON stocks;
-CREATE POLICY "Service can insert stocks" ON stocks 
+DROP POLICY IF EXISTS "Anyone can insert stocks" ON stocks;
+CREATE POLICY "Anyone can insert stocks" ON stocks 
   FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Service can update stocks" ON stocks;
-CREATE POLICY "Service can update stocks" ON stocks 
+DROP POLICY IF EXISTS "Anyone can update stocks" ON stocks;
+CREATE POLICY "Anyone can update stocks" ON stocks 
   FOR UPDATE USING (true);
 
 -- Portfolio Holdings - users can only access their own data
