@@ -7,7 +7,7 @@ module.exports = {
     icon: "./assets/icon.png",
     userInterfaceStyle: "dark",
     splash: {
-      image: "./assets/splash.png",
+      image: "./assets/splash-icon.png",
       resizeMode: "contain",
       backgroundColor: "#0A0A0A",
     },
@@ -17,7 +17,7 @@ module.exports = {
     android: {
       package: "com.equinox.psx",
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
+        foregroundImage: "./assets/android-icon-foreground.png",
         backgroundColor: "#0A0A0A",
       },
       permissions: ["INTERNET"],
@@ -32,7 +32,7 @@ module.exports = {
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       vercelApiUrl: process.env.EXPO_PUBLIC_VERCEL_API_URL,
       eas: {
-        projectId: "your-project-id-from-eas",
+        projectId: "c1bcaf90-eff0-416e-9ab0-7101fa63c7a2",
       },
     },
   },
