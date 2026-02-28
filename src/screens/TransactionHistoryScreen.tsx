@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -49,41 +50,78 @@ export default function TransactionHistoryScreen() {
   const [editDate, setEditDate] = useState<Date>(new Date());
   const [editNotes, setEditNotes] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const openEditModal = (tx: Transaction) => {
     setEditTx(tx);
     setEditQuantity(String(tx.quantity));
     setEditPrice(String(tx.pricePerShare));
-    setEditDate(new Date(tx.transactionDate));
+    // Parse date string "YYYY-MM-DD" without timezone issues
+    const parts = tx.transactionDate.split("-");
+    setEditDate(
+      new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])),
+    );
     setEditNotes(tx.notes || "");
+    setEditError("");
   };
 
   const closeEditModal = () => {
     setEditTx(null);
     setShowDatePicker(false);
+    setEditError("");
   };
 
   const handleSaveEdit = async () => {
     if (!editTx) return;
     const qty = parseFloat(editQuantity) || 0;
     const price = parseFloat(editPrice) || 0;
-    if (qty <= 0 || price <= 0) return;
+    if (qty <= 0 || price <= 0) {
+      setEditError("Quantity and price must be greater than 0");
+      return;
+    }
 
-    await updateTransaction.mutateAsync({
-      id: editTx.id,
-      quantity: qty,
-      pricePerShare: price,
-      totalAmount: qty * price,
-      transactionDate: editDate.toISOString().slice(0, 10),
-      notes: editNotes.trim() || null,
-    });
-    closeEditModal();
+    setEditLoading(true);
+    setEditError("");
+
+    try {
+      // Format date as YYYY-MM-DD without timezone issues
+      const year = editDate.getFullYear();
+      const month = String(editDate.getMonth() + 1).padStart(2, "0");
+      const day = String(editDate.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+
+      await updateTransaction.mutateAsync({
+        id: editTx.id,
+        quantity: qty,
+        pricePerShare: price,
+        totalAmount: qty * price,
+        transactionDate: dateStr,
+        notes: editNotes.trim() || null,
+      });
+      closeEditModal();
+    } catch (error) {
+      console.error("Error saving transaction:", error);
+      setEditError("Failed to save changes. Please try again.");
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const handleDelete = async () => {
     if (!editTx) return;
-    await deleteTransaction.mutateAsync(editTx.id);
-    closeEditModal();
+    setEditLoading(true);
+    setEditError("");
+
+    try {
+      await deleteTransaction.mutateAsync(editTx.id);
+      closeEditModal();
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      setEditError("Failed to delete transaction. Please try again.");
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const displayTx = useMemo(() => {
@@ -380,20 +418,50 @@ export default function TransactionHistoryScreen() {
                   </Text>
                 </View>
 
+                {!!editError && (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{editError}</Text>
+                  </View>
+                )}
+
                 <View style={styles.modalActions}>
                   <TouchableOpacity
-                    style={styles.deleteBtn}
+                    style={[
+                      styles.deleteBtn,
+                      editLoading && styles.btnDisabled,
+                    ]}
                     onPress={handleDelete}
+                    disabled={editLoading}
                   >
-                    <Trash2 size={18} color={colors.danger} />
-                    <Text style={styles.deleteBtnText}>Delete</Text>
+                    <Trash2
+                      size={18}
+                      color={editLoading ? colors.textMuted : colors.danger}
+                    />
+                    <Text
+                      style={[
+                        styles.deleteBtnText,
+                        editLoading && styles.btnTextDisabled,
+                      ]}
+                    >
+                      Delete
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.saveBtn}
+                    style={[styles.saveBtn, editLoading && styles.btnDisabled]}
                     onPress={handleSaveEdit}
+                    disabled={editLoading}
                   >
-                    <Edit3 size={18} color={colors.background} />
-                    <Text style={styles.saveBtnText}>Save Changes</Text>
+                    {editLoading ? (
+                      <ActivityIndicator
+                        color={colors.background}
+                        size="small"
+                      />
+                    ) : (
+                      <>
+                        <Edit3 size={18} color={colors.background} />
+                        <Text style={styles.saveBtnText}>Save Changes</Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -666,6 +734,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.danger,
   },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  btnTextDisabled: {
+    color: colors.textMuted,
+  },
   saveBtn: {
     flex: 2,
     flexDirection: "row",
@@ -680,5 +754,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: colors.background,
+  },
+  errorBox: {
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 13,
+    color: colors.danger,
+    fontWeight: "500",
   },
 });
