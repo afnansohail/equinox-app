@@ -28,7 +28,7 @@ import { useRefreshStocks } from "../hooks/useStocks";
 import { useAuthStore } from "../stores/authStore";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
-import type { Transaction } from "../services/api";
+import type { Transaction, PortfolioHolding } from "../services/api";
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Dashboard">,
@@ -80,10 +80,11 @@ function getFilterStartDate(filter: FilterPeriod): Date | null {
 
 type ChartPoint = { value: number; label?: string };
 
-function buildChartFromTransactions(
+function buildPortfolioValueChart(
   transactions: Transaction[] | undefined,
+  holdings: PortfolioHolding[] | undefined,
   totalValue: number,
-  filter: FilterPeriod = "ALL",
+  filter: FilterPeriod = "1D",
   previousCloseValue: number = 0,
 ): ChartPoint[] {
   const today = new Date().toISOString().slice(0, 10);
@@ -170,6 +171,7 @@ export default function DashboardScreen() {
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
   const [chartFilter, setChartFilter] = useState<FilterPeriod>("1D");
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -208,12 +210,17 @@ export default function DashboardScreen() {
       return s + prev * h.quantity;
     }, 0) ?? 0;
 
-  const chartData = buildChartFromTransactions(
-    transactions,
-    totalValue,
-    chartFilter,
-    previousCloseValue,
-  );
+  // Load chart data
+  React.useEffect(() => {
+    const data = buildPortfolioValueChart(
+      transactions,
+      holdings,
+      totalValue,
+      chartFilter,
+      previousCloseValue,
+    );
+    setChartData(data);
+  }, [transactions, holdings, totalValue, chartFilter, previousCloseValue]);
 
   const displayName = getDisplayName();
   const avatarLetter = displayName[0]?.toUpperCase() ?? "U";

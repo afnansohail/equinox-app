@@ -801,3 +801,72 @@ export async function deleteAllUserData(
 
   return { error: null };
 }
+
+/**
+ * Stores a price snapshot only if the price has changed from last stored.
+ * Returns true if price was stored, false if unchanged.
+ */
+export async function storePriceIfChanged(
+  symbol: string,
+  newPrice: number,
+): Promise<boolean> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  try {
+    // Check if we already have a snapshot for today
+    const { data: existing } = await supabase
+      .from("stock_prices_history")
+      .select("close")
+      .eq("stock_symbol", symbol)
+      .eq("date", today)
+      .single();
+
+    // If same price, don't store
+    if (existing && existing.close === newPrice) {
+      return false;
+    }
+
+    // Store the new price
+    await supabase.from("stock_prices_history").upsert(
+      {
+        stock_symbol: symbol,
+        date: today,
+        close: newPrice,
+      },
+      { onConflict: "stock_symbol,date" },
+    );
+    return true;
+  } catch (error) {
+    console.error("Error storing price snapshot", error);
+    return false;
+  }
+}
+
+export interface HistoricalPrice {
+  date: string;
+  close: number;
+}
+
+/**
+ * Fetches historical closing prices for a symbol.
+ * Returns data from the earliest available date to today.
+ */
+export async function getHistoricalPrices(
+  symbol: string,
+): Promise<HistoricalPrice[]> {
+  const { data, error } = await supabase
+    .from("stock_prices_history")
+    .select("date, close")
+    .eq("stock_symbol", symbol)
+    .order("date", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching historical prices", error);
+    return [];
+  }
+
+  return (data || []).map((row) => ({
+    date: row.date,
+    close: row.close,
+  }));
+}
