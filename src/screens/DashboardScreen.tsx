@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -39,16 +40,60 @@ function fmtLabel(dateStr: string): string {
   return d.toLocaleDateString("en-PK", { month: "short", day: "numeric" });
 }
 
-type ChartPoint = { value: number; label?: string; dataPointText?: string };
+type FilterPeriod = "1D" | "1W" | "1M" | "1Y" | "5Y" | "YTD" | "ALL";
+const FILTER_OPTIONS: FilterPeriod[] = ["1D", "1W", "1M", "YTD", "1Y", "ALL"];
+
+function getFilterStartDate(filter: FilterPeriod): Date | null {
+  const now = new Date();
+  switch (filter) {
+    case "1D": {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 1);
+      return d;
+    }
+    case "1W": {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      return d;
+    }
+    case "1M": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 1);
+      return d;
+    }
+    case "1Y": {
+      const d = new Date(now);
+      d.setFullYear(d.getFullYear() - 1);
+      return d;
+    }
+    case "5Y": {
+      const d = new Date(now);
+      d.setFullYear(d.getFullYear() - 5);
+      return d;
+    }
+    case "YTD":
+      return new Date(now.getFullYear(), 0, 1);
+    default:
+      return null;
+  }
+}
+
+type ChartPoint = { value: number; label?: string };
 
 function buildChartFromTransactions(
   transactions: Transaction[] | undefined,
   totalValue: number,
+  filter: FilterPeriod = "ALL",
 ): ChartPoint[] {
   const today = new Date().toISOString().slice(0, 10);
-  if (!transactions || transactions.length === 0) {
-    return [{ value: totalValue, label: fmtLabel(today) }];
-  }
+
+  // Fallback: flat line
+  const fallback = (): ChartPoint[] => [
+    { value: 0, label: fmtLabel(today) },
+    { value: Math.round(totalValue), label: fmtLabel(today) },
+  ];
+
+  if (!transactions || transactions.length === 0) return fallback();
 
   // Sort oldest → newest
   const sorted = [...transactions].sort(
@@ -57,36 +102,62 @@ function buildChartFromTransactions(
       new Date(b.transactionDate).getTime(),
   );
 
-  // Build cumulative portfolio cost basis per transaction date
-  let cumulative = 0;
-  const points: ChartPoint[] = [];
+  // Build daily cumulative cost-basis map (one final value per day)
+  const dailyMap = new Map<string, number>();
+  let running = 0;
   for (const tx of sorted) {
-    if (tx.transactionType === "BUY") cumulative += tx.totalAmount;
-    else cumulative = Math.max(0, cumulative - tx.totalAmount);
-    points.push({
-      value: Math.round(cumulative),
-      label: fmtLabel(tx.transactionDate),
-    });
+    if (tx.transactionType === "BUY") running += tx.totalAmount;
+    else running = Math.max(0, running - tx.totalAmount);
+    dailyMap.set(tx.transactionDate, Math.round(running));
+  }
+  // Today's closing value = live market value
+  dailyMap.set(today, Math.round(totalValue));
+
+  const allDates = Array.from(dailyMap.keys()).sort();
+
+  const startDate = getFilterStartDate(filter);
+  const startStr = startDate ? startDate.toISOString().slice(0, 10) : null;
+
+  // Baseline = last daily value strictly before the window
+  let baseline = 0;
+  if (startStr) {
+    for (const date of allDates) {
+      if (date < startStr) baseline = dailyMap.get(date)!;
+      else break;
+    }
   }
 
-  // Final point = today's current market value
-  if (totalValue > 0) {
-    points.push({ value: Math.round(totalValue), label: fmtLabel(today) });
+  const windowDates = startStr
+    ? allDates.filter((d) => d >= startStr)
+    : allDates;
+
+  const rawPoints: ChartPoint[] = [];
+
+  // Opening baseline point at the start of the window
+  if (startStr) {
+    rawPoints.push({ value: baseline, label: fmtLabel(startStr) });
   }
 
-  if (points.length < 2) {
-    return [{ value: 0, label: points[0]?.label }, points[0]];
+  for (const date of windowDates) {
+    const v = dailyMap.get(date)!;
+    rawPoints.push({ value: v, label: fmtLabel(date) });
   }
 
-  // Only show labels on first, last, and ~2 middle points to avoid clutter
-  const labelIdxs = new Set([0, points.length - 1]);
-  if (points.length > 4) {
-    labelIdxs.add(Math.floor(points.length / 3));
-    labelIdxs.add(Math.floor((2 * points.length) / 3));
+  if (rawPoints.length < 2) return fallback();
+
+  // Smart label selection: edges + up to 2 evenly-spaced middle points
+  const n = rawPoints.length;
+  const labelSet = new Set([0, n - 1]);
+  if (n >= 4) {
+    labelSet.add(Math.round(n / 3));
+    labelSet.add(Math.round((2 * n) / 3));
+  } else if (n === 3) {
+    labelSet.add(1);
   }
-  return points.map((p, i) => ({
-    ...p,
-    label: labelIdxs.has(i) ? p.label : undefined,
+
+  return rawPoints.map((p, i) => ({
+    value: p.value,
+    label: labelSet.has(i) ? p.label : undefined,
   }));
 }
 
@@ -97,6 +168,7 @@ export default function DashboardScreen() {
   const { data: transactions } = useTransactions();
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
+  const [chartFilter, setChartFilter] = useState<FilterPeriod>("ALL");
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -126,8 +198,15 @@ export default function DashboardScreen() {
       return s + (price - prev) * h.quantity;
     }, 0) ?? 0;
 
-  const chartData = buildChartFromTransactions(transactions, totalValue);
+  const chartData = buildChartFromTransactions(
+    transactions,
+    totalValue,
+    chartFilter,
+  );
   const chartColor = isPositive ? "#22C55E" : colors.danger;
+  // Add 15% headroom so the peak of the line is never clipped
+  const chartRawMax = Math.max(...chartData.map((p) => p.value), 1);
+  const chartMaxValue = Math.ceil(chartRawMax * 1.15);
 
   const displayName = isAnonymous
     ? "Guest"
@@ -175,7 +254,7 @@ export default function DashboardScreen() {
       >
         {/* Balance Card */}
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Portfolio balance</Text>
+          <Text style={styles.balanceLabel}>Portfolio Balance</Text>
           <Text style={styles.balanceValue}>
             PKR{" "}
             {totalValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
@@ -241,7 +320,7 @@ export default function DashboardScreen() {
                   { color: dayPnL >= 0 ? "#22C55E" : colors.danger },
                 ]}
               >
-                {dayPnL >= 0 ? "+" : ""}PKR{" "}
+                {dayPnL >= 0 ? "+" : "-"}PKR{" "}
                 {Math.abs(dayPnL).toLocaleString("en-PK", {
                   maximumFractionDigits: 0,
                 })}
@@ -252,10 +331,34 @@ export default function DashboardScreen() {
           {/* Chart */}
           {chartData.length >= 2 && (
             <View style={styles.chartWrap}>
+              {/* Filter pills */}
+              <View style={styles.filterRow}>
+                {FILTER_OPTIONS.map((f) => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[
+                      styles.filterPill,
+                      chartFilter === f && styles.filterPillActive,
+                    ]}
+                    onPress={() => setChartFilter(f)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterPillText,
+                        chartFilter === f && styles.filterPillTextActive,
+                      ]}
+                    >
+                      {f}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
               <LineChart
                 data={chartData}
-                height={110}
-                adjustToWidth
+                // screen - scroll padding (20x2) - card padding (20x2) - yAxisLabelWidth (42)
+                width={Dimensions.get("window").width - 122}
+                height={120}
+                maxValue={chartMaxValue}
                 hideDataPoints={false}
                 dataPointsColor={chartColor}
                 dataPointsRadius={3}
@@ -272,6 +375,7 @@ export default function DashboardScreen() {
                 showVerticalLines={false}
                 xAxisColor="rgba(255,255,255,0.12)"
                 yAxisColor="transparent"
+                yAxisLabelWidth={42}
                 yAxisTextStyle={{
                   color: colors.textMuted,
                   fontSize: 9,
@@ -279,13 +383,15 @@ export default function DashboardScreen() {
                 xAxisLabelTextStyle={{
                   color: colors.textMuted,
                   fontSize: 9,
+                  textAlign: "center",
                 }}
                 noOfSections={3}
                 yAxisLabelPrefix="₨"
-                initialSpacing={6}
-                endSpacing={6}
+                initialSpacing={28}
+                endSpacing={12}
+                labelsExtraHeight={20}
                 pointerConfig={{
-                  pointerStripHeight: 110,
+                  pointerStripHeight: 120,
                   pointerStripColor: "rgba(255,255,255,0.18)",
                   pointerStripWidth: 1,
                   pointerColor: chartColor,
@@ -526,8 +632,31 @@ const styles = StyleSheet.create({
   },
   chartWrap: {
     marginTop: 12,
-    marginHorizontal: -4,
-    overflow: "hidden",
+    overflow: "visible",
+  },
+  filterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  filterPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  filterPillActive: {
+    backgroundColor: "rgba(41,253,230,0.12)",
+    borderColor: "rgba(41,253,230,0.35)",
+  },
+  filterPillText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  filterPillTextActive: {
+    color: colors.secondary,
   },
   // P/L block
   pnlBlock: {

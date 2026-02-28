@@ -583,3 +583,23 @@ export async function removeFromWishlist(
 
   return true;
 }
+
+/**
+ * Deletes all user-owned data: portfolio holdings, transactions, and wishlist.
+ * Runs the three deletes in parallel for minimum latency.
+ */
+export async function deleteAllUserData(userId: string): Promise<{ error: string | null }> {
+  const [holdingsRes, txRes, wishlistRes] = await Promise.all([
+    supabase.from("portfolio_holdings").delete().eq("user_id", userId),
+    supabase.from("transactions").delete().eq("user_id", userId),
+    supabase.from("wishlist").delete().eq("user_id", userId),
+  ]);
+
+  const err = holdingsRes.error ?? txRes.error ?? wishlistRes.error;
+  if (err) {
+    console.error("Error deleting user data", err);
+    return { error: err.message };
+  }
+
+  return { error: null };
+}

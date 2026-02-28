@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft } from "lucide-react-native";
@@ -56,6 +57,11 @@ export default function SignInScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           <View style={styles.titleSection}>
+            <Image
+              source={require("../../assets/Equinox.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>Sign in to your Equinox account</Text>
           </View>
@@ -128,6 +134,11 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   titleSection: { marginBottom: 36, gap: 6 },
+  logo: {
+    width: 72,
+    height: 72,
+    marginBottom: 8,
+  },
   title: {
     fontSize: 30,
     fontWeight: "800",

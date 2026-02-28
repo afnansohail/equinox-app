@@ -15,7 +15,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ArrowLeft, Search } from "lucide-react-native";
-import { useAddTransaction } from "../hooks/usePortfolio";
+import { useAddTransaction, usePortfolio } from "../hooks/usePortfolio";
 import { getStock } from "../services/api";
 import type { RootStackParamList } from "../navigation/types";
 import { colors } from "../constants/theme";
@@ -46,6 +46,15 @@ export default function AddTransactionScreen() {
   const [symbolError, setSymbolError] = useState("");
   const totalAmount = Number(quantity) * Number(price);
 
+  // Oversell guard
+  const { data: holdings } = usePortfolio();
+  const holding = holdings?.find(
+    (h) => h.stockSymbol.toUpperCase() === symbol.toUpperCase(),
+  );
+  const availableQty = holding?.quantity ?? 0;
+  const oversell =
+    type === "SELL" && Number(quantity) > availableQty && availableQty >= 0;
+
   const lookupSymbol = async (sym: string) => {
     if (hasSymbolParam || !sym.trim()) return;
     setSymbolLoading(true);
@@ -70,7 +79,8 @@ export default function AddTransactionScreen() {
     !quantity ||
     !price ||
     Number(quantity) <= 0 ||
-    Number(price) <= 0;
+    Number(price) <= 0 ||
+    oversell;
 
   const onSubmit = async () => {
     const qty = Number(quantity);
@@ -194,18 +204,40 @@ export default function AddTransactionScreen() {
             )}
           </View>
 
+          {/* Oversell warning */}
+          {type === "SELL" && (
+            <View style={styles.holdingHint}>
+              <Text style={styles.holdingHintText}>
+                Available:{" "}
+                <Text
+                  style={{
+                    color: availableQty > 0 ? colors.secondary : colors.danger,
+                    fontWeight: "700",
+                  }}
+                >
+                  {availableQty} shares
+                </Text>
+              </Text>
+            </View>
+          )}
+
           {/* Quantity + Price Row */}
           <View style={styles.row2}>
             <View style={[styles.field, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>Quantity</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, oversell && styles.inputError]}
                 placeholder="0"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
                 value={quantity}
                 onChangeText={setQuantity}
               />
+              {oversell && (
+                <Text style={styles.symbolError}>
+                  Exceeds available ({availableQty})
+                </Text>
+              )}
             </View>
             <View style={[styles.field, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>Price per Share (PKR)</Text>
@@ -357,6 +389,18 @@ const styles = StyleSheet.create({
     color: colors.danger,
     marginTop: 2,
   },
+  holdingHint: {
+    backgroundColor: "rgba(41,253,230,0.07)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(41,253,230,0.15)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  holdingHintText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   fieldLabel: {
     fontSize: 13,
     fontWeight: "500",
@@ -374,6 +418,9 @@ const styles = StyleSheet.create({
   },
   inputLocked: {
     opacity: 0.6,
+  },
+  inputError: {
+    borderColor: colors.danger,
   },
   row2: { flexDirection: "row", gap: 12 },
   totalCard: {

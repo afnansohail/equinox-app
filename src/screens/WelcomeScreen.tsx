@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { TrendingUp } from "lucide-react-native";
 import { colors } from "../constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -34,9 +34,11 @@ export default function WelcomeScreen({ navigation }: Props) {
       <SafeAreaView style={styles.safeArea}>
         {/* Branding */}
         <View style={styles.brand}>
-          <View style={styles.logoCircle}>
-            <TrendingUp size={36} color={colors.textInverse} />
-          </View>
+          <Image
+            source={require("../../assets/Equinox.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.appName}>Equinox</Text>
           <Text style={styles.tagline}>Track your PSX portfolio</Text>
         </View>
@@ -107,13 +109,9 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   brand: { alignItems: "center", gap: 12 },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.secondary,
-    justifyContent: "center",
-    alignItems: "center",
+  logo: {
+    width: 96,
+    height: 96,
     marginBottom: 4,
   },
   appName: {

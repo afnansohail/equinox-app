@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ScrollView,
   Text,
@@ -17,11 +17,13 @@ import {
   History,
   Mail,
   LogOut,
-  User,
+  Trash2,
   Info,
   Shield,
 } from "lucide-react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../stores/authStore";
+import { deleteAllUserData } from "../services/api";
 import type { RootStackParamList } from "../navigation/types";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
@@ -56,11 +58,14 @@ function SettingsRow({
 export default function SettingsScreen() {
   const { user, isAnonymous, signOut, linkAnonymousToEmail } = useAuthStore();
   const navigation = useNavigation<Nav>();
+  const queryClient = useQueryClient();
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [linking, setLinking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleLinkAccount = async () => {
     if (!email.trim() || !password.trim()) {
@@ -95,6 +100,22 @@ export default function SettingsScreen() {
       { text: "Sign Out", style: "destructive", onPress: signOut },
     ]);
   };
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!user?.id) return;
+    setDeleting(true);
+    const { error } = await deleteAllUserData(user.id);
+    setDeleting(false);
+    setShowDeleteModal(false);
+    if (error) {
+      Alert.alert("Error", "Failed to delete data. Please try again.");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["wishlist"] });
+    Alert.alert("Done", "All your data has been deleted.");
+  }, [user?.id, queryClient]);
 
   const displayName = isAnonymous
     ? "Guest Account"
@@ -180,6 +201,33 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Danger Zone */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => setShowDeleteModal(true)}
+              activeOpacity={0.7}
+              disabled={deleting}
+            >
+              <View style={[styles.rowIcon, styles.dangerIcon]}>
+                {deleting ? (
+                  <ActivityIndicator size="small" color={colors.danger} />
+                ) : (
+                  <Trash2 size={18} color={colors.danger} />
+                )}
+              </View>
+              <Text style={[styles.rowLabel, { color: colors.danger }]}>
+                {deleting ? "Deleting..." : "Delete All Data"}
+              </Text>
+              {!deleting && (
+                <ChevronRight size={18} color={colors.danger} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Sign Out */}
         {!isAnonymous && (
           <View style={styles.section}>
@@ -194,6 +242,47 @@ export default function SettingsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !deleting && setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.deleteIconWrap}>
+              <Trash2 size={28} color={colors.danger} />
+            </View>
+            <Text style={styles.modalTitle}>Delete All Data?</Text>
+            <Text style={styles.modalSubtitle}>
+              This will permanently erase your entire portfolio, all transactions, and your watchlist.{"\n\n"}This action{" "}
+              <Text style={{ color: colors.danger, fontWeight: "700" }}>cannot be undone</Text>.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={handleConfirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.deleteBtnText}>Yes, Delete Everything</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setShowDeleteModal(false)}
+              disabled={deleting}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Link Account Modal */}
       <Modal
@@ -375,6 +464,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  dangerIcon: {
+    backgroundColor: "rgba(239,68,68,0.12)",
+  },
   rowLabel: {
     flex: 1,
     fontSize: 15,
@@ -430,4 +522,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cancelBtnText: { fontSize: 15, color: colors.textSecondary },
+  // Delete modal
+  deleteIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  deleteBtn: {
+    height: 50,
+    backgroundColor: colors.danger,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  deleteBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
 });

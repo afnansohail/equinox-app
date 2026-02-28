@@ -199,6 +199,19 @@ export default function PortfolioScreen() {
                       {h.quantity} shares · Avg PKR{" "}
                       {h.averageBuyPrice.toFixed(2)}
                     </Text>
+                    <Text style={styles.holdingPrice} numberOfLines={1}>
+                      Mkt{" "}
+                      <Text
+                        style={{ color: colors.textPrimary, fontWeight: "600" }}
+                      >
+                        PKR{" "}
+                        {price > 0
+                          ? price.toLocaleString("en-PK", {
+                              maximumFractionDigits: 2,
+                            })
+                          : "—"}
+                      </Text>
+                    </Text>
                   </View>
 
                   <View style={styles.holdingRight}>
@@ -342,6 +355,7 @@ const styles = StyleSheet.create({
   },
   shariahText: { fontSize: 10, color: "#22C55E", fontWeight: "700" },
   holdingSubtitle: { fontSize: 12, color: colors.textSecondary },
+  holdingPrice: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
   holdingRight: { alignItems: "flex-end", gap: 5 },
   holdingValue: {
     fontSize: 14,

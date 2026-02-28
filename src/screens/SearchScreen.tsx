@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -96,25 +95,20 @@ export default function SearchScreen() {
       <View style={styles.topSection}>
         <Text style={styles.title}>Search</Text>
         <View style={styles.inputRow}>
-          <View
+          <TextInput
             style={[
-              styles.inputWrap,
+              styles.input,
               (state === "not_found" || state === "error") && styles.inputError,
             ]}
-          >
-            <Search size={18} color={colors.textMuted} />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter PSX symbol…"
-              placeholderTextColor={colors.textMuted}
-              value={query}
-              onChangeText={handleChangeText}
-              autoCapitalize="characters"
-              returnKeyType="search"
-              onSubmitEditing={handleSearch}
-              editable={state !== "loading"}
-            />
-          </View>
+            placeholder="Enter PSX symbol…"
+            placeholderTextColor={colors.textMuted}
+            value={query}
+            onChangeText={handleChangeText}
+            autoCapitalize="characters"
+            returnKeyType="search"
+            onSubmitEditing={handleSearch}
+            editable={state !== "loading"}
+          />
           <TouchableOpacity
             style={[
               styles.searchBtn,
@@ -126,9 +120,9 @@ export default function SearchScreen() {
             disabled={state === "loading" || query.trim().length === 0}
           >
             {state === "loading" ? (
-              <ActivityIndicator color={colors.textInverse} size="small" />
+              <ActivityIndicator color={colors.secondary} size="small" />
             ) : (
-              <Text style={styles.searchBtnText}>Go</Text>
+              <Search size={20} color={colors.secondary} />
             )}
           </TouchableOpacity>
         </View>
@@ -277,47 +271,36 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     alignItems: "stretch",
   },
-  inputWrap: {
+  input: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
+    height: 50,
     backgroundColor: colors.card,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 14,
-    gap: 10,
-    height: 50,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    color: colors.textPrimary,
   },
   inputError: {
     borderColor: colors.danger,
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.textPrimary,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-    height: "100%",
-  },
   searchBtn: {
+    width: 50,
     height: 50,
-    paddingHorizontal: 20,
     borderRadius: 14,
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: "center",
     alignItems: "center",
-    minWidth: 64,
   },
-  searchBtnDisabled: { opacity: 0.45 },
-  searchBtnText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.textInverse,
-  },
+  searchBtnDisabled: { opacity: 0.4 },
   feedback: {
     flexDirection: "row",
     alignItems: "center",

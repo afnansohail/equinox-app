@@ -171,6 +171,10 @@ DROP POLICY IF EXISTS "Users can insert own transactions" ON transactions;
 CREATE POLICY "Users can insert own transactions" ON transactions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own transactions" ON transactions;
+CREATE POLICY "Users can delete own transactions" ON transactions
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Wishlist - users can only access their own wishlist
 DROP POLICY IF EXISTS "Users can view own wishlist" ON wishlist;
 CREATE POLICY "Users can view own wishlist" ON wishlist
