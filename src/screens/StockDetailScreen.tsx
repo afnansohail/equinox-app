@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -46,9 +47,19 @@ export default function StockDetailScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshMutation.mutateAsync([symbol]);
-    await refetch();
-    setRefreshing(false);
+    try {
+      await refreshMutation.mutateAsync([symbol]);
+      await refetch();
+    } catch (error: any) {
+      console.error("Error refreshing stock:", error);
+      Alert.alert(
+        "Refresh Failed",
+        error?.message || "Could not refresh stock data. Please try again.",
+        [{ text: "OK" }],
+      );
+    } finally {
+      setRefreshing(false);
+    }
   }, [symbol, refreshMutation, refetch]);
 
   const handleToggleWishlist = () => {

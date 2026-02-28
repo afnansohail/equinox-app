@@ -300,20 +300,73 @@ export async function getPortfolioHoldings(
     }
   }
 
-  // For any symbol with a zero/missing price, try to scrape fresh data
+  // For any symbol with a zero/missing price, try to scrape fresh data in a single batch
   const staleSymbols = symbols.filter((sym) => {
     const s = stocksMap.get(sym);
     return !s || s.currentPrice <= 0;
   });
-  if (staleSymbols.length > 0) {
-    await Promise.all(staleSymbols.map((sym) => getStock(sym)));
-    const { data: freshData } = await supabase
-      .from("stocks")
-      .select("*")
-      .in("symbol", staleSymbols);
-    if (freshData) {
-      for (const row of freshData) {
-        stocksMap.set(row.symbol, mapDbStock(row as DbStockRow));
+  if (staleSymbols.length > 0 && vercelApiUrl) {
+    try {
+      // Make a SINGLE call to scrape all stale symbols at once
+      const response = await axios.post(
+        `${vercelApiUrl}/api/scrape-all-stocks`,
+        {
+          symbols: staleSymbols,
+        },
+      );
+      const payload = response.data as { data: any[] };
+
+      // Upsert all scraped data to the database
+      for (const stock of payload.data) {
+        await supabase.from("stocks").upsert({
+          symbol: stock.symbol,
+          name: stock.name,
+          sector: stock.sector,
+          current_price: stock.currentPrice,
+          previous_close: stock.previousClose,
+          change_percent: stock.changePercent,
+          volume: stock.volume,
+          market_cap: stock.marketCap,
+          high_52week: stock.high52Week,
+          low_52week: stock.low52Week,
+          day_high: stock.high,
+          day_low: stock.low,
+          logo_url: stock.logoUrl,
+          is_shariah_compliant: stock.isShariahCompliant,
+          last_updated: stock.lastUpdated,
+          updated_at: new Date().toISOString(),
+        });
+        // Update the local map with fresh data
+        stocksMap.set(stock.symbol, {
+          symbol: stock.symbol,
+          name: stock.name,
+          currentPrice: stock.currentPrice,
+          previousClose: stock.previousClose,
+          change: stock.change,
+          changePercent: stock.changePercent,
+          volume: stock.volume,
+          marketCap: stock.marketCap,
+          high: stock.high,
+          low: stock.low,
+          high52Week: stock.high52Week,
+          low52Week: stock.low52Week,
+          sector: stock.sector,
+          logoUrl: stock.logoUrl,
+          isShariahCompliant: stock.isShariahCompliant,
+          lastUpdated: stock.lastUpdated,
+        });
+      }
+    } catch (error) {
+      console.error("Error batch scraping stale symbols:", error);
+      // Fallback: fetch remaining stale symbols from DB anyway
+      const { data: freshData } = await supabase
+        .from("stocks")
+        .select("*")
+        .in("symbol", staleSymbols);
+      if (freshData) {
+        for (const row of freshData) {
+          stocksMap.set(row.symbol, mapDbStock(row as DbStockRow));
+        }
       }
     }
   }
@@ -332,104 +385,51 @@ export async function getPortfolioHoldings(
 export async function addTransaction(
   userId: string,
   tx: Omit<Transaction, "id">,
-): Promise<boolean> {
-  try {
-    // Guarantee a stock row exists with at least the symbol before doing anything
-    // else, so FK constraints on transactions/portfolio_holdings never fail even
-    // if the scraper is temporarily unavailable.
-    const { error: seedError } = await supabase.from("stocks").upsert(
-      {
-        symbol: tx.stockSymbol.toUpperCase(),
-        name: tx.stockSymbol.toUpperCase(),
-      },
-      { onConflict: "symbol", ignoreDuplicates: true },
+): Promise<void> {
+  // Guarantee a stock row exists with at least the symbol before doing anything
+  // else, so FK constraints on transactions/portfolio_holdings never fail even
+  // if the scraper is temporarily unavailable.
+  const { error: seedError } = await supabase.from("stocks").upsert(
+    {
+      symbol: tx.stockSymbol.toUpperCase(),
+      name: tx.stockSymbol.toUpperCase(),
+    },
+    { onConflict: "symbol", ignoreDuplicates: true },
+  );
+
+  if (seedError) {
+    // 403 = missing GRANT on stocks table in Supabase.
+    // Run the SQL in /database/schema.sql (GRANT section) in the Supabase SQL editor.
+    console.error(
+      "Cannot seed stock row — check Supabase GRANT permissions:",
+      seedError,
     );
-
-    if (seedError) {
-      // 403 = missing GRANT on stocks table in Supabase.
-      // Run the SQL in /database/schema.sql (GRANT section) in the Supabase SQL editor.
-      console.error(
-        "Cannot seed stock row — check Supabase GRANT permissions:",
-        seedError,
-      );
-      throw new Error(
-        `Cannot write stock '${tx.stockSymbol}' to DB (${seedError.code}): ${seedError.message}`,
-      );
-    }
-
-    // Now try to enrich with live price data (non-blocking — failure is OK)
-    await getStock(tx.stockSymbol).catch(() => null);
-
-    const { error: txError } = await supabase.from("transactions").insert({
-      user_id: userId,
-      stock_symbol: tx.stockSymbol,
-      transaction_type: tx.transactionType,
-      quantity: tx.quantity,
-      price_per_share: tx.pricePerShare,
-      total_amount: tx.totalAmount,
-      transaction_date: tx.transactionDate,
-      notes: tx.notes,
-    });
-
-    if (txError) throw txError;
-
-    const { data: holding } = await supabase
-      .from("portfolio_holdings")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("stock_symbol", tx.stockSymbol)
-      .maybeSingle<any>();
-
-    if (tx.transactionType === "BUY") {
-      if (holding) {
-        const newQuantity = holding.quantity + tx.quantity;
-        // Derive current invested from stored fields (avoids dependency on potentially broken total_invested column)
-        const existingInvested =
-          Number(holding.quantity) * Number(holding.average_buy_price);
-        const newTotalInvested = existingInvested + tx.totalAmount;
-        const newAvgPrice = newTotalInvested / newQuantity;
-
-        await supabase
-          .from("portfolio_holdings")
-          .update({
-            quantity: newQuantity,
-            average_buy_price: newAvgPrice,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", holding.id);
-      } else {
-        await supabase.from("portfolio_holdings").insert({
-          user_id: userId,
-          stock_symbol: tx.stockSymbol,
-          quantity: tx.quantity,
-          average_buy_price: tx.pricePerShare,
-        });
-      }
-    } else {
-      if (holding) {
-        const newQuantity = holding.quantity - tx.quantity;
-        if (newQuantity > 0) {
-          await supabase
-            .from("portfolio_holdings")
-            .update({
-              quantity: newQuantity,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", holding.id);
-        } else {
-          await supabase
-            .from("portfolio_holdings")
-            .delete()
-            .eq("id", holding.id);
-        }
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error adding transaction", error);
-    return false;
+    throw new Error(
+      `Cannot write stock '${tx.stockSymbol}' to DB (${seedError.code}): ${seedError.message}`,
+    );
   }
+
+  // Now try to enrich with live price data (non-blocking — failure is OK)
+  await getStock(tx.stockSymbol).catch(() => null);
+
+  const { error: txError } = await supabase.from("transactions").insert({
+    user_id: userId,
+    stock_symbol: tx.stockSymbol,
+    transaction_type: tx.transactionType,
+    quantity: tx.quantity,
+    price_per_share: tx.pricePerShare,
+    total_amount: tx.totalAmount,
+    transaction_date: tx.transactionDate,
+    notes: tx.notes,
+  });
+
+  if (txError) {
+    console.error("Error inserting transaction", txError);
+    throw new Error(`Failed to add transaction: ${txError.message}`);
+  }
+
+  // Portfolio holdings are now updated via database trigger (recalc_portfolio_holding)
+  // No client-side calculation needed
 }
 
 export async function updateTransaction(
@@ -444,221 +444,75 @@ export async function updateTransaction(
       notes: string | null;
     }
   >,
-): Promise<boolean> {
-  try {
-    const { data: existingTx, error: fetchError } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", userId)
-      .single<any>();
+): Promise<void> {
+  const { data: existingTx, error: fetchError } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single<any>();
 
-    if (fetchError || !existingTx)
-      throw new Error("Transaction not found or unauthorized");
-
-    // Build the update payload for the transaction
-    const updatePayload: any = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (updates.quantity !== undefined)
-      updatePayload.quantity = updates.quantity;
-    if (updates.pricePerShare !== undefined)
-      updatePayload.price_per_share = updates.pricePerShare;
-    if (updates.totalAmount !== undefined)
-      updatePayload.total_amount = updates.totalAmount;
-    if (updates.transactionDate !== undefined)
-      updatePayload.transaction_date = updates.transactionDate;
-    if ("notes" in updates) updatePayload.notes = updates.notes;
-
-    // Update the transaction record
-    const { error: txUpdateError } = await supabase
-      .from("transactions")
-      .update(updatePayload)
-      .eq("id", id);
-
-    if (txUpdateError) throw txUpdateError;
-
-    // Recalculate portfolio holdings based on all transactions for this stock
-    const { data: allTxs, error: txsError } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("stock_symbol", existingTx.stock_symbol)
-      .order("transaction_date", { ascending: true });
-
-    if (txsError) throw txsError;
-
-    if (allTxs && allTxs.length > 0) {
-      let totalQuantity = 0;
-      let totalInvested = 0;
-
-      for (const tx of allTxs) {
-        if (tx.transaction_type === "BUY") {
-          totalQuantity += Number(tx.quantity);
-          totalInvested += Number(tx.total_amount);
-        } else {
-          totalQuantity -= Number(tx.quantity);
-          totalInvested -= Number(tx.total_amount);
-        }
-      }
-
-      const avgPrice = totalQuantity > 0 ? totalInvested / totalQuantity : 0;
-
-      const { data: holding, error: holdingError } = await supabase
-        .from("portfolio_holdings")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("stock_symbol", existingTx.stock_symbol)
-        .maybeSingle<any>();
-
-      if (holdingError) throw holdingError;
-
-      if (totalQuantity > 0) {
-        if (holding) {
-          const { error: updateError } = await supabase
-            .from("portfolio_holdings")
-            .update({
-              quantity: totalQuantity,
-              average_buy_price: avgPrice,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", holding.id);
-
-          if (updateError) throw updateError;
-        } else {
-          const { error: insertError } = await supabase
-            .from("portfolio_holdings")
-            .insert({
-              user_id: userId,
-              stock_symbol: existingTx.stock_symbol,
-              quantity: totalQuantity,
-              average_buy_price: avgPrice,
-            });
-
-          if (insertError) throw insertError;
-        }
-      } else if (holding) {
-        const { error: deleteError } = await supabase
-          .from("portfolio_holdings")
-          .delete()
-          .eq("id", holding.id);
-
-        if (deleteError) throw deleteError;
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error updating transaction", error);
-    throw error;
+  if (fetchError || !existingTx) {
+    throw new Error("Transaction not found or unauthorized");
   }
+
+  // Build the update payload for the transaction
+  const updatePayload: any = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.quantity !== undefined) updatePayload.quantity = updates.quantity;
+  if (updates.pricePerShare !== undefined)
+    updatePayload.price_per_share = updates.pricePerShare;
+  if (updates.totalAmount !== undefined)
+    updatePayload.total_amount = updates.totalAmount;
+  if (updates.transactionDate !== undefined)
+    updatePayload.transaction_date = updates.transactionDate;
+  if ("notes" in updates) updatePayload.notes = updates.notes;
+
+  // Update the transaction record
+  const { error: txUpdateError } = await supabase
+    .from("transactions")
+    .update(updatePayload)
+    .eq("id", id);
+
+  if (txUpdateError) {
+    console.error("Error updating transaction", txUpdateError);
+    throw new Error(`Failed to update transaction: ${txUpdateError.message}`);
+  }
+
+  // Portfolio holdings are now updated via database trigger (recalc_portfolio_holding)
+  // No client-side calculation needed
 }
 
 export async function deleteTransaction(
   userId: string,
   id: string,
-): Promise<boolean> {
-  try {
-    const { data: existingTx, error: fetchError } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", userId)
-      .single<any>();
+): Promise<void> {
+  const { data: existingTx, error: fetchError } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single<any>();
 
-    if (fetchError || !existingTx)
-      throw new Error("Transaction not found or unauthorized");
-
-    // Delete the transaction
-    const { error: deleteError } = await supabase
-      .from("transactions")
-      .delete()
-      .eq("id", id);
-
-    if (deleteError) throw deleteError;
-
-    // Recalculate portfolio holdings based on remaining transactions for this stock
-    const { data: allTxs, error: txsError } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("stock_symbol", existingTx.stock_symbol)
-      .order("transaction_date", { ascending: true });
-
-    if (txsError) throw txsError;
-
-    if (!allTxs || allTxs.length === 0) {
-      // No more transactions for this stock, delete the holding
-      const { data: holding, error: holdingError } = await supabase
-        .from("portfolio_holdings")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("stock_symbol", existingTx.stock_symbol)
-        .maybeSingle<any>();
-
-      if (holdingError) throw holdingError;
-
-      if (holding) {
-        const { error: deleteHoldingError } = await supabase
-          .from("portfolio_holdings")
-          .delete()
-          .eq("id", holding.id);
-
-        if (deleteHoldingError) throw deleteHoldingError;
-      }
-    } else {
-      let totalQuantity = 0;
-      let totalInvested = 0;
-
-      for (const tx of allTxs) {
-        if (tx.transaction_type === "BUY") {
-          totalQuantity += Number(tx.quantity);
-          totalInvested += Number(tx.total_amount);
-        } else {
-          totalQuantity -= Number(tx.quantity);
-          totalInvested -= Number(tx.total_amount);
-        }
-      }
-
-      const avgPrice = totalQuantity > 0 ? totalInvested / totalQuantity : 0;
-      const { data: holding, error: holdingError } = await supabase
-        .from("portfolio_holdings")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("stock_symbol", existingTx.stock_symbol)
-        .maybeSingle<any>();
-
-      if (holdingError) throw holdingError;
-
-      if (totalQuantity > 0) {
-        if (holding) {
-          const { error: updateError } = await supabase
-            .from("portfolio_holdings")
-            .update({
-              quantity: totalQuantity,
-              average_buy_price: avgPrice,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", holding.id);
-
-          if (updateError) throw updateError;
-        }
-      } else if (holding) {
-        const { error: deleteHoldingError } = await supabase
-          .from("portfolio_holdings")
-          .delete()
-          .eq("id", holding.id);
-
-        if (deleteHoldingError) throw deleteHoldingError;
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error deleting transaction", error);
-    throw error;
+  if (fetchError || !existingTx) {
+    throw new Error("Transaction not found or unauthorized");
   }
+
+  // Delete the transaction
+  const { error: deleteError } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    console.error("Error deleting transaction", deleteError);
+    throw new Error(`Failed to delete transaction: ${deleteError.message}`);
+  }
+
+  // Portfolio holdings are now updated via database trigger (recalc_portfolio_holding)
+  // No client-side calculation needed
 }
 
 export async function getTransactions(userId: string): Promise<Transaction[]> {

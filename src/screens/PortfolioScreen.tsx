@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
-  ScrollView,
+  FlatList,
   Text,
   View,
   StyleSheet,
   TouchableOpacity,
+  RefreshControl,
+  Alert,
+  ListRenderItem,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -18,19 +21,129 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { usePortfolio } from "../hooks/usePortfolio";
+import { useRefreshStocks } from "../hooks/useStocks";
 import StockLogo from "../components/shared/StockLogo";
 import SectorPieChart from "../components/charts/SectorPieChart";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import type { PortfolioHolding } from "../services/api";
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Portfolio">,
   NativeStackNavigationProp<RootStackParamList>
 >;
 
+// Memoized holding row component for FlatList performance
+const HoldingRow = React.memo(function HoldingRow({
+  holding,
+  onPress,
+}: {
+  holding: PortfolioHolding;
+  onPress: () => void;
+}) {
+  const price = holding.stock?.currentPrice ?? 0;
+  const currentValue = price * holding.quantity;
+  const gainLoss = currentValue - holding.totalInvested;
+  const gainLossPct =
+    holding.totalInvested > 0 ? (gainLoss / holding.totalInvested) * 100 : 0;
+  const isUp = gainLoss >= 0;
+
+  return (
+    <TouchableOpacity
+      style={styles.holdingRow}
+      activeOpacity={0.7}
+      onPress={onPress}
+    >
+      <StockLogo
+        logoUrl={holding.stock?.logoUrl}
+        symbol={holding.stockSymbol}
+        size={44}
+      />
+
+      <View style={styles.holdingMeta}>
+        <View style={styles.holdingTop}>
+          <Text style={styles.holdingSymbol}>{holding.stockSymbol}</Text>
+          {holding.stock?.isShariahCompliant && (
+            <View style={styles.shariahBadge}>
+              <Text style={styles.shariahText}>S</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.holdingSubtitle} numberOfLines={1}>
+          {holding.quantity} shares · Avg PKR{" "}
+          {holding.averageBuyPrice.toFixed(2)}
+        </Text>
+        <Text style={styles.holdingPrice} numberOfLines={1}>
+          Mkt{" "}
+          <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>
+            PKR{" "}
+            {price > 0
+              ? price.toLocaleString("en-PK", { maximumFractionDigits: 2 })
+              : "—"}
+          </Text>
+        </Text>
+      </View>
+
+      <View style={styles.holdingRight}>
+        <Text style={styles.holdingValue}>
+          PKR{" "}
+          {currentValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
+        </Text>
+        <View
+          style={[
+            styles.gainChip,
+            {
+              backgroundColor: isUp
+                ? "rgba(34,197,94,0.12)"
+                : "rgba(239,68,68,0.12)",
+            },
+          ]}
+        >
+          {isUp ? (
+            <TrendingUp size={11} color="#22C55E" />
+          ) : (
+            <TrendingDown size={11} color={colors.danger} />
+          )}
+          <Text
+            style={[
+              styles.gainChipText,
+              { color: isUp ? "#22C55E" : colors.danger },
+            ]}
+          >
+            {isUp ? "+" : ""}
+            {gainLossPct.toFixed(2)}%
+          </Text>
+        </View>
+      </View>
+
+      <ChevronRight size={16} color={colors.textMuted} />
+    </TouchableOpacity>
+  );
+});
+
 export default function PortfolioScreen() {
   const navigation = useNavigation<Nav>();
-  const { data: holdings, isLoading } = usePortfolio();
+  const { data: holdings, isLoading, refetch } = usePortfolio();
+  const refreshMutation = useRefreshStocks();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const symbols = holdings?.map((h) => h.stockSymbol) ?? [];
+      if (symbols.length > 0) await refreshMutation.mutateAsync(symbols);
+      await refetch();
+    } catch (error: any) {
+      console.error("Error refreshing portfolio:", error);
+      Alert.alert(
+        "Refresh Failed",
+        error?.message || "Could not refresh portfolio. Please try again.",
+        [{ text: "OK" }],
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }, [holdings, refreshMutation, refetch]);
 
   const totalValue =
     holdings?.reduce(
@@ -42,26 +155,23 @@ export default function PortfolioScreen() {
   const totalPnLPct = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
   const isPositive = totalPnL >= 0;
 
-  return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Portfolio</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => navigation.navigate("AddTransaction", { type: "BUY" })}
-        >
-          <Plus size={20} color={colors.textInverse} />
-        </TouchableOpacity>
-      </View>
+  const renderHolding: ListRenderItem<PortfolioHolding> = useCallback(
+    ({ item }) => (
+      <HoldingRow
+        holding={item}
+        onPress={() =>
+          navigation.navigate("StockDetail", { symbol: item.stockSymbol })
+        }
+      />
+    ),
+    [navigation],
+  );
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: TAB_BAR_HEIGHT + 24 },
-        ]}
-      >
+  const keyExtractor = useCallback((item: PortfolioHolding) => item.id, []);
+
+  const ListHeader = useMemo(
+    () => (
+      <>
         {/* Summary Row */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
@@ -110,121 +220,68 @@ export default function PortfolioScreen() {
           <SectorPieChart holdings={holdings ?? []} />
         )}
 
-        {/* Holdings List */}
-        {!holdings || holdings.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No holdings yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Add your first stock to start tracking
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() =>
-                navigation.navigate("MainTabs", { screen: "Search" })
-              }
-            >
-              <Text style={styles.emptyBtnText}>Search Stocks →</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.sectionTitle}>
-              Holdings ({holdings.length})
-            </Text>
-            {holdings.map((h) => {
-              const price = h.stock?.currentPrice ?? 0;
-              const currentValue = price * h.quantity;
-              const gainLoss = currentValue - h.totalInvested;
-              const gainLossPct =
-                h.totalInvested > 0 ? (gainLoss / h.totalInvested) * 100 : 0;
-              const isUp = gainLoss >= 0;
-
-              return (
-                <TouchableOpacity
-                  key={h.id}
-                  style={styles.holdingRow}
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    navigation.navigate("StockDetail", {
-                      symbol: h.stockSymbol,
-                    })
-                  }
-                >
-                  <StockLogo
-                    logoUrl={h.stock?.logoUrl}
-                    symbol={h.stockSymbol}
-                    size={44}
-                  />
-
-                  <View style={styles.holdingMeta}>
-                    <View style={styles.holdingTop}>
-                      <Text style={styles.holdingSymbol}>{h.stockSymbol}</Text>
-                      {h.stock?.isShariahCompliant && (
-                        <View style={styles.shariahBadge}>
-                          <Text style={styles.shariahText}>S</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.holdingSubtitle} numberOfLines={1}>
-                      {h.quantity} shares · Avg PKR{" "}
-                      {h.averageBuyPrice.toFixed(2)}
-                    </Text>
-                    <Text style={styles.holdingPrice} numberOfLines={1}>
-                      Mkt{" "}
-                      <Text
-                        style={{ color: colors.textPrimary, fontWeight: "600" }}
-                      >
-                        PKR{" "}
-                        {price > 0
-                          ? price.toLocaleString("en-PK", {
-                              maximumFractionDigits: 2,
-                            })
-                          : "—"}
-                      </Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.holdingRight}>
-                    <Text style={styles.holdingValue}>
-                      PKR{" "}
-                      {currentValue.toLocaleString("en-PK", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </Text>
-                    <View
-                      style={[
-                        styles.gainChip,
-                        {
-                          backgroundColor: isUp
-                            ? "rgba(34,197,94,0.12)"
-                            : "rgba(239,68,68,0.12)",
-                        },
-                      ]}
-                    >
-                      {isUp ? (
-                        <TrendingUp size={11} color="#22C55E" />
-                      ) : (
-                        <TrendingDown size={11} color={colors.danger} />
-                      )}
-                      <Text
-                        style={[
-                          styles.gainChipText,
-                          { color: isUp ? "#22C55E" : colors.danger },
-                        ]}
-                      >
-                        {isUp ? "+" : ""}
-                        {gainLossPct.toFixed(2)}%
-                      </Text>
-                    </View>
-                  </View>
-
-                  <ChevronRight size={16} color={colors.textMuted} />
-                </TouchableOpacity>
-              );
-            })}
-          </>
+        {/* Holdings Section Title */}
+        {holdings && holdings.length > 0 && (
+          <Text style={styles.sectionTitle}>Holdings ({holdings.length})</Text>
         )}
-      </ScrollView>
+      </>
+    ),
+    [holdings, totalValue, totalPnL, totalPnLPct, isPositive],
+  );
+
+  const EmptyList = useMemo(
+    () => (
+      <View style={styles.emptyCard}>
+        <Text style={styles.emptyTitle}>No holdings yet</Text>
+        <Text style={styles.emptySubtitle}>
+          Add your first stock to start tracking
+        </Text>
+        <TouchableOpacity
+          style={styles.emptyBtn}
+          onPress={() => navigation.navigate("MainTabs", { screen: "Search" })}
+        >
+          <Text style={styles.emptyBtnText}>Search Stocks →</Text>
+        </TouchableOpacity>
+      </View>
+    ),
+    [navigation],
+  );
+
+  return (
+    <SafeAreaView style={styles.screen} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Portfolio</Text>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => navigation.navigate("AddTransaction", { type: "BUY" })}
+        >
+          <Plus size={20} color={colors.textInverse} />
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={holdings ?? []}
+        renderItem={renderHolding}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={EmptyList}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: TAB_BAR_HEIGHT + 24 },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.secondary}
+          />
+        }
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+      />
     </SafeAreaView>
   );
 }

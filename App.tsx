@@ -23,7 +23,7 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 export default function App() {
-  const { loading, initialize } = useAuthStore();
+  const { loading, initialize, cleanup } = useAuthStore();
   const { loadSavedTheme } = useThemeStore();
 
   const [fontsLoaded] = useFonts({
@@ -36,7 +36,12 @@ export default function App() {
   useEffect(() => {
     void initialize();
     void loadSavedTheme();
-  }, [initialize, loadSavedTheme]);
+
+    // Cleanup auth subscription on unmount
+    return () => {
+      cleanup();
+    };
+  }, [initialize, loadSavedTheme, cleanup]);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded && !loading) {

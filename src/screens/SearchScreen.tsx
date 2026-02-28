@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, memo } from "react";
 import {
-  ScrollView,
+  FlatList,
   Text,
   View,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  ListRenderItemInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -19,7 +20,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react-native";
-import { getStock } from "../services/api";
+import { getStock, type WishlistItem } from "../services/api";
 import { useWishlist } from "../hooks/useWishlist";
 import StockLogo from "../components/shared/StockLogo";
 import type { RootStackParamList } from "../navigation/types";
@@ -27,6 +28,68 @@ import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type SearchState = "idle" | "loading" | "not_found" | "error";
+
+const WatchlistRow = memo(function WatchlistRow({
+  item,
+  onPress,
+}: {
+  item: WishlistItem;
+  onPress: (symbol: string) => void;
+}) {
+  const stock = item.stock;
+  if (!stock) return null;
+  const changePct = stock.changePercent ?? 0;
+  const isUp = changePct >= 0;
+  return (
+    <TouchableOpacity
+      style={styles.stockRow}
+      activeOpacity={0.7}
+      onPress={() => onPress(stock.symbol)}
+    >
+      <StockLogo logoUrl={stock.logoUrl} symbol={stock.symbol} size={44} />
+      <View style={styles.stockMeta}>
+        <Text style={styles.stockSymbol}>{stock.symbol}</Text>
+        <Text style={styles.stockName} numberOfLines={1}>
+          {stock.name}
+        </Text>
+      </View>
+      <View style={styles.stockRight}>
+        <Text style={styles.stockPrice}>
+          PKR{" "}
+          {stock.currentPrice.toLocaleString("en-PK", {
+            maximumFractionDigits: 2,
+          })}
+        </Text>
+        <View
+          style={[
+            styles.changeChip,
+            {
+              backgroundColor: isUp
+                ? "rgba(34,197,94,0.12)"
+                : "rgba(239,68,68,0.12)",
+            },
+          ]}
+        >
+          {isUp ? (
+            <TrendingUp size={11} color="#22C55E" />
+          ) : (
+            <TrendingDown size={11} color={colors.danger} />
+          )}
+          <Text
+            style={[
+              styles.changeText,
+              { color: isUp ? "#22C55E" : colors.danger },
+            ]}
+          >
+            {isUp ? "+" : ""}
+            {changePct.toFixed(2)}%
+          </Text>
+        </View>
+      </View>
+      <ChevronRight size={16} color={colors.textMuted} />
+    </TouchableOpacity>
+  );
+});
 
 export default function SearchScreen() {
   const navigation = useNavigation<Nav>();
@@ -122,99 +185,50 @@ export default function SearchScreen() {
 
       {/* Watchlist — shown when not actively searching */}
       {!isSearching && (
-        <ScrollView
+        <FlatList
+          data={wishlistItems ?? []}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }: ListRenderItemInfo<WishlistItem>) => (
+            <WatchlistRow
+              item={item}
+              onPress={(symbol) =>
+                navigation.navigate("StockDetail", { symbol })
+              }
+            />
+          )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.scroll,
             { paddingBottom: TAB_BAR_HEIGHT + 24 },
           ]}
           keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.sectionHeader}>
-            <Heart size={15} color={colors.secondary} fill={colors.secondary} />
-            <Text style={styles.sectionTitle}>Watchlist</Text>
-          </View>
-
-          {wishlistLoading ? (
-            <ActivityIndicator
-              color={colors.secondary}
-              style={{ marginTop: 32 }}
-            />
-          ) : !wishlistItems || wishlistItems.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyTitle}>Nothing saved yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Tap the <Text style={{ color: colors.danger }}>♥</Text> on any
-                stock detail page to add it here
-              </Text>
+          ListHeaderComponent={
+            <View style={styles.sectionHeader}>
+              <Heart
+                size={15}
+                color={colors.secondary}
+                fill={colors.secondary}
+              />
+              <Text style={styles.sectionTitle}>Watchlist</Text>
             </View>
-          ) : (
-            wishlistItems.map((item) => {
-              const stock = item.stock;
-              if (!stock) return null;
-              const changePct = stock.changePercent ?? 0;
-              const isUp = changePct >= 0;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.stockRow}
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    navigation.navigate("StockDetail", {
-                      symbol: stock.symbol,
-                    })
-                  }
-                >
-                  <StockLogo
-                    logoUrl={stock.logoUrl}
-                    symbol={stock.symbol}
-                    size={44}
-                  />
-                  <View style={styles.stockMeta}>
-                    <Text style={styles.stockSymbol}>{stock.symbol}</Text>
-                    <Text style={styles.stockName} numberOfLines={1}>
-                      {stock.name}
-                    </Text>
-                  </View>
-                  <View style={styles.stockRight}>
-                    <Text style={styles.stockPrice}>
-                      PKR{" "}
-                      {stock.currentPrice.toLocaleString("en-PK", {
-                        maximumFractionDigits: 2,
-                      })}
-                    </Text>
-                    <View
-                      style={[
-                        styles.changeChip,
-                        {
-                          backgroundColor: isUp
-                            ? "rgba(34,197,94,0.12)"
-                            : "rgba(239,68,68,0.12)",
-                        },
-                      ]}
-                    >
-                      {isUp ? (
-                        <TrendingUp size={11} color="#22C55E" />
-                      ) : (
-                        <TrendingDown size={11} color={colors.danger} />
-                      )}
-                      <Text
-                        style={[
-                          styles.changeText,
-                          { color: isUp ? "#22C55E" : colors.danger },
-                        ]}
-                      >
-                        {isUp ? "+" : ""}
-                        {changePct.toFixed(2)}%
-                      </Text>
-                    </View>
-                  </View>
-                  <ChevronRight size={16} color={colors.textMuted} />
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </ScrollView>
+          }
+          ListEmptyComponent={
+            wishlistLoading ? (
+              <ActivityIndicator
+                color={colors.secondary}
+                style={{ marginTop: 32 }}
+              />
+            ) : (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyTitle}>Nothing saved yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  Tap the <Text style={{ color: colors.danger }}>♥</Text> on any
+                  stock detail page to add it here
+                </Text>
+              </View>
+            )
+          }
+        />
       )}
     </SafeAreaView>
   );

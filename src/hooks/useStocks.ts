@@ -12,9 +12,10 @@ export function useStock(symbol: string) {
     queryKey: ["stock", symbol],
     queryFn: () => getStock(symbol),
     enabled: !!symbol,
-    // Always re-check DB so we never serve a cached 0-price result.
-    // getStock() handles its own 30-min scrape throttle internally.
-    staleTime: 0,
+    // getStock() handles its own 30-min scrape throttle internally,
+    // so we can cache the result for 5 minutes to avoid redundant re-fetches.
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   });
 }
 
@@ -31,6 +32,8 @@ export function useStockSearch(query: string) {
     queryKey: ["stocks", "search", query],
     queryFn: () => searchStocks(query),
     enabled: query.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 

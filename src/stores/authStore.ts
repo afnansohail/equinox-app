@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import { supabase } from "../services/supabase";
+import type { Subscription } from "@supabase/supabase-js";
+
+// Store subscription reference outside Zustand state to avoid re-renders
+let authSubscription: Subscription | null = null;
 
 interface AuthState {
   user: any | null;
@@ -8,6 +12,7 @@ interface AuthState {
   isAnonymous: boolean;
   hasCompletedOnboarding: boolean;
   initialize: () => Promise<void>;
+  cleanup: () => void;
   signInAnonymously: () => Promise<void>;
   signInWithEmail: (
     email: string,
@@ -54,7 +59,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ loading: false, hasCompletedOnboarding: false });
       }
 
-      supabase.auth.onAuthStateChange((_event, nextSession) => {
+      // Store subscription for cleanup
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, nextSession) => {
         const isAnon = nextSession?.user?.is_anonymous ?? false;
         set({
           user: nextSession?.user ?? null,
@@ -63,9 +71,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAnonymous: isAnon,
         });
       });
+      authSubscription = subscription;
     } catch (error) {
       console.error("Auth initialization error:", error);
       set({ loading: false });
+    }
+  },
+
+  cleanup: () => {
+    if (authSubscription) {
+      authSubscription.unsubscribe();
+      authSubscription = null;
     }
   },
 

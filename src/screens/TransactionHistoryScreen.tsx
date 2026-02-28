@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
+  FlatList,
   ScrollView,
   Text,
   View,
@@ -10,6 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
+  ListRenderItem,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -34,6 +36,94 @@ import type { Transaction } from "../services/api";
 
 type FilterType = "all" | "BUY" | "SELL";
 
+// Memoized transaction row component for FlatList performance
+const TransactionRow = React.memo(function TransactionRow({
+  transaction,
+  onPress,
+}: {
+  transaction: Transaction;
+  onPress: () => void;
+}) {
+  const isBuy = transaction.transactionType === "BUY";
+
+  return (
+    <TouchableOpacity
+      style={styles.txCard}
+      activeOpacity={0.7}
+      onPress={onPress}
+    >
+      <View style={styles.txLeft}>
+        <View
+          style={[
+            styles.txIconCircle,
+            {
+              backgroundColor: isBuy
+                ? "rgba(34,197,94,0.12)"
+                : "rgba(239,68,68,0.12)",
+            },
+          ]}
+        >
+          {isBuy ? (
+            <ArrowUpRight size={18} color="#22C55E" />
+          ) : (
+            <ArrowDownRight size={18} color={colors.danger} />
+          )}
+        </View>
+        <View style={styles.txMeta}>
+          <View style={styles.txTopRow}>
+            <Text style={styles.txSymbol}>{transaction.stockSymbol}</Text>
+            <View
+              style={[
+                styles.txTypeBadge,
+                {
+                  backgroundColor: isBuy
+                    ? "rgba(34,197,94,0.12)"
+                    : "rgba(239,68,68,0.12)",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.txTypeBadgeText,
+                  { color: isBuy ? "#22C55E" : colors.danger },
+                ]}
+              >
+                {transaction.transactionType}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.txDetail}>
+            {transaction.quantity} shares @ PKR{" "}
+            {transaction.pricePerShare.toFixed(2)}
+          </Text>
+          <Text style={styles.txDate}>{transaction.transactionDate}</Text>
+          {transaction.notes && (
+            <Text style={styles.txNotes} numberOfLines={1}>
+              {transaction.notes}
+            </Text>
+          )}
+        </View>
+      </View>
+      <View style={styles.txRight}>
+        <Text style={styles.txAmount}>
+          PKR{" "}
+          {transaction.totalAmount.toLocaleString("en-PK", {
+            maximumFractionDigits: 0,
+          })}
+        </Text>
+        <Text
+          style={[
+            styles.txStatus,
+            { color: isBuy ? colors.danger : "#22C55E" },
+          ]}
+        >
+          {isBuy ? "Debited" : "Credited"}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export default function TransactionHistoryScreen() {
   const navigation = useNavigation();
   const { data: transactions, isLoading } = useTransactions();
@@ -53,7 +143,7 @@ export default function TransactionHistoryScreen() {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState("");
 
-  const openEditModal = (tx: Transaction) => {
+  const openEditModal = useCallback((tx: Transaction) => {
     setEditTx(tx);
     setEditQuantity(String(tx.quantity));
     setEditPrice(String(tx.pricePerShare));
@@ -64,7 +154,7 @@ export default function TransactionHistoryScreen() {
     );
     setEditNotes(tx.notes || "");
     setEditError("");
-  };
+  }, []);
 
   const closeEditModal = () => {
     setEditTx(null);
@@ -146,6 +236,31 @@ export default function TransactionHistoryScreen() {
     return filtered;
   }, [transactions, filter, searchQuery]);
 
+  const renderTransaction: ListRenderItem<Transaction> = useCallback(
+    ({ item }) => (
+      <TransactionRow transaction={item} onPress={() => openEditModal(item)} />
+    ),
+    [openEditModal],
+  );
+
+  const keyExtractor = useCallback((item: Transaction) => item.id, []);
+
+  const emptyComponent = useMemo(
+    () => (
+      <View style={styles.empty}>
+        <Text style={styles.emptyTitle}>No transactions</Text>
+        <Text style={styles.emptySubtitle}>
+          {searchQuery
+            ? "No matching transactions found"
+            : filter !== "all"
+              ? `No ${filter === "BUY" ? "buy" : "sell"} transactions found`
+              : "Add your first transaction from a stock page"}
+        </Text>
+      </View>
+    ),
+    [searchQuery, filter],
+  );
+
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
       {/* Header */}
@@ -200,103 +315,17 @@ export default function TransactionHistoryScreen() {
         ))}
       </View>
 
-      <ScrollView
+      <FlatList
+        data={displayTx}
+        renderItem={renderTransaction}
+        keyExtractor={keyExtractor}
+        ListEmptyComponent={emptyComponent}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
-      >
-        {displayTx.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No transactions</Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery
-                ? "No matching transactions found"
-                : filter !== "all"
-                  ? `No ${filter === "BUY" ? "buy" : "sell"} transactions found`
-                  : "Add your first transaction from a stock page"}
-            </Text>
-          </View>
-        ) : (
-          displayTx.map((tx) => {
-            const isBuy = tx.transactionType === "BUY";
-            return (
-              <TouchableOpacity
-                key={tx.id}
-                style={styles.txCard}
-                activeOpacity={0.7}
-                onPress={() => openEditModal(tx)}
-              >
-                <View style={styles.txLeft}>
-                  <View
-                    style={[
-                      styles.txIconCircle,
-                      {
-                        backgroundColor: isBuy
-                          ? "rgba(34,197,94,0.12)"
-                          : "rgba(239,68,68,0.12)",
-                      },
-                    ]}
-                  >
-                    {isBuy ? (
-                      <ArrowUpRight size={18} color="#22C55E" />
-                    ) : (
-                      <ArrowDownRight size={18} color={colors.danger} />
-                    )}
-                  </View>
-                  <View style={styles.txMeta}>
-                    <View style={styles.txTopRow}>
-                      <Text style={styles.txSymbol}>{tx.stockSymbol}</Text>
-                      <View
-                        style={[
-                          styles.txTypeBadge,
-                          {
-                            backgroundColor: isBuy
-                              ? "rgba(34,197,94,0.12)"
-                              : "rgba(239,68,68,0.12)",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.txTypeBadgeText,
-                            { color: isBuy ? "#22C55E" : colors.danger },
-                          ]}
-                        >
-                          {tx.transactionType}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.txDetail}>
-                      {tx.quantity} shares @ PKR {tx.pricePerShare.toFixed(2)}
-                    </Text>
-                    <Text style={styles.txDate}>{tx.transactionDate}</Text>
-                    {tx.notes && (
-                      <Text style={styles.txNotes} numberOfLines={1}>
-                        {tx.notes}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.txRight}>
-                  <Text style={styles.txAmount}>
-                    PKR{" "}
-                    {tx.totalAmount.toLocaleString("en-PK", {
-                      maximumFractionDigits: 0,
-                    })}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.txStatus,
-                      { color: isBuy ? colors.danger : "#22C55E" },
-                    ]}
-                  >
-                    {isBuy ? "Debited" : "Credited"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+      />
 
       {/* Edit Transaction Modal */}
       <Modal

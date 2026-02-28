@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   ScrollView,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -175,40 +176,68 @@ export default function DashboardScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    const symbols = holdings?.map((h) => h.stockSymbol) ?? [];
-    if (symbols.length > 0) await refreshMutation.mutateAsync(symbols);
-    await refetch();
-    setRefreshing(false);
+    try {
+      const symbols = holdings?.map((h) => h.stockSymbol) ?? [];
+      if (symbols.length > 0) await refreshMutation.mutateAsync(symbols);
+      await refetch();
+    } catch (error: any) {
+      console.error("Error refreshing dashboard:", error);
+      Alert.alert(
+        "Refresh Failed",
+        error?.message || "Could not refresh portfolio data. Please try again.",
+        [{ text: "OK" }],
+      );
+    } finally {
+      setRefreshing(false);
+    }
   }, [holdings, refreshMutation, refetch]);
 
-  const totalValue =
-    holdings?.reduce(
-      (s, h) => s + (h.stock?.currentPrice ?? 0) * h.quantity,
-      0,
-    ) ?? 0;
-  const totalInvested = holdings?.reduce((s, h) => s + h.totalInvested, 0) ?? 0;
-  const totalPnL = totalValue - totalInvested;
-  const totalPnLPct = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
+  const totalValue = useMemo(
+    () =>
+      holdings?.reduce(
+        (s, h) => s + (h.stock?.currentPrice ?? 0) * h.quantity,
+        0,
+      ) ?? 0,
+    [holdings],
+  );
+  const totalInvested = useMemo(
+    () => holdings?.reduce((s, h) => s + h.totalInvested, 0) ?? 0,
+    [holdings],
+  );
+  const totalPnL = useMemo(
+    () => totalValue - totalInvested,
+    [totalValue, totalInvested],
+  );
+  const totalPnLPct = useMemo(
+    () => (totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0),
+    [totalPnL, totalInvested],
+  );
   const isPositive = totalPnL >= 0;
 
-  const dayPnL =
-    holdings?.reduce((s, h) => {
-      const price = h.stock?.currentPrice ?? 0;
-      const prev =
-        h.stock?.previousClose && h.stock.previousClose > 0
-          ? h.stock.previousClose
-          : price;
-      return s + (price - prev) * h.quantity;
-    }, 0) ?? 0;
+  const dayPnL = useMemo(
+    () =>
+      holdings?.reduce((s, h) => {
+        const price = h.stock?.currentPrice ?? 0;
+        const prev =
+          h.stock?.previousClose && h.stock.previousClose > 0
+            ? h.stock.previousClose
+            : price;
+        return s + (price - prev) * h.quantity;
+      }, 0) ?? 0,
+    [holdings],
+  );
 
-  const previousCloseValue =
-    holdings?.reduce((s, h) => {
-      const prev =
-        h.stock?.previousClose && h.stock.previousClose > 0
-          ? h.stock.previousClose
-          : (h.stock?.currentPrice ?? 0);
-      return s + prev * h.quantity;
-    }, 0) ?? 0;
+  const previousCloseValue = useMemo(
+    () =>
+      holdings?.reduce((s, h) => {
+        const prev =
+          h.stock?.previousClose && h.stock.previousClose > 0
+            ? h.stock.previousClose
+            : (h.stock?.currentPrice ?? 0);
+        return s + prev * h.quantity;
+      }, 0) ?? 0,
+    [holdings],
+  );
 
   // Load chart data
   React.useEffect(() => {

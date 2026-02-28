@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Keyboard,
   TouchableWithoutFeedback,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -174,8 +175,13 @@ export default function AddTransactionScreen() {
         } as any);
       }
       navigation.goBack();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting transactions:", error);
+      Alert.alert(
+        "Transaction Failed",
+        error?.message || "Failed to save transaction. Please try again.",
+        [{ text: "OK" }],
+      );
     } finally {
       setSubmitting(false);
     }
