@@ -1,6 +1,5 @@
 import React from "react";
 import { ActivityIndicator, View, Platform } from "react-native";
-import { BlurView } from "expo-blur";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -80,9 +79,8 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarBackground: () => <BlurView intensity={80} style={{ flex: 1 }} />,
         tabBarStyle: {
-          backgroundColor: "rgba(12, 12, 12, 0.5)",
+          backgroundColor: "#0e0e0e",
           borderTopColor: "rgba(255,255,255,0.08)",
           borderTopWidth: 1,
           height: Platform.OS === "ios" ? 84 : 70 + bottomPadding,

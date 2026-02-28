@@ -84,6 +84,7 @@ function buildChartFromTransactions(
   transactions: Transaction[] | undefined,
   totalValue: number,
   filter: FilterPeriod = "ALL",
+  previousCloseValue: number = 0,
 ): ChartPoint[] {
   const today = new Date().toISOString().slice(0, 10);
 
@@ -116,7 +117,7 @@ function buildChartFromTransactions(
   const startStr = startDate ? startDate.toISOString().slice(0, 10) : null;
 
   // Baseline = last daily value strictly before the window
-  let baseline = 0;
+  let baseline = previousCloseValue; // Default to previous close if no prior transactions
   if (startStr) {
     for (const date of allDates) {
       if (date < startStr) baseline = dailyMap.get(date)!;
@@ -168,7 +169,7 @@ export default function DashboardScreen() {
   const { data: transactions } = useTransactions();
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
-  const [chartFilter, setChartFilter] = useState<FilterPeriod>("ALL");
+  const [chartFilter, setChartFilter] = useState<FilterPeriod>("1D");
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -198,10 +199,20 @@ export default function DashboardScreen() {
       return s + (price - prev) * h.quantity;
     }, 0) ?? 0;
 
+  const previousCloseValue =
+    holdings?.reduce((s, h) => {
+      const prev =
+        h.stock?.previousClose && h.stock.previousClose > 0
+          ? h.stock.previousClose
+          : (h.stock?.currentPrice ?? 0);
+      return s + prev * h.quantity;
+    }, 0) ?? 0;
+
   const chartData = buildChartFromTransactions(
     transactions,
     totalValue,
     chartFilter,
+    previousCloseValue,
   );
 
   const displayName = getDisplayName();
