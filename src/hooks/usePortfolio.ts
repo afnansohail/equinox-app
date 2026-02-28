@@ -37,8 +37,8 @@ export function useAddTransaction() {
   return useMutation({
     mutationFn: (tx: Omit<Transaction, "id">) => addTransaction(user!.id, tx),
     onSuccess: (_, tx) => {
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["transactions", user?.id] });
       // Bust the stock cache so StockDetail shows fresh price immediately
       queryClient.invalidateQueries({ queryKey: ["stock", tx.stockSymbol] });
       queryClient.invalidateQueries({ queryKey: ["stocks"] });
@@ -67,8 +67,8 @@ export function useUpdateTransaction() {
         notes: params.notes,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["transactions", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["stocks"] });
     },
   });
@@ -81,8 +81,8 @@ export function useDeleteTransaction() {
   return useMutation({
     mutationFn: (id: string) => deleteTransaction(user!.id, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["transactions", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["stocks"] });
     },
   });
