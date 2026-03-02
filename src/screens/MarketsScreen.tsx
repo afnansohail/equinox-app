@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Search, X, TrendingUp, TrendingDown } from "lucide-react-native";
+import { Search, X, TrendingUp, TrendingDown, Moon } from "lucide-react-native";
 import { useAllStocks, useStockSearch } from "../hooks/useStocks";
 import { useWishlist } from "../hooks/useWishlist";
 import type { RootStackParamList } from "../navigation/types";
@@ -176,7 +176,7 @@ export default function MarketsScreen() {
                     <Text style={styles.stockSymbol}>{stock.symbol}</Text>
                     {stock.isShariahCompliant && (
                       <View style={styles.shariahBadge}>
-                        <Text style={styles.shariahText}>S</Text>
+                        <Moon size={12} color={colors.success} />
                       </View>
                     )}
                   </View>

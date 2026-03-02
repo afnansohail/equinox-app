@@ -175,8 +175,8 @@ export default function DatePickerModal({
                 </TouchableOpacity>
               )}
               scrollEventThrottle={16}
-              initialScrollIndex={Math.max(0, yearRange.indexOf(year) - 5)}
-              getItemLayout={(data, index) => ({
+              initialScrollIndex={Math.max(0, yearRange.indexOf(year) - 2)}
+              getItemLayout={(_, index) => ({
                 length: 50,
                 offset: 50 * index,
                 index,
@@ -313,25 +313,29 @@ export default function DatePickerModal({
               return (
                 <TouchableOpacity
                   key={index}
-                  style={[
-                    styles.dayCell,
-                    selected && styles.dayCellSelected,
-                    today && !selected && styles.dayCellToday,
-                  ]}
+                  style={styles.dayCell}
                   onPress={() => date && !disabled && handleSelectDate(date)}
                   disabled={disabled || !date}
                   activeOpacity={0.7}
                 >
-                  <Text
+                  <View
                     style={[
-                      styles.dayText,
-                      disabled && styles.dayTextDisabled,
-                      selected && styles.dayTextSelected,
-                      today && !selected && styles.dayTextToday,
+                      styles.dayInner,
+                      selected && styles.dayInnerSelected,
+                      today && !selected && styles.dayInnerToday,
                     ]}
                   >
-                    {date?.getDate() ?? ""}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.dayText,
+                        disabled && styles.dayTextDisabled,
+                        selected && styles.dayTextSelected,
+                        today && !selected && styles.dayTextToday,
+                      ]}
+                    >
+                      {date?.getDate() ?? ""}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -343,11 +347,9 @@ export default function DatePickerModal({
               style={styles.quickBtn}
               onPress={() => {
                 const today = new Date();
-                // Set to midnight UTC for consistent date comparison
                 today.setHours(0, 0, 0, 0);
-                if (!maximumDate || today <= maximumDate) {
-                  handleSelectDate(today);
-                }
+                // Navigate calendar to show today's month (don't auto-select)
+                setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
               }}
             >
               <Text style={styles.quickBtnText}>Today</Text>
@@ -358,7 +360,10 @@ export default function DatePickerModal({
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
                 yesterday.setHours(0, 0, 0, 0);
-                handleSelectDate(yesterday);
+                // Navigate calendar to show yesterday's month (don't auto-select)
+                setViewDate(
+                  new Date(yesterday.getFullYear(), yesterday.getMonth(), 1),
+                );
               }}
             >
               <Text style={styles.quickBtnText}>Yesterday</Text>
@@ -460,12 +465,18 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 20,
   },
-  dayCellSelected: {
+  dayInner: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dayInnerSelected: {
     backgroundColor: colors.secondary,
   },
-  dayCellToday: {
+  dayInnerToday: {
     borderWidth: 1,
     borderColor: colors.secondary,
   },

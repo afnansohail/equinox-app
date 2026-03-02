@@ -20,11 +20,12 @@ import {
   RefreshCw,
   TrendingUp,
   TrendingDown,
-  ShieldCheck,
+  Moon,
 } from "lucide-react-native";
-import { useStock, useRefreshStocks } from "../hooks/useStocks";
+import { useStock } from "../hooks/useStocks";
 import { useIsInWishlist, useToggleWishlist } from "../hooks/useWishlist";
 import { usePortfolio } from "../hooks/usePortfolio";
+import { getStock } from "../services/api";
 import StockLogo from "../components/shared/StockLogo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
@@ -40,7 +41,6 @@ export default function StockDetailScreen() {
   const { data: stock, isLoading, refetch } = useStock(symbol);
   const { data: isInWishlist } = useIsInWishlist(symbol);
   const toggleWishlistMutation = useToggleWishlist();
-  const refreshMutation = useRefreshStocks();
   const { data: holdings } = usePortfolio();
   const holding = holdings?.find((h) => h.stockSymbol === symbol);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,7 +48,12 @@ export default function StockDetailScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refreshMutation.mutateAsync([symbol]);
+      // Force a full scrape on Stock Detail refresh so logo/sector/shariah
+      // can refresh too (not only price fields).
+      await getStock(symbol, {
+        forceScrape: true,
+        preserveNonPriceFromDb: false,
+      });
       await refetch();
     } catch (error: any) {
       console.error("Error refreshing stock:", error);
@@ -60,7 +65,7 @@ export default function StockDetailScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [symbol, refreshMutation, refetch]);
+  }, [symbol, refetch]);
 
   const handleToggleWishlist = () => {
     toggleWishlistMutation.mutate({
@@ -157,7 +162,7 @@ export default function StockDetailScreen() {
             </View>
             {stock.isShariahCompliant && (
               <View style={styles.shariahBadge}>
-                <ShieldCheck size={12} color="#22C55E" />
+                <Moon size={12} color="#22C55E" />
                 <Text style={styles.shariahText}>Shariah</Text>
               </View>
             )}

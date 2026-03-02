@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -24,22 +23,23 @@ import {
   TrendingDown,
 } from "lucide-react-native";
 import PortfolioChart from "../components/charts/PortfolioChart";
-import { usePortfolio, useTransactions } from "../hooks/usePortfolio";
+import Toast from "../components/shared/Toast";
+import {
+  usePortfolio,
+  useTransactions,
+  usePortfolioHistory,
+} from "../hooks/usePortfolio";
 import { useRefreshStocks } from "../hooks/useStocks";
+import { useWishlist } from "../hooks/useWishlist";
 import { useAuthStore } from "../stores/authStore";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
-import type { Transaction, PortfolioHolding } from "../services/api";
+import type { PortfolioHolding, PortfolioHistoryPoint } from "../services/api";
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Dashboard">,
   NativeStackNavigationProp<RootStackParamList>
 >;
-
-function fmtLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-PK", { month: "short", day: "numeric" });
-}
 
 type FilterPeriod = "1D" | "1W" | "1M" | "1Y" | "5Y" | "YTD" | "ALL";
 const FILTER_OPTIONS: FilterPeriod[] = ["1D", "1W", "1M", "YTD", "1Y", "ALL"];
@@ -81,123 +81,135 @@ function getFilterStartDate(filter: FilterPeriod): Date | null {
 
 type ChartPoint = { value: number; label?: string };
 
-function buildPortfolioValueChart(
-  transactions: Transaction[] | undefined,
-  holdings: PortfolioHolding[] | undefined,
-  totalValue: number,
-  filter: FilterPeriod = "1D",
-  previousCloseValue: number = 0,
+/**
+ * Build chart data from the pre-computed PSX EOD portfolio history series.
+ * If history is not available, create a simple fallback chart from transactions
+ * showing growth from first buy to today.
+ */
+function buildChartFromHistory(
+  history: PortfolioHistoryPoint[] | undefined,
+  filter: FilterPeriod,
+  fallbackData?: {
+    currentValue: number;
+    transactions?: Array<{ transactionDate: string; totalAmount: number }>;
+  },
 ): ChartPoint[] {
-  const today = new Date().toISOString().slice(0, 10);
+  // Try primary: PSX-based historical data
+  if (history && history.length >= 2) {
+    const startDate = getFilterStartDate(filter);
+    const startTs = startDate ? Math.floor(startDate.getTime() / 1000) : null;
 
-  // Return empty array when no transactions - no flat line
-  if (!transactions || transactions.length === 0) {
-    return [];
-  }
+    const filtered = startTs
+      ? history.filter((p) => p.timestamp >= startTs)
+      : history;
 
-  // Sort oldest → newest
-  const sorted = [...transactions].sort(
-    (a, b) =>
-      new Date(a.transactionDate).getTime() -
-      new Date(b.transactionDate).getTime(),
-  );
+    if (filtered.length >= 2) {
+      // Smart label selection: edges + up to 2 evenly-spaced interior points
+      const n = filtered.length;
+      const labelSet = new Set<number>([0, n - 1]);
+      if (n >= 4) {
+        labelSet.add(Math.round(n / 3));
+        labelSet.add(Math.round((2 * n) / 3));
+      } else if (n === 3) {
+        labelSet.add(1);
+      }
 
-  // Build daily cumulative cost-basis map (one final value per day)
-  const dailyMap = new Map<string, number>();
-  let running = 0;
-  for (const tx of sorted) {
-    if (tx.transactionType === "BUY") running += tx.totalAmount;
-    else running = Math.max(0, running - tx.totalAmount);
-    dailyMap.set(tx.transactionDate, Math.round(running));
-  }
-  // Today's closing value = live market value
-  dailyMap.set(today, Math.round(totalValue));
-
-  const allDates = Array.from(dailyMap.keys()).sort();
-
-  const startDate = getFilterStartDate(filter);
-  const startStr = startDate ? startDate.toISOString().slice(0, 10) : null;
-
-  // Baseline = last daily value strictly before the window
-  let baseline = previousCloseValue; // Default to previous close if no prior transactions
-  if (startStr) {
-    for (const date of allDates) {
-      if (date < startStr) baseline = dailyMap.get(date)!;
-      else break;
+      return filtered.map((p, i) => ({
+        value: p.marketValue,
+        label: labelSet.has(i)
+          ? new Date(p.timestamp * 1000).toLocaleDateString("en-PK", {
+              month: "short",
+              day: "numeric",
+            })
+          : undefined,
+      }));
     }
   }
 
-  const windowDates = startStr
-    ? allDates.filter((d) => d >= startStr)
-    : allDates;
+  // Fallback: use transactions + current value to show simple growth line
+  if (fallbackData?.transactions && fallbackData.transactions.length > 0) {
+    // Sort transactions by date, find earliest buy
+    const sorted = [...fallbackData.transactions].sort(
+      (a, b) =>
+        new Date(a.transactionDate).getTime() -
+        new Date(b.transactionDate).getTime(),
+    );
+    const firstBuyDate = new Date(sorted[0].transactionDate);
+    const today = new Date();
 
-  const rawPoints: ChartPoint[] = [];
+    // Compute cumulative invested at first buy (usually just the first transaction)
+    const firstBuyAmount = sorted[0].totalAmount;
 
-  // Opening baseline point at the start of the window
-  if (startStr) {
-    rawPoints.push({ value: baseline, label: fmtLabel(startStr) });
+    // Return a 2-point chart: first buy date to today
+    return [
+      {
+        value: firstBuyAmount,
+        label: firstBuyDate.toLocaleDateString("en-PK", {
+          month: "short",
+          day: "numeric",
+        }),
+      },
+      {
+        value: fallbackData.currentValue,
+        label: today.toLocaleDateString("en-PK", {
+          month: "short",
+          day: "numeric",
+        }),
+      },
+    ];
   }
 
-  for (const date of windowDates) {
-    const v = dailyMap.get(date)!;
-    rawPoints.push({ value: v, label: fmtLabel(date) });
-  }
-
-  // Need at least 2 points for a meaningful chart
-  if (rawPoints.length < 2) {
-    return [];
-  }
-
-  // Smart label selection: edges + up to 2 evenly-spaced middle points
-  const n = rawPoints.length;
-  const labelSet = new Set([0, n - 1]);
-  if (n >= 4) {
-    labelSet.add(Math.round(n / 3));
-    labelSet.add(Math.round((2 * n) / 3));
-  } else if (n === 3) {
-    labelSet.add(1);
-  }
-
-  return rawPoints.map((p, i) => ({
-    value: p.value,
-    label: labelSet.has(i) ? p.label : undefined,
-  }));
+  return [];
 }
 
 export default function DashboardScreen() {
   const navigation = useNavigation<Nav>();
   const { isAnonymous, getDisplayName } = useAuthStore();
-  const { data: holdings, refetch, isLoading } = usePortfolio();
+  const { data: holdings, isLoading } = usePortfolio();
   const { data: transactions } = useTransactions();
+  const { data: wishlist } = useWishlist();
+  const { data: portfolioHistory, refetch: refetchHistory } =
+    usePortfolioHistory();
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
   const [chartFilter, setChartFilter] = useState<FilterPeriod>("1D");
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  const [toastConfig, setToastConfig] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const symbols = holdings?.map((h) => h.stockSymbol) ?? [];
+      // Combine portfolio + watchlist symbols so all prices refresh in one call
+      const portfolioSymbols = holdings?.map((h) => h.stockSymbol) ?? [];
+      const wishlistSymbols = wishlist?.map((w) => w.stockSymbol) ?? [];
+      const symbols = [...new Set([...portfolioSymbols, ...wishlistSymbols])];
       if (symbols.length > 0) await refreshMutation.mutateAsync(symbols);
-      await refetch();
+      // Portfolio/wishlist caches are patched immediately by useRefreshStocks.onSuccess.
+      // Only history needs a separate re-fetch (it depends on EOD data, not prices).
+      await refetchHistory();
+      setToastConfig({ type: "success", msg: "Data updated" });
     } catch (error: any) {
       console.error("Error refreshing dashboard:", error);
-      Alert.alert(
-        "Refresh Failed",
-        error?.message || "Could not refresh portfolio data. Please try again.",
-        [{ text: "OK" }],
-      );
+      setToastConfig({
+        type: "error",
+        msg: error?.message || "Could not refresh data",
+      });
     } finally {
       setRefreshing(false);
     }
-  }, [holdings, refreshMutation, refetch]);
+  }, [holdings, wishlist, refreshMutation, refetchHistory]);
 
   const totalValue = useMemo(
     () =>
-      holdings?.reduce(
-        (s, h) => s + (h.stock?.currentPrice ?? 0) * h.quantity,
-        0,
-      ) ?? 0,
+      holdings?.reduce((s, h) => {
+        const marketPrice = h.stock?.currentPrice ?? 0;
+        const effectivePrice =
+          marketPrice > 0 ? marketPrice : h.averageBuyPrice;
+        return s + effectivePrice * h.quantity;
+      }, 0) ?? 0,
     [holdings],
   );
   const totalInvested = useMemo(
@@ -239,20 +251,17 @@ export default function DashboardScreen() {
     [holdings],
   );
 
-  // Load chart data
+  // Build chart data whenever history or selected filter changes
   React.useEffect(() => {
-    const data = buildPortfolioValueChart(
-      transactions,
-      holdings,
-      totalValue,
-      chartFilter,
-      previousCloseValue,
+    setChartData(
+      buildChartFromHistory(portfolioHistory, chartFilter, {
+        currentValue: totalValue,
+        transactions: transactions ?? [],
+      }),
     );
-    setChartData(data);
-  }, [transactions, holdings, totalValue, chartFilter, previousCloseValue]);
+  }, [portfolioHistory, chartFilter, totalValue, transactions]);
 
   const displayName = getDisplayName();
-  const avatarLetter = displayName[0]?.toUpperCase() ?? "U";
 
   const recentTx = (transactions ?? []).slice(0, 3);
 
@@ -260,14 +269,9 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.screen} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.userAvatar}>
-            <Text style={styles.userAvatarText}>{avatarLetter}</Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeLabel}>Welcome back,</Text>
-            <Text style={styles.welcomeName}>{displayName} 👋</Text>
-          </View>
+        <View>
+          <Text style={styles.welcomeLabel}>Welcome back,</Text>
+          <Text style={styles.welcomeName}>{displayName} 👋</Text>
         </View>
         <TouchableOpacity
           style={styles.iconBtn}
@@ -312,7 +316,7 @@ export default function DashboardScreen() {
                     { color: isPositive ? "#22C55E" : colors.danger },
                   ]}
                 >
-                  {isPositive ? "+" : ""}PKR{" "}
+                  {isPositive ? "+" : "-"}PKR{" "}
                   {Math.abs(totalPnL).toLocaleString("en-PK", {
                     maximumFractionDigits: 0,
                   })}
@@ -386,7 +390,11 @@ export default function DashboardScreen() {
                       ]}
                     >
                       {dayPnL >= 0 ? "+" : ""}
-                      {((dayPnL / (totalValue - dayPnL)) * 100).toFixed(2)}%
+                      {(previousCloseValue > 0
+                        ? (dayPnL / previousCloseValue) * 100
+                        : 0
+                      ).toFixed(2)}
+                      %
                     </Text>
                   </View>
                 )}
@@ -516,6 +524,7 @@ export default function DashboardScreen() {
           </>
         )}
       </ScrollView>
+      <Toast config={toastConfig} onClose={() => setToastConfig(null)} />
     </SafeAreaView>
   );
 }
@@ -553,24 +562,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  userAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.secondary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  userAvatarText: {
-    color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: "700",
   },
   welcomeLabel: {
     fontSize: 12,

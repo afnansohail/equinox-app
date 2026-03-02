@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   ListRenderItem,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,10 +18,12 @@ import {
   TrendingDown,
   Plus,
   ChevronRight,
+  Moon,
 } from "lucide-react-native";
 import { usePortfolio } from "../hooks/usePortfolio";
 import { useRefreshStocks } from "../hooks/useStocks";
 import StockLogo from "../components/shared/StockLogo";
+import Toast from "../components/shared/Toast";
 import SectorPieChart from "../components/charts/SectorPieChart";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
@@ -41,8 +42,10 @@ const HoldingRow = React.memo(function HoldingRow({
   holding: PortfolioHolding;
   onPress: () => void;
 }) {
-  const price = holding.stock?.currentPrice ?? 0;
-  const currentValue = price * holding.quantity;
+  const marketPrice = holding.stock?.currentPrice ?? 0;
+  const effectivePrice =
+    marketPrice > 0 ? marketPrice : holding.averageBuyPrice;
+  const currentValue = effectivePrice * holding.quantity;
   const gainLoss = currentValue - holding.totalInvested;
   const gainLossPct =
     holding.totalInvested > 0 ? (gainLoss / holding.totalInvested) * 100 : 0;
@@ -65,22 +68,16 @@ const HoldingRow = React.memo(function HoldingRow({
           <Text style={styles.holdingSymbol}>{holding.stockSymbol}</Text>
           {holding.stock?.isShariahCompliant && (
             <View style={styles.shariahBadge}>
-              <Text style={styles.shariahText}>S</Text>
+              <Moon size={12} color={colors.success} />
             </View>
           )}
         </View>
+        {/* Two separate lines so avg price never gets truncated */}
         <Text style={styles.holdingSubtitle} numberOfLines={1}>
-          {holding.quantity} shares · Avg PKR{" "}
-          {holding.averageBuyPrice.toFixed(2)}
+          {holding.quantity} shares
         </Text>
-        <Text style={styles.holdingPrice} numberOfLines={1}>
-          Mkt{" "}
-          <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>
-            PKR{" "}
-            {price > 0
-              ? price.toLocaleString("en-PK", { maximumFractionDigits: 2 })
-              : "—"}
-          </Text>
+        <Text style={styles.holdingSubtitle} numberOfLines={1}>
+          Avg PKR {holding.averageBuyPrice.toFixed(2)}
         </Text>
       </View>
 
@@ -114,6 +111,13 @@ const HoldingRow = React.memo(function HoldingRow({
             {gainLossPct.toFixed(2)}%
           </Text>
         </View>
+        {/* Market price — below gain chip on the right side */}
+        <Text style={styles.holdingMktPrice} numberOfLines={1}>
+          MKT:{" "}
+          {marketPrice > 0
+            ? marketPrice.toLocaleString("en-PK", { maximumFractionDigits: 2 })
+            : "—"}
+        </Text>
       </View>
 
       <ChevronRight size={16} color={colors.textMuted} />
@@ -123,37 +127,58 @@ const HoldingRow = React.memo(function HoldingRow({
 
 export default function PortfolioScreen() {
   const navigation = useNavigation<Nav>();
-  const { data: holdings, isLoading, refetch } = usePortfolio();
+  const { data: holdings, isLoading } = usePortfolio();
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [toastConfig, setToastConfig] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const symbols = holdings?.map((h) => h.stockSymbol) ?? [];
-      if (symbols.length > 0) await refreshMutation.mutateAsync(symbols);
-      await refetch();
+      const symbols = (holdings ?? []).map((h) => h.stockSymbol);
+      if (symbols.length > 0) {
+        // refreshStockPrices scrapes live prices and onSuccess patches the
+        // portfolio cache directly — no extra DB round-trip needed.
+        await refreshMutation.mutateAsync(symbols);
+      }
+      setToastConfig({ type: "success", msg: "Portfolio updated" });
     } catch (error: any) {
       console.error("Error refreshing portfolio:", error);
-      Alert.alert(
-        "Refresh Failed",
-        error?.message || "Could not refresh portfolio. Please try again.",
-        [{ text: "OK" }],
-      );
+      setToastConfig({
+        type: "error",
+        msg: error?.message || "Could not refresh portfolio",
+      });
     } finally {
       setRefreshing(false);
     }
-  }, [holdings, refreshMutation, refetch]);
+  }, [holdings, refreshMutation]);
 
   const totalValue =
     holdings?.reduce(
-      (s, h) => s + (h.stock?.currentPrice ?? 0) * h.quantity,
+      (s, h) =>
+        s +
+        ((h.stock?.currentPrice ?? 0) > 0
+          ? (h.stock?.currentPrice ?? 0)
+          : h.averageBuyPrice) *
+          h.quantity,
       0,
     ) ?? 0;
   const totalInvested = holdings?.reduce((s, h) => s + h.totalInvested, 0) ?? 0;
   const totalPnL = totalValue - totalInvested;
   const totalPnLPct = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
   const isPositive = totalPnL >= 0;
+
+  const filteredHoldings = useMemo(
+    () =>
+      selectedSector
+        ? (holdings ?? []).filter((h) => h.stock?.sector === selectedSector)
+        : (holdings ?? []),
+    [holdings, selectedSector],
+  );
 
   const renderHolding: ListRenderItem<PortfolioHolding> = useCallback(
     ({ item }) => (
@@ -172,15 +197,19 @@ export default function PortfolioScreen() {
   const ListHeader = useMemo(
     () => (
       <>
-        {/* Summary Row */}
+        {/* Top row: Invested | P&L */}
         <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Value</Text>
-            <Text style={styles.summaryValue}>
-              PKR{" "}
-              {totalValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
-            </Text>
-          </View>
+          {totalInvested > 0 && (
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Invested</Text>
+              <Text style={styles.summaryValue}>
+                PKR{" "}
+                {totalInvested.toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+            </View>
+          )}
           <View
             style={[
               styles.summaryCard,
@@ -215,18 +244,55 @@ export default function PortfolioScreen() {
           </View>
         </View>
 
+        {/* Total Value — full width */}
+        <View style={[styles.summaryCard, styles.totalValueCard]}>
+          <Text style={styles.summaryLabel}>Total Value</Text>
+          <Text style={styles.summaryValue}>
+            PKR{" "}
+            {totalValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
+          </Text>
+        </View>
+
         {/* Sector Allocation Chart */}
         {(holdings?.length ?? 0) > 0 && (
-          <SectorPieChart holdings={holdings ?? []} />
+          <SectorPieChart
+            holdings={holdings ?? []}
+            selectedSector={selectedSector}
+            onSectorPress={(sector) => setSelectedSector(sector)}
+          />
+        )}
+
+        {/* Active sector filter chip */}
+        {selectedSector && (
+          <TouchableOpacity
+            style={styles.filterChip}
+            onPress={() => setSelectedSector(null)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.filterChipText}>{selectedSector}</Text>
+            <Text style={styles.filterChipClear}>✕</Text>
+          </TouchableOpacity>
         )}
 
         {/* Holdings Section Title */}
         {holdings && holdings.length > 0 && (
-          <Text style={styles.sectionTitle}>Holdings ({holdings.length})</Text>
+          <Text style={styles.sectionTitle}>
+            Holdings (
+            {selectedSector ? filteredHoldings.length : holdings.length})
+          </Text>
         )}
       </>
     ),
-    [holdings, totalValue, totalPnL, totalPnLPct, isPositive],
+    [
+      holdings,
+      filteredHoldings,
+      totalValue,
+      totalPnL,
+      totalPnLPct,
+      totalInvested,
+      isPositive,
+      selectedSector,
+    ],
   );
 
   const EmptyList = useMemo(
@@ -261,7 +327,7 @@ export default function PortfolioScreen() {
       </View>
 
       <FlatList
-        data={holdings ?? []}
+        data={filteredHoldings}
         renderItem={renderHolding}
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeader}
@@ -282,6 +348,7 @@ export default function PortfolioScreen() {
         maxToRenderPerBatch={10}
         windowSize={5}
       />
+      <Toast config={toastConfig} onClose={() => setToastConfig(null)} />
     </SafeAreaView>
   );
 }
@@ -315,7 +382,7 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   summaryCard: {
     flex: 1,
@@ -325,6 +392,33 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 16,
     gap: 4,
+  },
+  totalValueCard: {
+    flex: 0,
+    marginBottom: 24,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(108,99,255,0.15)",
+    borderColor: colors.secondary,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 12,
+    gap: 8,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.secondary,
+  },
+  filterChipClear: {
+    fontSize: 12,
+    color: colors.secondary,
+    fontWeight: "700",
   },
   summaryLabel: {
     fontSize: 12,
@@ -382,7 +476,11 @@ const styles = StyleSheet.create({
   },
   shariahText: { fontSize: 10, color: "#22C55E", fontWeight: "700" },
   holdingSubtitle: { fontSize: 12, color: colors.textSecondary },
-  holdingPrice: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  holdingMktPrice: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
   holdingRight: { alignItems: "flex-end", gap: 5 },
   holdingValue: {
     fontSize: 14,

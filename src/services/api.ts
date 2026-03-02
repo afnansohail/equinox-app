@@ -126,16 +126,99 @@ const isRecent = (
   return diffMinutes < maxAgeMinutes;
 };
 
+/**
+ * Build the Supabase upsert payload for a scraped stock.
+ * sector is only included when present — omitting it preserves the existing
+ * DB value instead of overwriting with null when the scraper can’t detect it.
+ */
+function buildStockUpsertPayload(stock: {
+  symbol: string;
+  name: string;
+  sector?: string | null;
+  currentPrice: number;
+  previousClose: number;
+  changePercent: number;
+  volume: number;
+  marketCap?: number | null;
+  high52Week?: number | null;
+  low52Week?: number | null;
+  high?: number | null;
+  low?: number | null;
+  logoUrl?: string | null;
+  isShariahCompliant?: boolean | null;
+  lastUpdated: string;
+}) {
+  const payload: Record<string, unknown> = {
+    symbol: stock.symbol,
+    name: stock.name,
+    current_price: stock.currentPrice,
+    previous_close: stock.previousClose,
+    change_percent: stock.changePercent,
+    volume: stock.volume,
+    market_cap: stock.marketCap ?? null,
+    high_52week: stock.high52Week ?? null,
+    low_52week: stock.low52Week ?? null,
+    day_high: stock.high ?? null,
+    day_low: stock.low ?? null,
+    logo_url: stock.logoUrl ?? null,
+    is_shariah_compliant: stock.isShariahCompliant ?? null,
+    last_updated: stock.lastUpdated,
+    updated_at: new Date().toISOString(),
+  };
+  // Only set sector when we actually have a value — avoids overwriting a good
+  // sector with null when the scraper couldn’t extract it from the page.
+  if (stock.sector) payload.sector = stock.sector;
+  return payload;
+}
+
+function buildPriceUpsertPayload(stock: {
+  symbol: string;
+  name: string;
+  currentPrice: number;
+  previousClose: number;
+  changePercent: number;
+  volume: number;
+  marketCap?: number | null;
+  high52Week?: number | null;
+  low52Week?: number | null;
+  high?: number | null;
+  low?: number | null;
+  lastUpdated: string;
+}) {
+  return {
+    symbol: stock.symbol,
+    name: stock.name,
+    current_price: stock.currentPrice,
+    previous_close: stock.previousClose,
+    change_percent: stock.changePercent,
+    volume: stock.volume,
+    market_cap: stock.marketCap ?? null,
+    high_52week: stock.high52Week ?? null,
+    low_52week: stock.low52Week ?? null,
+    day_high: stock.high ?? null,
+    day_low: stock.low ?? null,
+    last_updated: stock.lastUpdated,
+    updated_at: new Date().toISOString(),
+  };
+}
+
 // Stocks
-export async function getStock(symbol: string): Promise<Stock | null> {
+export async function getStock(
+  symbol: string,
+  options?: { forceScrape?: boolean; preserveNonPriceFromDb?: boolean },
+): Promise<Stock | null> {
   const upper = symbol.toUpperCase();
+  const forceScrape = options?.forceScrape ?? false;
+  const preserveNonPriceFromDb = options?.preserveNonPriceFromDb ?? true;
+  let dbStock: DbStockRow | null = null;
 
   try {
-    const { data: dbStock } = await supabase
+    const { data } = await supabase
       .from("stocks")
       .select("*")
       .eq("symbol", upper)
       .maybeSingle<DbStockRow>();
+    dbStock = data;
 
     // Only serve from cache if recent, has a real price, AND previousClose
     // is not suspiciously equal to currentPrice (sign of a bad old scrape)
@@ -143,6 +226,7 @@ export async function getStock(symbol: string): Promise<Stock | null> {
     const pcNum = toNumber(dbStock?.previous_close);
     const prevCloseSeemsSane = pcNum > 0 && pcNum !== cpNum;
     if (
+      !forceScrape &&
       dbStock &&
       isRecent(dbStock.last_updated) &&
       cpNum > 0 &&
@@ -154,7 +238,9 @@ export async function getStock(symbol: string): Promise<Stock | null> {
     console.error("Error reading stock from DB", error);
   }
 
-  if (!vercelApiUrl) return null;
+  if (!vercelApiUrl) {
+    return dbStock ? mapDbStock(dbStock) : null;
+  }
 
   try {
     const response = await axios.get(`${vercelApiUrl}/api/scrape-stock`, {
@@ -183,45 +269,52 @@ export async function getStock(symbol: string): Promise<Stock | null> {
       source?: string;
     };
 
-    await supabase.from("stocks").upsert({
-      symbol: scraped.symbol,
-      name: scraped.name,
-      sector: scraped.sector,
-      current_price: scraped.currentPrice,
-      previous_close: scraped.previousClose,
-      change_percent: scraped.changePercent,
-      volume: scraped.volume,
-      market_cap: scraped.marketCap,
-      high_52week: scraped.high52Week,
-      low_52week: scraped.low52Week,
-      day_high: scraped.high,
-      day_low: scraped.low,
-      logo_url: scraped.logoUrl,
-      is_shariah_compliant: scraped.isShariahCompliant,
-      last_updated: scraped.lastUpdated,
-      updated_at: new Date().toISOString(),
+    const merged = preserveNonPriceFromDb
+      ? {
+          ...scraped,
+          name: dbStock?.name || scraped.name || upper,
+          sector: dbStock?.sector ?? scraped.sector,
+          logoUrl: dbStock?.logo_url ?? scraped.logoUrl,
+          isShariahCompliant:
+            dbStock?.is_shariah_compliant ?? scraped.isShariahCompliant,
+          high: scraped.high,
+          low: scraped.low,
+        }
+      : {
+          ...scraped,
+          name: scraped.name || dbStock?.name || upper,
+          sector: scraped.sector ?? dbStock?.sector,
+          logoUrl: scraped.logoUrl ?? dbStock?.logo_url,
+          isShariahCompliant:
+            scraped.isShariahCompliant ?? dbStock?.is_shariah_compliant,
+          high: scraped.high,
+          low: scraped.low,
+        };
+
+    await supabase.from("stocks").upsert(buildStockUpsertPayload(merged), {
+      onConflict: "symbol",
     });
 
     return {
-      symbol: scraped.symbol,
-      name: scraped.name,
-      currentPrice: scraped.currentPrice,
-      previousClose: scraped.previousClose,
-      change: scraped.change,
-      changePercent: scraped.changePercent,
-      open: scraped.open,
-      high: scraped.high,
-      low: scraped.low,
-      volume: scraped.volume,
-      marketCap: scraped.marketCap,
-      high52Week: scraped.high52Week,
-      low52Week: scraped.low52Week,
-      sector: scraped.sector,
-      peRatio: scraped.peRatio,
-      logoUrl: scraped.logoUrl,
-      isShariahCompliant: scraped.isShariahCompliant,
-      lastUpdated: scraped.lastUpdated,
-      source: scraped.source,
+      symbol: merged.symbol,
+      name: merged.name,
+      currentPrice: merged.currentPrice,
+      previousClose: merged.previousClose,
+      change: merged.change,
+      changePercent: merged.changePercent,
+      open: merged.open,
+      high: merged.high,
+      low: merged.low,
+      volume: merged.volume,
+      marketCap: merged.marketCap,
+      high52Week: merged.high52Week,
+      low52Week: merged.low52Week,
+      sector: merged.sector ?? undefined,
+      peRatio: merged.peRatio,
+      logoUrl: merged.logoUrl ?? undefined,
+      isShariahCompliant: merged.isShariahCompliant ?? undefined,
+      lastUpdated: merged.lastUpdated,
+      source: merged.source,
     };
   } catch (error) {
     console.error("Error scraping stock", error);
@@ -300,10 +393,10 @@ export async function getPortfolioHoldings(
     }
   }
 
-  // For any symbol with a zero/missing price, try to scrape fresh data in a single batch
+  // For any symbol missing a valid price OR with stale data, scrape fresh
   const staleSymbols = symbols.filter((sym) => {
     const s = stocksMap.get(sym);
-    return !s || s.currentPrice <= 0;
+    return !s || s.currentPrice <= 0 || !isRecent(s.lastUpdated);
   });
   if (staleSymbols.length > 0 && vercelApiUrl) {
     try {
@@ -318,28 +411,25 @@ export async function getPortfolioHoldings(
 
       // Upsert all scraped data to the database
       for (const stock of payload.data) {
-        await supabase.from("stocks").upsert({
-          symbol: stock.symbol,
-          name: stock.name,
-          sector: stock.sector,
-          current_price: stock.currentPrice,
-          previous_close: stock.previousClose,
-          change_percent: stock.changePercent,
-          volume: stock.volume,
-          market_cap: stock.marketCap,
-          high_52week: stock.high52Week,
-          low_52week: stock.low52Week,
-          day_high: stock.high,
-          day_low: stock.low,
-          logo_url: stock.logoUrl,
-          is_shariah_compliant: stock.isShariahCompliant,
-          last_updated: stock.lastUpdated,
-          updated_at: new Date().toISOString(),
-        });
+        const existing = stocksMap.get(stock.symbol);
+        const { error: upsertErr } = await supabase.from("stocks").upsert(
+          buildPriceUpsertPayload({
+            ...stock,
+            name: existing?.name ?? stock.name ?? stock.symbol,
+            high: stock.high,
+            low: stock.low,
+          }),
+          { onConflict: "symbol" },
+        );
+        if (upsertErr)
+          console.error(
+            "Stock upsert failed in getPortfolioHoldings:",
+            upsertErr,
+          );
         // Update the local map with fresh data
         stocksMap.set(stock.symbol, {
           symbol: stock.symbol,
-          name: stock.name,
+          name: existing?.name ?? stock.name,
           currentPrice: stock.currentPrice,
           previousClose: stock.previousClose,
           change: stock.change,
@@ -350,9 +440,10 @@ export async function getPortfolioHoldings(
           low: stock.low,
           high52Week: stock.high52Week,
           low52Week: stock.low52Week,
-          sector: stock.sector,
-          logoUrl: stock.logoUrl,
-          isShariahCompliant: stock.isShariahCompliant,
+          sector: existing?.sector ?? stock.sector,
+          logoUrl: existing?.logoUrl ?? stock.logoUrl,
+          isShariahCompliant:
+            existing?.isShariahCompliant ?? stock.isShariahCompliant,
           lastUpdated: stock.lastUpdated,
         });
       }
@@ -541,30 +632,73 @@ export async function getTransactions(userId: string): Promise<Transaction[]> {
   );
 }
 
-export async function refreshStockPrices(symbols: string[]): Promise<void> {
-  if (!vercelApiUrl || symbols.length === 0) return;
+/**
+ * Scrape latest prices for the given symbols, upsert to DB, and return the
+ * refreshed Stock objects so callers can patch their caches directly without
+ * a second DB round-trip.
+ */
+export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
+  if (!vercelApiUrl || symbols.length === 0) return [];
+
+  const upperSymbols = symbols.map((s) => s.toUpperCase());
+
+  const { data: existingRows } = await supabase
+    .from("stocks")
+    .select("*")
+    .in("symbol", upperSymbols);
+  const existingMap = new Map<string, Stock>(
+    (existingRows as DbStockRow[] | null | undefined)?.map((row) => [
+      row.symbol,
+      mapDbStock(row),
+    ]) ?? [],
+  );
 
   const response = await axios.post(`${vercelApiUrl}/api/scrape-all-stocks`, {
-    symbols,
+    symbols: upperSymbols,
   });
   const payload = response.data as { data: any[] };
 
-  for (const stock of payload.data) {
-    await supabase.from("stocks").upsert({
-      symbol: stock.symbol,
-      name: stock.name,
-      current_price: stock.currentPrice,
-      previous_close: stock.previousClose,
-      change_percent: stock.changePercent,
-      volume: stock.volume,
-      high_52week: stock.high52Week,
-      low_52week: stock.low52Week,
-      logo_url: stock.logoUrl,
-      is_shariah_compliant: stock.isShariahCompliant,
-      last_updated: stock.lastUpdated,
-      updated_at: new Date().toISOString(),
-    });
-  }
+  const refreshed: Stock[] = [];
+
+  // Run upserts in parallel — no need to await sequentially
+  await Promise.all(
+    payload.data.map(async (stock) => {
+      const existing = existingMap.get(stock.symbol);
+      const { error: upsertErr } = await supabase.from("stocks").upsert(
+        buildPriceUpsertPayload({
+          ...stock,
+          name: existing?.name ?? stock.name ?? stock.symbol,
+          high: stock.high,
+          low: stock.low,
+        }),
+        { onConflict: "symbol" },
+      );
+      if (upsertErr)
+        console.error("Stock upsert failed in refreshStockPrices:", upsertErr);
+      refreshed.push({
+        symbol: stock.symbol,
+        name: existing?.name ?? stock.name,
+        currentPrice: stock.currentPrice,
+        previousClose: stock.previousClose,
+        change: stock.change,
+        changePercent: stock.changePercent,
+        volume: stock.volume,
+        marketCap: stock.marketCap,
+        high: stock.high,
+        low: stock.low,
+        high52Week: stock.high52Week,
+        low52Week: stock.low52Week,
+        sector: existing?.sector ?? stock.sector,
+        logoUrl: existing?.logoUrl ?? stock.logoUrl,
+        isShariahCompliant:
+          existing?.isShariahCompliant ?? stock.isShariahCompliant,
+        lastUpdated: stock.lastUpdated,
+        source: stock.source,
+      });
+    }),
+  );
+
+  return refreshed;
 }
 
 // Wishlist
@@ -689,71 +823,42 @@ export async function deleteAllUserData(
   return { error: null };
 }
 
-/**
- * Stores a price snapshot only if the price has changed from last stored.
- * Returns true if price was stored, false if unchanged.
- */
-export async function storePriceIfChanged(
-  symbol: string,
-  newPrice: number,
-): Promise<boolean> {
-  const today = new Date().toISOString().slice(0, 10);
+// ── Portfolio History ───────────────────────────────────────────────────────
 
-  try {
-    // Check if we already have a snapshot for today
-    const { data: existing } = await supabase
-      .from("stock_prices_history")
-      .select("close")
-      .eq("stock_symbol", symbol)
-      .eq("date", today)
-      .single();
-
-    // If same price, don't store
-    if (existing && existing.close === newPrice) {
-      return false;
-    }
-
-    // Store the new price
-    await supabase.from("stock_prices_history").upsert(
-      {
-        stock_symbol: symbol,
-        date: today,
-        close: newPrice,
-      },
-      { onConflict: "stock_symbol,date" },
-    );
-    return true;
-  } catch (error) {
-    console.error("Error storing price snapshot", error);
-    return false;
-  }
-}
-
-export interface HistoricalPrice {
-  date: string;
-  close: number;
+export interface PortfolioHistoryPoint {
+  /** Unix epoch seconds (midnight UTC of the trading day) */
+  timestamp: number;
+  /** Total portfolio market value at close of that day (PKR) */
+  marketValue: number;
+  /** Net cash deployed: Σ BUY costs − Σ SELL proceeds (PKR) */
+  invested: number;
 }
 
 /**
- * Fetches historical closing prices for a symbol.
- * Returns data from the earliest available date to today.
+ * Calls the Vercel portfolio-history endpoint which fetches PSX EOD data
+ * server-side and returns a pre-computed day-by-day value series.
+ * Only called on explicit manual refresh — not on every mount.
  */
-export async function getHistoricalPrices(
-  symbol: string,
-): Promise<HistoricalPrice[]> {
-  const { data, error } = await supabase
-    .from("stock_prices_history")
-    .select("date, close")
-    .eq("stock_symbol", symbol)
-    .order("date", { ascending: true });
+export async function getPortfolioHistory(
+  holdings: PortfolioHolding[],
+  transactions: Transaction[],
+): Promise<PortfolioHistoryPoint[]> {
+  if (!vercelApiUrl || holdings.length === 0) return [];
 
-  if (error) {
-    console.error("Error fetching historical prices", error);
-    return [];
-  }
+  const response = await axios.post(`${vercelApiUrl}/api/portfolio-history`, {
+    holdings: holdings.map((h) => ({
+      symbol: h.stockSymbol,
+      averageBuyPrice: h.averageBuyPrice,
+      quantity: h.quantity,
+    })),
+    transactions: transactions.map((t) => ({
+      symbol: t.stockSymbol,
+      type: t.transactionType,
+      quantity: t.quantity,
+      pricePerShare: t.pricePerShare,
+      transactionDate: t.transactionDate,
+    })),
+  });
 
-  return (data || []).map((row) => ({
-    date: row.date,
-    close: row.close,
-  }));
+  return (response.data?.data ?? []) as PortfolioHistoryPoint[];
 }

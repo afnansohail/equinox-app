@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -108,6 +108,9 @@ interface SectorPieChartProps {
     quantity: number;
     totalInvested: number;
   }[];
+  selectedSector?: string | null;
+  /** Called when a sector slice is tapped. Passes the sector name, or null when deselected. */
+  onSectorPress?: (sector: string | null) => void;
 }
 
 export function buildSectorSlices(
@@ -116,11 +119,39 @@ export function buildSectorSlices(
   return buildSlices(holdings, "value");
 }
 
-export default function SectorPieChart({ holdings }: SectorPieChartProps) {
+export default function SectorPieChart({
+  holdings,
+  selectedSector,
+  onSectorPress,
+}: SectorPieChartProps) {
   const [mode, setMode] = useState<Mode>("value");
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
+  function handleSlicePress(idx: number, sectorName: string) {
+    if (activeIdx === idx) {
+      setActiveIdx(null);
+      onSectorPress?.(null);
+    } else {
+      setActiveIdx(idx);
+      onSectorPress?.(sectorName);
+    }
+  }
+
   const slices = buildSlices(holdings, mode);
+
+  useEffect(() => {
+    if (!slices.length) {
+      setActiveIdx(null);
+      return;
+    }
+    if (!selectedSector) {
+      setActiveIdx(null);
+      return;
+    }
+    const idx = slices.findIndex((s) => s.sector === selectedSector);
+    setActiveIdx(idx >= 0 ? idx : null);
+  }, [selectedSector, slices]);
+
   if (!slices.length) return null;
 
   let angle = 0;
@@ -149,6 +180,7 @@ export default function SectorPieChart({ holdings }: SectorPieChartProps) {
             onPress={() => {
               setMode("value");
               setActiveIdx(null);
+              onSectorPress?.(null);
             }}
             activeOpacity={0.8}
           >
@@ -169,6 +201,7 @@ export default function SectorPieChart({ holdings }: SectorPieChartProps) {
             onPress={() => {
               setMode("shares");
               setActiveIdx(null);
+              onSectorPress?.(null);
             }}
             activeOpacity={0.8}
           >
@@ -207,7 +240,7 @@ export default function SectorPieChart({ holdings }: SectorPieChartProps) {
                 strokeWidth={sw}
                 strokeLinecap="butt"
                 fill="none"
-                onPress={() => setActiveIdx(activeIdx === i ? null : i)}
+                onPress={() => handleSlicePress(i, s.sector)}
               />
             );
           })}
@@ -248,7 +281,7 @@ export default function SectorPieChart({ holdings }: SectorPieChartProps) {
             <TouchableOpacity
               key={s.sector}
               style={[styles.legendItem, isActive && styles.legendItemActive]}
-              onPress={() => setActiveIdx(activeIdx === idx ? null : idx)}
+              onPress={() => handleSlicePress(idx, s.sector)}
               activeOpacity={0.7}
             >
               <View style={styles.legendLeft}>
