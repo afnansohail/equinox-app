@@ -436,31 +436,33 @@ export default function AddTransactionScreen() {
               />
             </View>
 
-            {/* Submit */}
-            <TouchableOpacity
-              style={[styles.submitBtn, disabled && styles.submitBtnDisabled]}
-              onPress={onSubmit}
-              disabled={disabled}
-              activeOpacity={0.85}
-            >
-              {submitting ? (
-                <ActivityIndicator color={colors.textInverse} />
-              ) : (
-                <Text style={styles.submitBtnText}>
-                  Save{" "}
-                  {entries.length > 1
-                    ? `${entries.filter(isValidEntry).length} `
-                    : ""}
-                  {type === "BUY" ? "Buy" : "Sell"} Transaction
-                  {entries.filter(isValidEntry).length > 1 ? "s" : ""}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Extra space for keyboard */}
-            <View style={{ height: 100 }} />
+            {/* Space for floating button */}
+            <View style={{ height: 80 }} />
           </ScrollView>
         </TouchableWithoutFeedback>
+
+        {/* Floating Submit Button */}
+        <View style={styles.floatingButtonContainer}>
+          <TouchableOpacity
+            style={[styles.submitBtn, disabled && styles.submitBtnDisabled]}
+            onPress={onSubmit}
+            disabled={disabled}
+            activeOpacity={0.85}
+          >
+            {submitting ? (
+              <ActivityIndicator color={colors.textInverse} />
+            ) : (
+              <Text style={styles.submitBtnText}>
+                Save{" "}
+                {entries.length > 1
+                  ? `${entries.filter(isValidEntry).length} `
+                  : ""}
+                {type === "BUY" ? "Buy" : "Sell"} Transaction
+                {entries.filter(isValidEntry).length > 1 ? "s" : ""}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Date Picker Modal */}
         <DatePickerModal
@@ -604,13 +606,20 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 14, color: colors.textSecondary },
   totalValue: { fontSize: 20, fontWeight: "700", color: colors.secondary },
+  floatingButtonContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    paddingTop: 12,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   submitBtn: {
     height: 54,
     backgroundColor: colors.secondary,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 8,
   },
   submitBtnDisabled: { opacity: 0.4 },
   submitBtnText: {

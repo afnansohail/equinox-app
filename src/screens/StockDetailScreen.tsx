@@ -240,25 +240,25 @@ export default function StockDetailScreen() {
               const unrealizedPct =
                 invested > 0 ? (unrealizedPnL / invested) * 100 : 0;
               const posPositive = unrealizedPnL >= 0;
+              const todayPnL =
+                (stock.currentPrice - (stock.previousClose ?? 0)) *
+                holding.quantity;
+              const todayPct =
+                stock.previousClose && stock.previousClose > 0
+                  ? ((stock.currentPrice - stock.previousClose) /
+                      stock.previousClose) *
+                    100
+                  : 0;
+              const todayPositive = todayPnL >= 0;
               return (
                 <View style={[styles.statsCard, { marginTop: 12 }]}>
                   <Text style={styles.statsCardTitle}>Your Position</Text>
+                  {/* Row 1: Shares held | Current value */}
                   <View style={styles.statRow}>
                     <View style={styles.statBox}>
                       <Text style={styles.statLabel}>Shares held</Text>
                       <Text style={styles.statValue}>{holding.quantity}</Text>
                     </View>
-                    <View style={styles.statBox}>
-                      <Text style={styles.statLabel}>Avg buy price</Text>
-                      <Text style={styles.statValue}>
-                        PKR{" "}
-                        {holding.averageBuyPrice.toLocaleString("en-PK", {
-                          maximumFractionDigits: 2,
-                        })}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={[styles.statRow, { borderBottomWidth: 0 }]}>
                     <View style={styles.statBox}>
                       <Text style={styles.statLabel}>Current value</Text>
                       <Text style={styles.statValue}>
@@ -268,8 +268,34 @@ export default function StockDetailScreen() {
                         })}
                       </Text>
                     </View>
+                  </View>
+                  {/* Row 2: Today P&L | Unrealized P&L */}
+                  <View style={styles.statRow}>
                     <View style={styles.statBox}>
-                      <Text style={styles.statLabel}>Unrealized P&L</Text>
+                      <Text style={styles.statLabel}>Today's P&L</Text>
+                      <Text
+                        style={[
+                          styles.statValue,
+                          { color: todayPositive ? "#22C55E" : colors.danger },
+                        ]}
+                      >
+                        {todayPositive ? "+" : ""}
+                        {todayPnL.toLocaleString("en-PK", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.statLabel,
+                          { color: todayPositive ? "#22C55E" : colors.danger },
+                        ]}
+                      >
+                        {todayPositive ? "+" : ""}
+                        {todayPct.toFixed(2)}%
+                      </Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statLabel}>Total P&L</Text>
                       <Text
                         style={[
                           styles.statValue,
@@ -279,9 +305,28 @@ export default function StockDetailScreen() {
                         {posPositive ? "+" : ""}
                         {unrealizedPnL.toLocaleString("en-PK", {
                           maximumFractionDigits: 0,
-                        })}{" "}
-                        ({posPositive ? "+" : ""}
-                        {unrealizedPct.toFixed(2)}%)
+                        })}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.statLabel,
+                          { color: posPositive ? "#22C55E" : colors.danger },
+                        ]}
+                      >
+                        {posPositive ? "+" : ""}
+                        {unrealizedPct.toFixed(2)}%
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Row 3: Avg buy price */}
+                  <View style={[styles.statRow, { borderBottomWidth: 0 }]}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statLabel}>Avg buy price</Text>
+                      <Text style={styles.statValue}>
+                        PKR{" "}
+                        {holding.averageBuyPrice.toLocaleString("en-PK", {
+                          maximumFractionDigits: 2,
+                        })}
                       </Text>
                     </View>
                   </View>

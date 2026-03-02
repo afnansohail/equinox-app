@@ -50,6 +50,13 @@ const HoldingRow = React.memo(function HoldingRow({
   const gainLossPct =
     holding.totalInvested > 0 ? (gainLoss / holding.totalInvested) * 100 : 0;
   const isUp = gainLoss >= 0;
+  const prevClose = holding.stock?.previousClose ?? 0;
+  const todayPnL =
+    marketPrice - prevClose !== 0
+      ? (marketPrice - prevClose) * holding.quantity
+      : 0;
+  const todayPct =
+    prevClose > 0 ? ((marketPrice - prevClose) / prevClose) * 100 : 0;
 
   return (
     <TouchableOpacity
@@ -72,12 +79,14 @@ const HoldingRow = React.memo(function HoldingRow({
             </View>
           )}
         </View>
-        {/* Two separate lines so avg price never gets truncated */}
+        {/* Two separate lines: quantity + market price (replaced avg price) */}
         <Text style={styles.holdingSubtitle} numberOfLines={1}>
           {holding.quantity} shares
         </Text>
         <Text style={styles.holdingSubtitle} numberOfLines={1}>
-          Avg PKR {holding.averageBuyPrice.toFixed(2)}
+          {marketPrice > 0
+            ? `PKR ${marketPrice.toLocaleString("en-PK", { maximumFractionDigits: 2 })}`
+            : "—"}
         </Text>
       </View>
 
@@ -93,6 +102,7 @@ const HoldingRow = React.memo(function HoldingRow({
               backgroundColor: isUp
                 ? "rgba(34,197,94,0.12)"
                 : "rgba(239,68,68,0.12)",
+              marginTop: 8,
             },
           ]}
         >
@@ -107,17 +117,36 @@ const HoldingRow = React.memo(function HoldingRow({
               { color: isUp ? "#22C55E" : colors.danger },
             ]}
           >
-            {isUp ? "+" : ""}
+            ALL {isUp ? "+" : ""}
             {gainLossPct.toFixed(2)}%
           </Text>
         </View>
-        {/* Market price — below gain chip on the right side */}
-        <Text style={styles.holdingMktPrice} numberOfLines={1}>
-          MKT:{" "}
-          {marketPrice > 0
-            ? marketPrice.toLocaleString("en-PK", { maximumFractionDigits: 2 })
-            : "—"}
-        </Text>
+
+        <View
+          style={[
+            styles.gainChip,
+            {
+              backgroundColor:
+                todayPnL >= 0 ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
+              marginTop: 6,
+            },
+          ]}
+        >
+          {todayPnL >= 0 ? (
+            <TrendingUp size={11} color="#22C55E" />
+          ) : (
+            <TrendingDown size={11} color={colors.danger} />
+          )}
+          <Text
+            style={[
+              styles.gainChipText,
+              { color: todayPnL >= 0 ? "#22C55E" : colors.danger },
+            ]}
+          >
+            DAY {todayPnL >= 0 ? "+" : ""}
+            {todayPct.toFixed(2)}%
+          </Text>
+        </View>
       </View>
 
       <ChevronRight size={16} color={colors.textMuted} />
@@ -167,10 +196,37 @@ export default function PortfolioScreen() {
           h.quantity,
       0,
     ) ?? 0;
+  const dayPnL = useMemo(
+    () =>
+      holdings?.reduce((s, h) => {
+        const price = h.stock?.currentPrice ?? 0;
+        const prev =
+          h.stock?.previousClose && h.stock.previousClose > 0
+            ? h.stock.previousClose
+            : price;
+        return s + (price - prev) * h.quantity;
+      }, 0) ?? 0,
+    [holdings],
+  );
+
+  const previousCloseValue = useMemo(
+    () =>
+      holdings?.reduce((s, h) => {
+        const prev =
+          h.stock?.previousClose && h.stock.previousClose > 0
+            ? h.stock.previousClose
+            : (h.stock?.currentPrice ?? 0);
+        return s + prev * h.quantity;
+      }, 0) ?? 0,
+    [holdings],
+  );
   const totalInvested = holdings?.reduce((s, h) => s + h.totalInvested, 0) ?? 0;
   const totalPnL = totalValue - totalInvested;
   const totalPnLPct = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
   const isPositive = totalPnL >= 0;
+  const dayIsPositive = dayPnL >= 0;
+  const dayPnLPct =
+    previousCloseValue > 0 ? (dayPnL / previousCloseValue) * 100 : 0;
 
   const filteredHoldings = useMemo(
     () =>
@@ -197,10 +253,80 @@ export default function PortfolioScreen() {
   const ListHeader = useMemo(
     () => (
       <>
-        {/* Top row: Invested | P&L */}
-        <View style={styles.summaryRow}>
-          {totalInvested > 0 && (
-            <View style={styles.summaryCard}>
+        {/* 2x2 summary grid: Today P&L | Total P&L  and Invested | Total Value */}
+        <View style={styles.summaryGrid}>
+          <View style={styles.gridRow}>
+            <View
+              style={[
+                styles.summaryCard,
+                styles.smallCard,
+                {
+                  borderColor: dayIsPositive
+                    ? "rgba(34,197,94,0.3)"
+                    : "rgba(239,68,68,0.3)",
+                },
+              ]}
+            >
+              <Text style={styles.summaryLabel}>Today's P&L</Text>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: dayIsPositive ? "#22C55E" : colors.danger },
+                ]}
+              >
+                {dayIsPositive ? "+" : ""}PKR{" "}
+                {Math.abs(dayPnL).toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+              <Text
+                style={[
+                  styles.summarySub,
+                  { color: dayIsPositive ? "#22C55E" : colors.danger },
+                ]}
+              >
+                {dayIsPositive ? "+" : ""}
+                {dayPnLPct.toFixed(2)}%
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.summaryCard,
+                styles.smallCard,
+                {
+                  borderColor: isPositive
+                    ? "rgba(34,197,94,0.3)"
+                    : "rgba(239,68,68,0.3)",
+                },
+              ]}
+            >
+              <Text style={styles.summaryLabel}>Total P&L</Text>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: isPositive ? "#22C55E" : colors.danger },
+                ]}
+              >
+                {isPositive ? "+" : ""}PKR{" "}
+                {Math.abs(totalPnL).toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+              <Text
+                style={[
+                  styles.summarySub,
+                  { color: isPositive ? "#22C55E" : colors.danger },
+                ]}
+              >
+                {isPositive ? "+" : ""}
+                {totalPnLPct.toFixed(2)}%
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.gridRow}>
+            <View style={[styles.summaryCard, styles.smallCardNoPad]}>
               <Text style={styles.summaryLabel}>Invested</Text>
               <Text style={styles.summaryValue}>
                 PKR{" "}
@@ -209,48 +335,17 @@ export default function PortfolioScreen() {
                 })}
               </Text>
             </View>
-          )}
-          <View
-            style={[
-              styles.summaryCard,
-              {
-                borderColor: isPositive
-                  ? "rgba(34,197,94,0.3)"
-                  : "rgba(239,68,68,0.3)",
-              },
-            ]}
-          >
-            <Text style={styles.summaryLabel}>Total P&L</Text>
-            <Text
-              style={[
-                styles.summaryValue,
-                { color: isPositive ? "#22C55E" : colors.danger },
-              ]}
-            >
-              {isPositive ? "+" : ""}PKR{" "}
-              {Math.abs(totalPnL).toLocaleString("en-PK", {
-                maximumFractionDigits: 0,
-              })}
-            </Text>
-            <Text
-              style={[
-                styles.summarySub,
-                { color: isPositive ? "#22C55E" : colors.danger },
-              ]}
-            >
-              {isPositive ? "+" : ""}
-              {totalPnLPct.toFixed(2)}%
-            </Text>
-          </View>
-        </View>
 
-        {/* Total Value — full width */}
-        <View style={[styles.summaryCard, styles.totalValueCard]}>
-          <Text style={styles.summaryLabel}>Total Value</Text>
-          <Text style={styles.summaryValue}>
-            PKR{" "}
-            {totalValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
-          </Text>
+            <View style={[styles.summaryCard, styles.smallCardNoPad]}>
+              <Text style={styles.summaryLabel}>Total Value</Text>
+              <Text style={styles.summaryValue}>
+                PKR{" "}
+                {totalValue.toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Sector Allocation Chart */}
@@ -529,4 +624,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textInverse,
   },
+  summaryGrid: { gap: 12, marginBottom: 12 },
+  gridRow: { flexDirection: "row", gap: 12 },
+  smallCard: { flex: 1, paddingVertical: 12 },
+  smallCardNoPad: { flex: 1, paddingVertical: 10, paddingHorizontal: 12 },
+  holdingToday: { fontSize: 11, marginTop: 4 },
+  holdingTotalPct: { fontSize: 12, fontWeight: "700", marginTop: 6 },
 });

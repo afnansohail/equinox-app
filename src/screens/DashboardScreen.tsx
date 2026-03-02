@@ -266,7 +266,7 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.welcomeLabel}>Welcome back,</Text>
-          <Text style={styles.welcomeName}>{displayName} 👋</Text>
+          <Text style={styles.welcomeName}>{displayName} 🫡</Text>
         </View>
         <TouchableOpacity
           style={styles.iconBtn}
