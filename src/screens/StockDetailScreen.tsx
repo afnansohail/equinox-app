@@ -27,6 +27,7 @@ import { useIsInWishlist, useToggleWishlist } from "../hooks/useWishlist";
 import { usePortfolio } from "../hooks/usePortfolio";
 import { getStock } from "../services/api";
 import StockLogo from "../components/shared/StockLogo";
+import RangeBar from "../components/ui/RangeBar";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
@@ -207,18 +208,26 @@ export default function StockDetailScreen() {
           {/* Stats Grid */}
           <View style={styles.statsCard}>
             <Text style={styles.statsCardTitle}>Key Statistics</Text>
+            <View style={styles.statRangeRow}>
+              <RangeBar
+                label="Day Range"
+                low={stock.low}
+                high={stock.high}
+                value={stock.currentPrice}
+              />
+            </View>
+            <View style={styles.statRangeRow}>
+              <RangeBar
+                label="52-Week Range"
+                low={stock.low52Week}
+                high={stock.high52Week}
+                value={stock.currentPrice}
+              />
+            </View>
             {[
               [
-                { label: "Day High", value: fmt(stock.high) },
-                { label: "Day Low", value: fmt(stock.low) },
-              ],
-              [
-                { label: "52W High", value: fmt(stock.high52Week) },
-                { label: "52W Low", value: fmt(stock.low52Week) },
-              ],
-              [
                 { label: "Sector", value: stock.sector ?? "—" },
-                { label: "Prev Close", value: fmt(stock.previousClose) },
+                { label: "Previous Close", value: fmt(stock.previousClose) },
               ],
             ].map((row, ri) => (
               <View key={ri} style={styles.statRow}>
@@ -487,6 +496,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  statRangeRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: 4,
   },
   statBox: {
     flex: 1,

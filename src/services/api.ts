@@ -399,67 +399,46 @@ export async function getPortfolioHoldings(
     return !s || s.currentPrice <= 0 || !isRecent(s.lastUpdated);
   });
   if (staleSymbols.length > 0 && vercelApiUrl) {
-    try {
-      // Make a SINGLE call to scrape all stale symbols at once
-      const response = await axios.post(
-        `${vercelApiUrl}/api/scrape-all-stocks`,
-        {
-          symbols: staleSymbols,
-        },
-      );
-      const payload = response.data as { data: any[] };
-
-      // Upsert all scraped data to the database
-      for (const stock of payload.data) {
-        const existing = stocksMap.get(stock.symbol);
-        const { error: upsertErr } = await supabase.from("stocks").upsert(
-          buildPriceUpsertPayload({
-            ...stock,
-            name: existing?.name ?? stock.name ?? stock.symbol,
-            high: stock.high,
-            low: stock.low,
-          }),
-          { onConflict: "symbol" },
+    // Fire-and-forget background refresh: don't block returning the
+    // portfolio with whatever DB values we already have. This avoids a
+    // long delay on first render when many symbols are stale.
+    (async () => {
+      try {
+        const response = await axios.post(
+          `${vercelApiUrl}/api/scrape-all-stocks`,
+          {
+            symbols: staleSymbols,
+          },
         );
-        if (upsertErr)
-          console.error(
-            "Stock upsert failed in getPortfolioHoldings:",
-            upsertErr,
+        const payload = response.data as { data: any[] };
+
+        for (const stock of payload.data) {
+          const existing = stocksMap.get(stock.symbol);
+          const { error: upsertErr } = await supabase.from("stocks").upsert(
+            buildPriceUpsertPayload({
+              ...stock,
+              name: existing?.name ?? stock.name ?? stock.symbol,
+              high: stock.high,
+              low: stock.low,
+            }),
+            { onConflict: "symbol" },
           );
-        // Update the local map with fresh data
-        stocksMap.set(stock.symbol, {
-          symbol: stock.symbol,
-          name: existing?.name ?? stock.name,
-          currentPrice: stock.currentPrice,
-          previousClose: stock.previousClose,
-          change: stock.change,
-          changePercent: stock.changePercent,
-          volume: stock.volume,
-          marketCap: stock.marketCap,
-          high: stock.high,
-          low: stock.low,
-          high52Week: stock.high52Week,
-          low52Week: stock.low52Week,
-          sector: existing?.sector ?? stock.sector,
-          logoUrl: existing?.logoUrl ?? stock.logoUrl,
-          isShariahCompliant:
-            existing?.isShariahCompliant ?? stock.isShariahCompliant,
-          lastUpdated: stock.lastUpdated,
-        });
-      }
-    } catch (error) {
-      console.error("Error batch scraping stale symbols:", error);
-      // Fallback: fetch remaining stale symbols from DB anyway
-      const { data: freshData } = await supabase
-        .from("stocks")
-        .select("*")
-        .in("symbol", staleSymbols);
-      if (freshData) {
-        for (const row of freshData) {
-          stocksMap.set(row.symbol, mapDbStock(row as DbStockRow));
+          if (upsertErr)
+            console.error(
+              "Stock upsert failed in background refresh:",
+              upsertErr,
+            );
         }
+        // NOTE: we don't update the local `stocksMap` here because the caller
+        // already received the old values. The UI layer can trigger a refetch
+        // / react-query invalidation if it wants to pick up the fresh rows.
+      } catch (error) {
+        console.error(
+          "Error batch scraping stale symbols (background):",
+          error,
+        );
       }
-    }
+    })();
   }
 
   return data.map((row: any) => ({
