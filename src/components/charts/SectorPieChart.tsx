@@ -163,8 +163,8 @@ export default function SectorPieChart({
   });
 
   const activeSlice = activeIdx !== null ? arcData[activeIdx] : null;
-  const mainSlices = slices.filter((s) => s.percentage >= 3);
-  const otherSlices = slices.filter((s) => s.percentage < 3);
+  const mainSlices = slices.filter((s) => s.percentage >= 1);
+  const otherSlices = slices.filter((s) => s.percentage < 1);
 
   return (
     <View style={styles.card}>
