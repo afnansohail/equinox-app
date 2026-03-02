@@ -19,6 +19,7 @@ import {
   ChevronRight,
   TrendingUp,
   TrendingDown,
+  X,
 } from "lucide-react-native";
 import { getStock, type WishlistItem } from "../services/api";
 import { useWishlist } from "../hooks/useWishlist";
@@ -141,6 +142,21 @@ export default function SearchScreen() {
             onSubmitEditing={handleSearch}
             editable={state !== "loading"}
           />
+
+          {/* Clear button when there is text */}
+          {query.trim().length > 0 && (
+            <TouchableOpacity
+              style={styles.clearBtn}
+              onPress={() => {
+                setQuery("");
+                if (state !== "idle") setState("idle");
+              }}
+              activeOpacity={0.8}
+            >
+              <X size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[
               styles.searchBtn,
@@ -280,6 +296,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   searchBtnDisabled: { opacity: 0.4 },
+  clearBtn: {
+    width: 44,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   feedback: {
     flexDirection: "row",
     alignItems: "center",

@@ -41,17 +41,12 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-type FilterPeriod = "1D" | "1W" | "1M" | "1Y" | "5Y" | "YTD" | "ALL";
-const FILTER_OPTIONS: FilterPeriod[] = ["1D", "1W", "1M", "YTD", "1Y", "ALL"];
+type FilterPeriod = "1W" | "1M" | "1Y" | "5Y" | "YTD" | "ALL";
+const FILTER_OPTIONS: FilterPeriod[] = ["1W", "1M", "YTD", "1Y", "ALL"];
 
 function getFilterStartDate(filter: FilterPeriod): Date | null {
   const now = new Date();
   switch (filter) {
-    case "1D": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 1);
-      return d;
-    }
     case "1W": {
       const d = new Date(now);
       d.setDate(d.getDate() - 7);
@@ -172,7 +167,7 @@ export default function DashboardScreen() {
     usePortfolioHistory();
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
-  const [chartFilter, setChartFilter] = useState<FilterPeriod>("1D");
+  const [chartFilter, setChartFilter] = useState<FilterPeriod>("1W");
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [toastConfig, setToastConfig] = useState<{
     type: "success" | "error";

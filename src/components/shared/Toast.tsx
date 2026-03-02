@@ -10,7 +10,7 @@ import { colors } from "../../constants/theme";
 
 export interface ToastConfig {
   type: "success" | "error";
-  msg: string;
+  msg: unknown;
   duration?: number; // ms, defaults to 3000
 }
 
@@ -93,6 +93,29 @@ export default function Toast({ config, onClose }: ToastProps) {
 
   if (!config) return null;
 
+  // Normalize message to a safe string for display
+  const rawMsg = config.msg;
+  let displayMsg = "";
+  if (typeof rawMsg === "string") displayMsg = rawMsg;
+  else if (rawMsg && typeof (rawMsg as any).message === "string")
+    displayMsg = (rawMsg as any).message;
+  else {
+    try {
+      displayMsg = JSON.stringify(rawMsg);
+    } catch {
+      displayMsg = String(rawMsg ?? "");
+    }
+  }
+
+  // Sanitize common noisy runtime messages
+  if (
+    !displayMsg ||
+    displayMsg === "undefined" ||
+    displayMsg.includes("undefined is not a function")
+  ) {
+    displayMsg = "An unexpected error occurred";
+  }
+
   const isSuccess = config.type === "success";
   const borderColor = isSuccess
     ? "rgba(0, 255, 136, 0.35)"
@@ -110,8 +133,12 @@ export default function Toast({ config, onClose }: ToastProps) {
       ]}
       {...panResponder.panHandlers}
     >
-      <TouchableOpacity onPress={dismiss} activeOpacity={1} style={styles.inner}>
-        <Text style={styles.text}>{config.msg}</Text>
+      <TouchableOpacity
+        onPress={dismiss}
+        activeOpacity={1}
+        style={styles.inner}
+      >
+        <Text style={styles.text}>{displayMsg}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
