@@ -1,11 +1,5 @@
 import React, { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { colors } from "../../constants/theme";
 import type { PortfolioHolding } from "../../services/api";
 
@@ -65,14 +59,8 @@ function buildContributions(
     .filter((c) => c.netAmount !== 0); // Only show holdings with non-zero P/L
 }
 
-const SCREEN_W = Dimensions.get("window").width;
-const CARD_H_PADDING = 36; // 18*2
-const SCROLL_H_PADDING = 40; // 20*2
-const AVAILABLE_W = SCREEN_W - CARD_H_PADDING - SCROLL_H_PADDING;
 const BAR_LABEL_W = 50;
-const PILL_W = 86;
-const ROW_GAP_TOTAL = 20;
-const BAR_MAX_WIDTH = AVAILABLE_W - BAR_LABEL_W - PILL_W - ROW_GAP_TOTAL;
+const PILL_W = 68;
 
 interface TopPointContributorsChartProps {
   holdings: PortfolioHolding[];
@@ -135,7 +123,7 @@ export default function TopPointContributorsChart({
     <View style={styles.card}>
       {/* Header: title + mode toggle */}
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Top Point Contributors</Text>
+        <Text style={styles.cardTitle}>Top Contributors</Text>
         <View style={styles.toggle}>
           <TouchableOpacity
             style={[
@@ -177,7 +165,7 @@ export default function TopPointContributorsChart({
       {/* Chart area */}
       <View style={{ height: CHART_HEIGHT, overflow: "hidden" }}>
         {topContributors.map((contrib, idx) => {
-          const barWidth = contrib.widthRatio * BAR_MAX_WIDTH;
+          const barWidth: `${number}%` = `${Math.max(0, Math.min(contrib.widthRatio, 1)) * 100}%`;
           const isPositive = contrib.netAmount >= 0;
 
           return (
@@ -203,7 +191,7 @@ export default function TopPointContributorsChart({
                     style={[
                       styles.bar,
                       {
-                        width: Math.max(barWidth, 10), // Minimum visible width
+                        width: barWidth,
                         backgroundColor: isPositive ? "#16A34A" : "#DC2626",
                       },
                     ]}
@@ -211,25 +199,27 @@ export default function TopPointContributorsChart({
                 </View>
 
                 {/* Percentage pill - right side */}
-                <View
-                  style={[
-                    styles.pnlBadge,
-                    {
-                      backgroundColor: isPositive
-                        ? "rgba(34, 197, 94, 0.14)"
-                        : "rgba(239, 68, 68, 0.14)",
-                    },
-                  ]}
-                >
-                  <Text
+                <View style={styles.pillSlot}>
+                  <View
                     style={[
-                      styles.pnlBadgeText,
-                      { color: isPositive ? "#22C55E" : colors.danger },
+                      styles.pnlBadge,
+                      {
+                        backgroundColor: isPositive
+                          ? "rgba(34, 197, 94, 0.14)"
+                          : "rgba(239, 68, 68, 0.14)",
+                      },
                     ]}
                   >
-                    {isPositive ? "+" : ""}
-                    {contrib.percentage.toFixed(2)}%
-                  </Text>
+                    <Text
+                      style={[
+                        styles.pnlBadgeText,
+                        { color: isPositive ? "#22C55E" : colors.danger },
+                      ]}
+                    >
+                      {isPositive ? "+" : ""}
+                      {contrib.percentage.toFixed(2)}%
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -323,7 +313,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   barChart: {
-    width: BAR_MAX_WIDTH,
+    flex: 1,
     height: 28,
     backgroundColor: "rgba(0, 0, 0, 0.03)",
     borderRadius: 8,
@@ -334,12 +324,15 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 6,
   },
+  pillSlot: {
+    width: PILL_W,
+    alignItems: "flex-end",
+  },
   pnlBadge: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    width: PILL_W,
-    gap: 3,
+    minWidth: PILL_W,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 20,
