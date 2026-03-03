@@ -56,7 +56,7 @@ function buildContributions(
         previousClose,
       };
     })
-    .filter((c) => c.netAmount !== 0); // Only show holdings with non-zero P/L
+    .filter((c) => c.percentage !== 0); // Only show holdings with non-zero percentage change
 }
 
 const BAR_LABEL_W = 50;
@@ -82,26 +82,27 @@ export default function TopPointContributorsChart({
 
   const topContributors = useMemo<RenderContribution[]>(() => {
     const topPositive = contributions
-      .filter((c) => c.netAmount > 0)
-      .sort((a, b) => b.netAmount - a.netAmount)
+      .filter((c) => c.percentage > 0)
+      .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
 
     const topNegative = contributions
-      .filter((c) => c.netAmount < 0)
-      .sort((a, b) => Math.abs(b.netAmount) - Math.abs(a.netAmount))
+      .filter((c) => c.percentage < 0)
+      .sort((a, b) => Math.abs(b.percentage) - Math.abs(a.percentage))
       .slice(0, 5);
 
-    const positiveBase = topPositive[0]?.netAmount ?? 0;
-    const negativeBase = Math.abs(topNegative[0]?.netAmount ?? 0);
+    const positiveBase = topPositive[0]?.percentage ?? 0;
+    const negativeBase = Math.abs(topNegative[0]?.percentage ?? 0);
 
     return [
       ...topPositive.map((c) => ({
         ...c,
-        widthRatio: positiveBase > 0 ? c.netAmount / positiveBase : 0,
+        widthRatio: positiveBase > 0 ? c.percentage / positiveBase : 0,
       })),
       ...topNegative.map((c) => ({
         ...c,
-        widthRatio: negativeBase > 0 ? Math.abs(c.netAmount) / negativeBase : 0,
+        widthRatio:
+          negativeBase > 0 ? Math.abs(c.percentage) / negativeBase : 0,
       })),
     ];
   }, [contributions]);
@@ -112,7 +113,7 @@ export default function TopPointContributorsChart({
 
   const BAR_HEIGHT = 32;
   const BAR_GAP = 12;
-  const firstNegativeIndex = topContributors.findIndex((c) => c.netAmount < 0);
+  const firstNegativeIndex = topContributors.findIndex((c) => c.percentage < 0);
   const hasSplitDivider = firstNegativeIndex > 0;
   const CHART_HEIGHT =
     topContributors.length * (BAR_HEIGHT + BAR_GAP) +
