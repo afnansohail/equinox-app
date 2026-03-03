@@ -23,6 +23,7 @@ import {
   TrendingDown,
 } from "lucide-react-native";
 import PortfolioChart from "../components/charts/PortfolioChart";
+import TopPointContributorsChart from "../components/charts/TopPointContributorsChart";
 import Toast from "../components/shared/Toast";
 import {
   usePortfolio,
@@ -459,6 +460,11 @@ export default function DashboardScreen() {
             onPress={onRefresh}
           />
         </View>
+
+        {/* Top Point Contributors */}
+        {holdings && holdings.length > 0 && (
+          <TopPointContributorsChart holdings={holdings} />
+        )}
 
         {/* Latest Activity */}
         {recentTx.length > 0 && (
