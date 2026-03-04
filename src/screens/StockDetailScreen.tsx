@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ScrollView,
   Text,
@@ -24,7 +24,7 @@ import {
 } from "lucide-react-native";
 import { useStock } from "../hooks/useStocks";
 import { useIsInWishlist, useToggleWishlist } from "../hooks/useWishlist";
-import { usePortfolio } from "../hooks/usePortfolio";
+import { usePortfolio, useTransactions } from "../hooks/usePortfolio";
 import { getStock } from "../services/api";
 import StockLogo from "../components/shared/StockLogo";
 import RangeBar from "../components/ui/RangeBar";
@@ -33,6 +33,56 @@ import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Route = RouteProp<RootStackParamList, "StockDetail">;
 type Nav = NativeStackNavigationProp<RootStackParamList, "StockDetail">;
+
+function computeRealizedForSymbol(
+  symbol: string,
+  transactions: {
+    id: string;
+    stockSymbol: string;
+    transactionType: "BUY" | "SELL";
+    quantity: number;
+    pricePerShare: number;
+    transactionDate: string;
+  }[],
+) {
+  let quantity = 0;
+  let avgCost = 0;
+  let realizedPnL = 0;
+  let realizedCost = 0;
+
+  const ordered = [...transactions]
+    .filter((tx) => tx.stockSymbol === symbol)
+    .sort(
+      (a, b) =>
+        a.transactionDate.localeCompare(b.transactionDate) ||
+        a.id.localeCompare(b.id),
+    );
+
+  for (const tx of ordered) {
+    if (tx.transactionType === "BUY") {
+      const totalCostBefore = quantity * avgCost;
+      const totalCostAfter = totalCostBefore + tx.quantity * tx.pricePerShare;
+      quantity += tx.quantity;
+      avgCost = quantity > 0 ? totalCostAfter / quantity : 0;
+      continue;
+    }
+
+    const sellQty = Math.min(tx.quantity, quantity);
+    if (sellQty > 0) {
+      realizedPnL += (tx.pricePerShare - avgCost) * sellQty;
+      realizedCost += avgCost * sellQty;
+    }
+    quantity = Math.max(quantity - tx.quantity, 0);
+    if (quantity === 0) {
+      avgCost = 0;
+    }
+  }
+
+  return {
+    realizedPnL,
+    realizedPct: realizedCost > 0 ? (realizedPnL / realizedCost) * 100 : 0,
+  };
+}
 
 export default function StockDetailScreen() {
   const route = useRoute<Route>();
@@ -43,8 +93,22 @@ export default function StockDetailScreen() {
   const { data: isInWishlist } = useIsInWishlist(symbol);
   const toggleWishlistMutation = useToggleWishlist();
   const { data: holdings } = usePortfolio();
+  const { data: transactions } = useTransactions();
   const holding = holdings?.find((h) => h.stockSymbol === symbol);
   const [refreshing, setRefreshing] = useState(false);
+
+  const { realizedPnL, realizedPct } = useMemo(
+    () => computeRealizedForSymbol(symbol, transactions ?? []),
+    [symbol, transactions],
+  );
+  const hasSoldForSymbol = useMemo(
+    () =>
+      (transactions ?? []).some(
+        (tx) => tx.stockSymbol === symbol && tx.transactionType === "SELL",
+      ),
+    [symbol, transactions],
+  );
+  const realizedPositive = realizedPnL >= 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -278,10 +342,10 @@ export default function StockDetailScreen() {
                       </Text>
                     </View>
                   </View>
-                  {/* Row 2: Today P&L | Unrealized P&L */}
+                  {/* Row 2: Today P/L | Unrealized P/L */}
                   <View style={styles.statRow}>
                     <View style={styles.statBox}>
-                      <Text style={styles.statLabel}>Today's P&L</Text>
+                      <Text style={styles.statLabel}>Today's P/L</Text>
                       <Text
                         style={[
                           styles.statValue,
@@ -293,18 +357,36 @@ export default function StockDetailScreen() {
                           maximumFractionDigits: 0,
                         })}
                       </Text>
-                      <Text
+                      <View
                         style={[
-                          styles.statLabel,
-                          { color: todayPositive ? "#22C55E" : colors.danger },
+                          styles.percentagePill,
+                          {
+                            backgroundColor: todayPositive
+                              ? "rgba(34,197,94,0.12)"
+                              : "rgba(239,68,68,0.12)",
+                          },
                         ]}
                       >
-                        {todayPositive ? "+" : ""}
-                        {todayPct.toFixed(2)}%
-                      </Text>
+                        {todayPositive ? (
+                          <TrendingUp size={11} color="#22C55E" />
+                        ) : (
+                          <TrendingDown size={11} color={colors.danger} />
+                        )}
+                        <Text
+                          style={[
+                            styles.percentagePillText,
+                            {
+                              color: todayPositive ? "#22C55E" : colors.danger,
+                            },
+                          ]}
+                        >
+                          {todayPositive ? "+" : ""}
+                          {todayPct.toFixed(2)}%
+                        </Text>
+                      </View>
                     </View>
                     <View style={styles.statBox}>
-                      <Text style={styles.statLabel}>Total P&L</Text>
+                      <Text style={styles.statLabel}>Unrealized P/L</Text>
                       <Text
                         style={[
                           styles.statValue,
@@ -316,19 +398,35 @@ export default function StockDetailScreen() {
                           maximumFractionDigits: 0,
                         })}
                       </Text>
-                      <Text
+                      <View
                         style={[
-                          styles.statLabel,
-                          { color: posPositive ? "#22C55E" : colors.danger },
+                          styles.percentagePill,
+                          {
+                            backgroundColor: posPositive
+                              ? "rgba(34,197,94,0.12)"
+                              : "rgba(239,68,68,0.12)",
+                          },
                         ]}
                       >
-                        {posPositive ? "+" : ""}
-                        {unrealizedPct.toFixed(2)}%
-                      </Text>
+                        {posPositive ? (
+                          <TrendingUp size={11} color="#22C55E" />
+                        ) : (
+                          <TrendingDown size={11} color={colors.danger} />
+                        )}
+                        <Text
+                          style={[
+                            styles.percentagePillText,
+                            { color: posPositive ? "#22C55E" : colors.danger },
+                          ]}
+                        >
+                          {posPositive ? "+" : ""}
+                          {unrealizedPct.toFixed(2)}%
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                  {/* Row 3: Avg buy price */}
-                  <View style={[styles.statRow, { borderBottomWidth: 0 }]}>
+                  {/* Row 3: Avg buy price | Total invested */}
+                  <View style={styles.statRow}>
                     <View style={styles.statBox}>
                       <Text style={styles.statLabel}>Avg buy price</Text>
                       <Text style={styles.statValue}>
@@ -338,7 +436,77 @@ export default function StockDetailScreen() {
                         })}
                       </Text>
                     </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statLabel}>Total invested</Text>
+                      <Text style={styles.statValue}>
+                        PKR{" "}
+                        {invested.toLocaleString("en-PK", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </Text>
+                    </View>
                   </View>
+                  {/* Row 4 (optional): Realized P&L */}
+                  {hasSoldForSymbol && (
+                    <View style={[styles.statRow, { borderBottomWidth: 0 }]}>
+                      <View style={styles.statBox}>
+                        <Text style={styles.statLabel}>Realized P&L</Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.statValue,
+                              {
+                                color: realizedPositive
+                                  ? "#22C55E"
+                                  : colors.danger,
+                              },
+                            ]}
+                          >
+                            {realizedPositive ? "+" : ""}
+                            {realizedPnL.toLocaleString("en-PK", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </Text>
+                          <View
+                            style={[
+                              styles.percentagePill,
+                              {
+                                backgroundColor: realizedPositive
+                                  ? "rgba(34,197,94,0.12)"
+                                  : "rgba(239,68,68,0.12)",
+                              },
+                            ]}
+                          >
+                            {realizedPositive ? (
+                              <TrendingUp size={11} color="#22C55E" />
+                            ) : (
+                              <TrendingDown size={11} color={colors.danger} />
+                            )}
+                            <Text
+                              style={[
+                                styles.percentagePillText,
+                                {
+                                  color: realizedPositive
+                                    ? "#22C55E"
+                                    : colors.danger,
+                                },
+                              ]}
+                            >
+                              {realizedPositive ? "+" : ""}
+                              {realizedPct.toFixed(2)}%
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <View style={styles.statBox} />
+                    </View>
+                  )}
                 </View>
               );
             })()}
@@ -510,6 +678,19 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 12, color: colors.textSecondary },
   statValue: { fontSize: 15, fontWeight: "600", color: colors.textPrimary },
+  percentagePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  percentagePillText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
   // Action bar
   actionBar: {
     position: "absolute",

@@ -379,6 +379,11 @@ export default function DashboardScreen() {
                       },
                     ]}
                   >
+                    {dayPnL >= 0 ? (
+                      <TrendingUp size={11} color="#22C55E" />
+                    ) : (
+                      <TrendingDown size={11} color={colors.danger} />
+                    )}
                     <Text
                       style={[
                         styles.pnlBadgeText,
@@ -513,10 +518,10 @@ export default function DashboardScreen() {
                     <Text
                       style={[
                         styles.txStatus,
-                        { color: isBuy ? colors.danger : "#22C55E" },
+                        { color: !isBuy ? colors.danger : "#22C55E" },
                       ]}
                     >
-                      {isBuy ? "Debited" : "Credited"}
+                      {isBuy ? "Bought" : "Sold"}
                     </Text>
                   </View>
                 </View>

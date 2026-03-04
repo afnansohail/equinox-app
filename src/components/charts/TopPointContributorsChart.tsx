@@ -279,16 +279,17 @@ const styles = StyleSheet.create({
   },
   toggle: {
     flexDirection: "row",
-    backgroundColor: "rgba(41, 253, 230, 0.06)",
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 3,
     gap: 2,
   },
   toggleBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 10,
-    backgroundColor: "transparent",
+    borderRadius: 7,
   },
   toggleBtnActive: {
     backgroundColor: colors.secondary,

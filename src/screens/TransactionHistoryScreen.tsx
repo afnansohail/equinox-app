@@ -114,10 +114,10 @@ const TransactionRow = React.memo(function TransactionRow({
         <Text
           style={[
             styles.txStatus,
-            { color: isBuy ? colors.danger : "#22C55E" },
+            { color: !isBuy ? colors.danger : "#22C55E" },
           ]}
         >
-          {isBuy ? "Debited" : "Credited"}
+          {isBuy ? "Bought" : "Sold"}
         </Text>
       </View>
     </TouchableOpacity>
@@ -309,7 +309,7 @@ export default function TransactionHistoryScreen() {
                 filter === f && styles.filterTextActive,
               ]}
             >
-              {f === "all" ? "All" : f === "BUY" ? "Buys" : "Sells"}
+              {f === "all" ? "All" : f === "BUY" ? "Bought" : "Sold"}
             </Text>
           </TouchableOpacity>
         ))}

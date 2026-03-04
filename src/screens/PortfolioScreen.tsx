@@ -20,19 +20,66 @@ import {
   ChevronRight,
   Moon,
 } from "lucide-react-native";
-import { usePortfolio } from "../hooks/usePortfolio";
+import { usePortfolio, useTransactions } from "../hooks/usePortfolio";
 import { useRefreshStocks } from "../hooks/useStocks";
 import StockLogo from "../components/shared/StockLogo";
 import Toast from "../components/shared/Toast";
 import SectorPieChart from "../components/charts/SectorPieChart";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
-import type { PortfolioHolding } from "../services/api";
+import type { PortfolioHolding, Transaction } from "../services/api";
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Portfolio">,
   NativeStackNavigationProp<RootStackParamList>
 >;
+
+function computeRealizedPnL(transactions: Transaction[]): {
+  realizedPnl: number;
+  realizedCost: number;
+} {
+  const positions = new Map<string, { quantity: number; avgCost: number }>();
+  let realizedPnl = 0;
+  let realizedCost = 0;
+
+  const ordered = [...transactions].sort(
+    (a, b) =>
+      a.transactionDate.localeCompare(b.transactionDate) ||
+      a.id.localeCompare(b.id),
+  );
+
+  for (const tx of ordered) {
+    const current = positions.get(tx.stockSymbol) ?? {
+      quantity: 0,
+      avgCost: 0,
+    };
+
+    if (tx.transactionType === "BUY") {
+      const totalCostBefore = current.quantity * current.avgCost;
+      const totalCostAfter = totalCostBefore + tx.quantity * tx.pricePerShare;
+      const quantityAfter = current.quantity + tx.quantity;
+      positions.set(tx.stockSymbol, {
+        quantity: quantityAfter,
+        avgCost: quantityAfter > 0 ? totalCostAfter / quantityAfter : 0,
+      });
+      continue;
+    }
+
+    const sellQty = Math.min(tx.quantity, current.quantity);
+    if (sellQty > 0) {
+      realizedPnl += (tx.pricePerShare - current.avgCost) * sellQty;
+      realizedCost += current.avgCost * sellQty;
+    }
+
+    const quantityAfter = Math.max(current.quantity - tx.quantity, 0);
+    positions.set(tx.stockSymbol, {
+      quantity: quantityAfter,
+      avgCost: quantityAfter > 0 ? current.avgCost : 0,
+    });
+  }
+
+  return { realizedPnl, realizedCost };
+}
 
 // Memoized holding row component for FlatList performance
 const HoldingRow = React.memo(function HoldingRow({
@@ -157,6 +204,7 @@ const HoldingRow = React.memo(function HoldingRow({
 export default function PortfolioScreen() {
   const navigation = useNavigation<Nav>();
   const { data: holdings, isLoading } = usePortfolio();
+  const { data: transactions } = useTransactions();
   const refreshMutation = useRefreshStocks();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
@@ -228,6 +276,24 @@ export default function PortfolioScreen() {
   const dayPnLPct =
     previousCloseValue > 0 ? (dayPnL / previousCloseValue) * 100 : 0;
 
+  const soldTransactions = useMemo(
+    () =>
+      [...(transactions ?? [])]
+        .filter((tx) => tx.transactionType === "SELL")
+        .sort(
+          (a, b) =>
+            b.transactionDate.localeCompare(a.transactionDate) ||
+            b.id.localeCompare(a.id),
+        ),
+    [transactions],
+  );
+
+  const { realizedPnl: totalRealizedPnL, realizedCost: totalRealizedCost } =
+    useMemo(() => computeRealizedPnL(transactions ?? []), [transactions]);
+  const realizedIsPositive = totalRealizedPnL >= 0;
+  const totalRealizedPct =
+    totalRealizedCost > 0 ? (totalRealizedPnL / totalRealizedCost) * 100 : 0;
+
   const filteredHoldings = useMemo(
     () =>
       selectedSector
@@ -253,7 +319,7 @@ export default function PortfolioScreen() {
   const ListHeader = useMemo(
     () => (
       <>
-        {/* 2x2 summary grid: Today P&L | Total P&L  and Invested | Total Value */}
+        {/* 2x2 summary grid: Today P/L | Total P/L  and Invested | Total Value */}
         <View style={styles.summaryGrid}>
           <View style={styles.gridRow}>
             <View
@@ -267,7 +333,7 @@ export default function PortfolioScreen() {
                 },
               ]}
             >
-              <Text style={styles.summaryLabel}>Today's P&L</Text>
+              <Text style={styles.summaryLabel}>Today's P/L</Text>
               <Text
                 style={[
                   styles.summaryValue,
@@ -279,15 +345,31 @@ export default function PortfolioScreen() {
                   maximumFractionDigits: 0,
                 })}
               </Text>
-              <Text
+              <View
                 style={[
-                  styles.summarySub,
-                  { color: dayIsPositive ? "#22C55E" : colors.danger },
+                  styles.summaryPill,
+                  {
+                    backgroundColor: dayIsPositive
+                      ? "rgba(34,197,94,0.12)"
+                      : "rgba(239,68,68,0.12)",
+                  },
                 ]}
               >
-                {dayIsPositive ? "+" : ""}
-                {dayPnLPct.toFixed(2)}%
-              </Text>
+                {dayIsPositive ? (
+                  <TrendingUp size={11} color="#22C55E" />
+                ) : (
+                  <TrendingDown size={11} color={colors.danger} />
+                )}
+                <Text
+                  style={[
+                    styles.summaryPillText,
+                    { color: dayIsPositive ? "#22C55E" : colors.danger },
+                  ]}
+                >
+                  {dayIsPositive ? "+" : ""}
+                  {dayPnLPct.toFixed(2)}%
+                </Text>
+              </View>
             </View>
 
             <View
@@ -301,7 +383,7 @@ export default function PortfolioScreen() {
                 },
               ]}
             >
-              <Text style={styles.summaryLabel}>Total P&L</Text>
+              <Text style={styles.summaryLabel}>Unrealized P/L</Text>
               <Text
                 style={[
                   styles.summaryValue,
@@ -313,15 +395,31 @@ export default function PortfolioScreen() {
                   maximumFractionDigits: 0,
                 })}
               </Text>
-              <Text
+              <View
                 style={[
-                  styles.summarySub,
-                  { color: isPositive ? "#22C55E" : colors.danger },
+                  styles.summaryPill,
+                  {
+                    backgroundColor: isPositive
+                      ? "rgba(34,197,94,0.12)"
+                      : "rgba(239,68,68,0.12)",
+                  },
                 ]}
               >
-                {isPositive ? "+" : ""}
-                {totalPnLPct.toFixed(2)}%
-              </Text>
+                {isPositive ? (
+                  <TrendingUp size={11} color="#22C55E" />
+                ) : (
+                  <TrendingDown size={11} color={colors.danger} />
+                )}
+                <Text
+                  style={[
+                    styles.summaryPillText,
+                    { color: isPositive ? "#22C55E" : colors.danger },
+                  ]}
+                >
+                  {isPositive ? "+" : ""}
+                  {totalPnLPct.toFixed(2)}%
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -381,12 +479,107 @@ export default function PortfolioScreen() {
     [
       holdings,
       filteredHoldings,
+      dayIsPositive,
+      dayPnL,
+      dayPnLPct,
       totalValue,
       totalPnL,
       totalPnLPct,
       totalInvested,
       isPositive,
       selectedSector,
+    ],
+  );
+
+  const ListFooter = useMemo(
+    () =>
+      soldTransactions.length > 0 ? (
+        <View style={styles.historySection}>
+          <View style={styles.historyDivider} />
+          <Text style={styles.sectionTitle}>Sold Shares History</Text>
+
+          <View
+            style={[
+              styles.summaryCard,
+              styles.realizedCard,
+              {
+                borderColor: realizedIsPositive
+                  ? "rgba(34,197,94,0.3)"
+                  : "rgba(239,68,68,0.3)",
+              },
+            ]}
+          >
+            <Text style={styles.summaryLabel}>Total Realized P/L</Text>
+            <View style={styles.realizedValueRow}>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: realizedIsPositive ? "#22C55E" : colors.danger },
+                ]}
+              >
+                {realizedIsPositive ? "+" : "-"}PKR{" "}
+                {Math.abs(totalRealizedPnL).toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+              {totalRealizedCost > 0 && (
+                <View
+                  style={[
+                    styles.summaryPill,
+                    {
+                      backgroundColor: realizedIsPositive
+                        ? "rgba(34,197,94,0.12)"
+                        : "rgba(239,68,68,0.12)",
+                    },
+                  ]}
+                >
+                  {realizedIsPositive ? (
+                    <TrendingUp size={11} color="#22C55E" />
+                  ) : (
+                    <TrendingDown size={11} color={colors.danger} />
+                  )}
+                  <Text
+                    style={[
+                      styles.summaryPillText,
+                      { color: realizedIsPositive ? "#22C55E" : colors.danger },
+                    ]}
+                  >
+                    {realizedIsPositive ? "+" : ""}
+                    {totalRealizedPct.toFixed(2)}%
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {soldTransactions.map((tx) => (
+            <View key={tx.id} style={styles.soldTxCard}>
+              <View>
+                <Text style={styles.soldTxSymbol}>{tx.stockSymbol}</Text>
+                <Text style={styles.soldTxMeta}>
+                  {tx.quantity} shares @ PKR {tx.pricePerShare.toFixed(2)}
+                </Text>
+                <Text style={styles.soldTxDate}>{tx.transactionDate}</Text>
+              </View>
+              <View style={styles.soldTxRight}>
+                <Text style={styles.soldTxAmount}>
+                  PKR{" "}
+                  {tx.totalAmount.toLocaleString("en-PK", {
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+                <Text style={styles.soldTxStatus}>Sold</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null,
+    [
+      soldTransactions,
+      totalRealizedPnL,
+      totalRealizedCost,
+      totalRealizedPct,
+      realizedIsPositive,
     ],
   );
 
@@ -426,11 +619,12 @@ export default function PortfolioScreen() {
         renderItem={renderHolding}
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
         ListEmptyComponent={EmptyList}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scroll,
-          { paddingBottom: TAB_BAR_HEIGHT + 24 },
+          { paddingBottom: TAB_BAR_HEIGHT + 48 },
         ]}
         refreshControl={
           <RefreshControl
@@ -519,6 +713,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     letterSpacing: 0.3,
+    marginBottom: 4,
   },
   summaryValue: {
     fontSize: 17,
@@ -526,6 +721,25 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   summarySub: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  realizedValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 8,
+  },
+  summaryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  summaryPillText: {
     fontSize: 12,
     fontWeight: "600",
   },
@@ -630,4 +844,56 @@ const styles = StyleSheet.create({
   smallCardNoPad: { flex: 1, paddingVertical: 10, paddingHorizontal: 12 },
   holdingToday: { fontSize: 11, marginTop: 4 },
   holdingTotalPct: { fontSize: 12, fontWeight: "700", marginTop: 6 },
+  historySection: {
+    marginTop: 8,
+    marginBottom: 18,
+    gap: 10,
+  },
+  historyDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: 8,
+  },
+  realizedCard: {
+    paddingVertical: 12,
+  },
+  soldTxCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  soldTxSymbol: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  soldTxMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  soldTxDate: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  soldTxRight: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  soldTxAmount: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  soldTxStatus: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#22C55E",
+  },
 });
