@@ -32,7 +32,7 @@ export function getFilterStartDate(filter: FilterPeriod): Date | null {
   }
 }
 
-export type ChartPoint = { value: number; label?: string };
+export type ChartPoint = { value: number; invested?: number; label?: string };
 
 export function buildChartFromHistory(
   history: PortfolioHistoryPoint[] | undefined,
@@ -62,6 +62,7 @@ export function buildChartFromHistory(
 
       return filtered.map((p, i) => ({
         value: p.marketValue,
+        invested: p.invested,
         label: labelSet.has(i)
           ? new Date(p.timestamp * 1000).toLocaleDateString("en-PK", {
               month: "short",

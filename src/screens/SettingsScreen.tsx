@@ -99,11 +99,11 @@ export default function SettingsScreen() {
     }
   };
 
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
+
   const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: signOut },
-    ]);
+    setShowSignOutModal(true);
   };
 
   const handleConfirmDelete = useCallback(async () => {
@@ -119,7 +119,7 @@ export default function SettingsScreen() {
     queryClient.invalidateQueries({ queryKey: ["portfolio"] });
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
     queryClient.invalidateQueries({ queryKey: ["wishlist"] });
-    Alert.alert("Done", "All your data has been deleted.");
+    setShowDeletedModal(true);
   }, [user?.id, queryClient]);
 
   const displayName = isAnonymous ? "Guest Account" : getDisplayName();
@@ -146,13 +146,18 @@ export default function SettingsScreen() {
           <View style={styles.accountInfo}>
             <Text style={styles.accountName}>{displayName}</Text>
             {isAnonymous ? (
-              <View style={styles.guestBadge}>
-                <Text style={styles.guestBadgeText}>Guest</Text>
-              </View>
+              <>
+                <View style={styles.guestBadge}>
+                  <Text style={styles.guestBadgeText}>Guest</Text>
+                </View>
+                {user?.email ? (
+                  <Text style={[styles.accountId, { color: colors.textMuted }]}>
+                    {user.email}
+                  </Text>
+                ) : null}
+              </>
             ) : (
-              <Text style={styles.accountId}>
-                ID: {user?.id?.slice(0, 8)}...
-              </Text>
+              <Text style={styles.accountId}>{user?.email}</Text>
             )}
           </View>
         </View>
@@ -232,18 +237,16 @@ export default function SettingsScreen() {
         </View>
 
         {/* Sign Out */}
-        {!isAnonymous && (
-          <View style={styles.section}>
-            <View style={styles.card}>
-              <SettingsRow
-                icon={<LogOut size={18} color={colors.danger} />}
-                label="Sign Out"
-                onPress={handleSignOut}
-                destructive
-              />
-            </View>
+        <View style={styles.section}>
+          <View style={styles.card}>
+            <SettingsRow
+              icon={<LogOut size={18} color={colors.danger} />}
+              label="Sign Out"
+              onPress={handleSignOut}
+              destructive
+            />
           </View>
-        )}
+        </View>
       </ScrollView>
 
       {/* Delete Confirmation Modal */}
@@ -284,6 +287,68 @@ export default function SettingsScreen() {
               style={styles.cancelBtn}
               onPress={() => setShowDeleteModal(false)}
               disabled={deleting}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Deleted Modal */}
+      <Modal
+        visible={showDeletedModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeletedModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.deleteIconWrap}>
+              <Trash2 size={28} color={colors.danger} />
+            </View>
+            <Text style={styles.modalTitle}>All Data Deleted</Text>
+            <Text style={styles.modalSubtitle}>
+              Your entire portfolio, transactions, and watchlist have been
+              permanently erased.
+            </Text>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => setShowDeletedModal(false)}
+            >
+              <Text style={styles.deleteBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Sign Out Modal */}
+      <Modal
+        visible={showSignOutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSignOutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.deleteIconWrap}>
+              <LogOut size={28} color={colors.danger} />
+            </View>
+            <Text style={styles.modalTitle}>Sign Out?</Text>
+            <Text style={styles.modalSubtitle}>
+              Are you sure you want to sign out?
+            </Text>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => {
+                setShowSignOutModal(false);
+                signOut();
+              }}
+            >
+              <Text style={styles.deleteBtnText}>Sign Out</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setShowSignOutModal(false)}
             >
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>

@@ -1,5 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+} from "react-native";
 import { TrendingUp, TrendingDown } from "lucide-react-native";
 import PortfolioChart from "../charts/PortfolioChart";
 import { colors } from "../../constants/theme";
@@ -15,95 +21,55 @@ interface BalanceCardProps {
   dayPnLPct: number;
   dayIsPositive: boolean;
   chartData: ChartPoint[];
+  investedSeries?: { value: number; label?: string }[];
   chartFilter: FilterPeriod;
   onFilterChange: (filter: FilterPeriod) => void;
 }
 
 const FILTER_OPTIONS: FilterPeriod[] = ["1W", "1M", "YTD", "1Y", "ALL"];
 
-export const BalanceCard = React.memo(({
-  totalValue,
-  totalPnL,
-  totalPnLPct,
-  isPositive,
-  dayPnL,
-  dayPnLPct,
-  dayIsPositive,
-  chartData,
-  chartFilter,
-  onFilterChange,
-}: BalanceCardProps) => {
-  return (
-    <View style={styles.balanceCard}>
-      <Text style={styles.balanceLabel}>Portfolio Balance</Text>
-      <Text style={styles.balanceValue}>
-        PKR {formatPKR(totalValue)}
-      </Text>
+export const BalanceCard = React.memo(
+  ({
+    totalValue,
+    totalPnL,
+    totalPnLPct,
+    isPositive,
+    dayPnL,
+    dayPnLPct,
+    dayIsPositive,
+    chartData,
+    investedSeries,
+    chartFilter,
+    onFilterChange,
+  }: BalanceCardProps) => {
+    return (
+      <View style={styles.balanceCard}>
+        <Text style={styles.balanceLabel}>Portfolio Balance</Text>
+        <Text style={styles.balanceValue}>PKR {formatPKR(totalValue)}</Text>
 
-      <View style={styles.pnlBlock}>
-        <View style={styles.pnlRow}>
-          <Text style={styles.pnlRowLabel}>Total P/L</Text>
-          <View style={styles.pnlRowRight}>
-            <Text
-              style={[
-                styles.pnlRowAmount,
-                { color: isPositive ? colors.success : colors.danger },
-              ]}
-            >
-              {isPositive ? "+" : "-"}PKR {formatPKR(Math.abs(totalPnL))}
-            </Text>
-            <View
-              style={[
-                styles.pnlBadge,
-                {
-                  backgroundColor: isPositive
-                    ? "rgba(34,197,94,0.14)"
-                    : "rgba(239,68,68,0.14)",
-                },
-              ]}
-            >
-              {isPositive ? (
-                <TrendingUp size={11} color={colors.success} />
-              ) : (
-                <TrendingDown size={11} color={colors.danger} />
-              )}
+        <View style={styles.pnlBlock}>
+          <View style={styles.pnlRow}>
+            <Text style={styles.pnlRowLabel}>Total P/L</Text>
+            <View style={styles.pnlRowRight}>
               <Text
                 style={[
-                  styles.pnlBadgeText,
+                  styles.pnlRowAmount,
                   { color: isPositive ? colors.success : colors.danger },
                 ]}
               >
-                {formatPercentage(totalPnLPct)}
+                {isPositive ? "+" : "-"}PKR {formatPKR(Math.abs(totalPnL))}
               </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.pnlDivider} />
-
-        <View style={styles.pnlRow}>
-          <Text style={styles.pnlRowLabel}>Today</Text>
-          <View style={styles.pnlRowRight}>
-            <Text
-              style={[
-                styles.pnlRowAmount,
-                { color: dayIsPositive ? colors.success : colors.danger },
-              ]}
-            >
-              {dayIsPositive ? "+" : "-"}PKR {formatPKR(Math.abs(dayPnL))}
-            </Text>
-            {totalValue > 0 && (
               <View
                 style={[
                   styles.pnlBadge,
                   {
-                    backgroundColor: dayIsPositive
+                    backgroundColor: isPositive
                       ? "rgba(34,197,94,0.14)"
                       : "rgba(239,68,68,0.14)",
                   },
                 ]}
               >
-                {dayIsPositive ? (
+                {isPositive ? (
                   <TrendingUp size={11} color={colors.success} />
                 ) : (
                   <TrendingDown size={11} color={colors.danger} />
@@ -111,51 +77,94 @@ export const BalanceCard = React.memo(({
                 <Text
                   style={[
                     styles.pnlBadgeText,
-                    { color: dayIsPositive ? colors.success : colors.danger },
+                    { color: isPositive ? colors.success : colors.danger },
                   ]}
                 >
-                  {formatPercentage(dayPnLPct)}
+                  {formatPercentage(totalPnLPct)}
                 </Text>
               </View>
-            )}
+            </View>
           </View>
-        </View>
-      </View>
 
-      {chartData.length >= 2 && (
-        <View style={styles.chartWrap}>
-          <View style={styles.filterRow}>
-            {FILTER_OPTIONS.map((f) => (
-              <TouchableOpacity
-                key={f}
+          <View style={styles.pnlDivider} />
+
+          <View style={styles.pnlRow}>
+            <Text style={styles.pnlRowLabel}>Today</Text>
+            <View style={styles.pnlRowRight}>
+              <Text
                 style={[
-                  styles.filterPill,
-                  chartFilter === f && styles.filterPillActive,
+                  styles.pnlRowAmount,
+                  { color: dayIsPositive ? colors.success : colors.danger },
                 ]}
-                onPress={() => onFilterChange(f)}
               >
-                <Text
+                {dayIsPositive ? "+" : "-"}PKR {formatPKR(Math.abs(dayPnL))}
+              </Text>
+              {totalValue > 0 && (
+                <View
                   style={[
-                    styles.filterPillText,
-                    chartFilter === f && styles.filterPillTextActive,
+                    styles.pnlBadge,
+                    {
+                      backgroundColor: dayIsPositive
+                        ? "rgba(34,197,94,0.14)"
+                        : "rgba(239,68,68,0.14)",
+                    },
                   ]}
                 >
-                  {f}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  {dayIsPositive ? (
+                    <TrendingUp size={11} color={colors.success} />
+                  ) : (
+                    <TrendingDown size={11} color={colors.danger} />
+                  )}
+                  <Text
+                    style={[
+                      styles.pnlBadgeText,
+                      { color: dayIsPositive ? colors.success : colors.danger },
+                    ]}
+                  >
+                    {formatPercentage(dayPnLPct)}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-          <PortfolioChart
-            data={chartData}
-            isPositive={isPositive}
-            width={Dimensions.get("window").width - 80}
-            height={160}
-          />
         </View>
-      )}
-    </View>
-  );
-});
+
+        {chartData.length >= 2 && (
+          <View style={styles.chartWrap}>
+            <View style={styles.filterRow}>
+              {FILTER_OPTIONS.map((f) => (
+                <TouchableOpacity
+                  key={f}
+                  style={[
+                    styles.filterPill,
+                    chartFilter === f && styles.filterPillActive,
+                  ]}
+                  onPress={() => onFilterChange(f)}
+                >
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      chartFilter === f && styles.filterPillTextActive,
+                    ]}
+                  >
+                    {f}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <PortfolioChart
+              data={chartData}
+              investedSeries={investedSeries}
+              isPositive={isPositive}
+              width={Dimensions.get("window").width - 80}
+              height={160}
+            />
+          </View>
+        )}
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   balanceCard: {

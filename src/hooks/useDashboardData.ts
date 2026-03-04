@@ -71,6 +71,16 @@ export function useDashboardData(chartFilter: FilterPeriod) {
     [portfolioHistory, chartFilter, totalValue, transactions],
   );
 
+  // Extract net invested series for dual-line chart
+  const investedSeries = useMemo(
+    () =>
+      chartData.map((d) => ({
+        value: d.invested ?? 0,
+        label: d.label,
+      })),
+    [chartData],
+  );
+
   const recentTransactions = useMemo(
     () => (transactions ?? []).slice(0, 3),
     [transactions],
@@ -89,8 +99,8 @@ export function useDashboardData(chartFilter: FilterPeriod) {
     dayPnLPct,
     dayIsPositive,
     chartData,
+    investedSeries,
     recentTransactions,
-    isLoading:
-      isPortfolioLoading || isTransactionsLoading || isHistoryLoading,
+    isLoading: isPortfolioLoading || isTransactionsLoading || isHistoryLoading,
   };
 }

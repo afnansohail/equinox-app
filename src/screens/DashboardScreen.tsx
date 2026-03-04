@@ -58,6 +58,7 @@ export default function DashboardScreen() {
     dayPnLPct,
     dayIsPositive,
     chartData,
+    investedSeries,
     recentTransactions,
   } = useDashboardData(chartFilter);
 
@@ -92,7 +93,9 @@ export default function DashboardScreen() {
         </View>
         <TouchableOpacity
           style={styles.iconBtn}
-          onPress={() => navigation.navigate("MainTabs", { screen: "Settings" })}
+          onPress={() =>
+            navigation.navigate("MainTabs", { screen: "Settings" })
+          }
         >
           <Settings size={20} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -121,6 +124,7 @@ export default function DashboardScreen() {
           dayPnLPct={dayPnLPct}
           dayIsPositive={dayIsPositive}
           chartData={chartData}
+          investedSeries={investedSeries}
           chartFilter={chartFilter}
           onFilterChange={setChartFilter}
         />

@@ -9,6 +9,7 @@ import Svg, {
   Circle,
   G,
   Text as SvgText,
+  Rect,
 } from "react-native-svg";
 import { colors } from "../../constants/theme";
 
@@ -43,6 +44,7 @@ function buildAreaPath(
 
 interface PortfolioChartProps {
   data: { value: number; label?: string }[];
+  investedSeries?: { value: number; label?: string }[];
   isPositive: boolean;
   width?: number;
   height?: number;
@@ -50,6 +52,7 @@ interface PortfolioChartProps {
 
 export default function PortfolioChart({
   data,
+  investedSeries,
   isPositive,
   width = Dimensions.get("window").width - 80,
   height = 160,
@@ -95,8 +98,12 @@ export default function PortfolioChart({
   }
 
   const values = data.map((d) => d.value);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
+  const investedValues = investedSeries
+    ? investedSeries.map((d) => d.value)
+    : [];
+  const allYValues = values.concat(investedValues);
+  const minVal = Math.min(...allYValues);
+  const maxVal = Math.max(...allYValues);
   const valRange = maxVal - minVal || maxVal * 0.1 || 1;
   const yMin = minVal - valRange * 0.08;
   const yMax = maxVal + valRange * 0.12;
@@ -105,12 +112,26 @@ export default function PortfolioChart({
   const toY = (v: number) => chartH - ((v - yMin) / (yMax - yMin)) * chartH;
 
   const svgPoints = data.map((d, i) => ({ x: toX(i), y: toY(d.value) }));
+  const investedPoints =
+    investedSeries && investedSeries.length === data.length
+      ? investedSeries.map((d, i) => ({ x: toX(i), y: toY(d.value) }))
+      : null;
   const baseline = chartH;
 
   const linePath = buildLinePath(svgPoints);
   const areaPath = buildAreaPath(svgPoints, baseline);
+  const investedLinePath = investedPoints
+    ? buildLinePath(investedPoints)
+    : null;
+
+  // Helper to get invested value at a given index
+  const getInvestedAt = (idx: number | null) =>
+    investedSeries && idx !== null && investedSeries.length > idx
+      ? investedSeries[idx].value
+      : null;
 
   const chartColor = isPositive ? "#22C55E" : "#EF4444";
+  const investedColor = "#0a99ff";
   const gradientId = "areaGrad";
 
   const yTicks = [0, 0.5, 1].map((t) => yMin + t * (yMax - yMin));
@@ -133,9 +154,17 @@ export default function PortfolioChart({
       {active && (
         <View style={[styles.tooltip, { left: PADDING.left }]}>
           <Text style={styles.tooltipValue}>
-            PKR{" "}
+            Value: PKR{" "}
             {active.value.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
           </Text>
+          {investedSeries && investedSeries.length === data.length && (
+            <Text style={styles.tooltipValue}>
+              Invested: PKR{" "}
+              {getInvestedAt(safeIndex)?.toLocaleString("en-PK", {
+                maximumFractionDigits: 0,
+              })}
+            </Text>
+          )}
           {active.label ? (
             <Text style={styles.tooltipLabel}>{active.label}</Text>
           ) : null}
@@ -180,7 +209,7 @@ export default function PortfolioChart({
           {/* Area fill */}
           <Path d={areaPath} fill={`url(#${gradientId})`} />
 
-          {/* Line */}
+          {/* Portfolio Value Line */}
           <Path
             d={linePath}
             fill="none"
@@ -189,6 +218,19 @@ export default function PortfolioChart({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+
+          {/* Net Invested Line */}
+          {investedLinePath && (
+            <Path
+              d={investedLinePath}
+              fill="none"
+              stroke={investedColor}
+              strokeWidth={1}
+              strokeDasharray="6,3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
 
           {/* X-axis labels */}
           {data.map((d, i) => {
@@ -228,6 +270,17 @@ export default function PortfolioChart({
               />
             </G>
           )}
+          {/* Legend */}
+          <G x={0} y={-10}>
+            <Rect x={0} y={0} width={10} height={3} fill={chartColor} />
+            <SvgText x={15} y={3} fontSize={10} fill={colors.textMuted}>
+              Value
+            </SvgText>
+            <Rect x={60} y={0} width={10} height={3} fill={investedColor} />
+            <SvgText x={75} y={3} fontSize={10} fill={colors.textMuted}>
+              Invested
+            </SvgText>
+          </G>
         </G>
       </Svg>
     </View>
