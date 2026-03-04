@@ -36,7 +36,6 @@ import type { Transaction } from "../services/api";
 
 type FilterType = "all" | "BUY" | "SELL";
 
-// Memoized transaction row component for FlatList performance
 const TransactionRow = React.memo(function TransactionRow({
   transaction,
   onPress,
@@ -134,7 +133,6 @@ export default function TransactionHistoryScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editTx, setEditTx] = useState<Transaction | null>(null);
 
-  // Edit modal state
   const [editQuantity, setEditQuantity] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editDate, setEditDate] = useState<Date>(new Date());
@@ -147,7 +145,6 @@ export default function TransactionHistoryScreen() {
     setEditTx(tx);
     setEditQuantity(String(tx.quantity));
     setEditPrice(String(tx.pricePerShare));
-    // Parse date string "YYYY-MM-DD" without timezone issues
     const parts = tx.transactionDate.split("-");
     setEditDate(
       new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])),
@@ -175,7 +172,6 @@ export default function TransactionHistoryScreen() {
     setEditError("");
 
     try {
-      // Format date as YYYY-MM-DD without timezone issues
       const year = editDate.getFullYear();
       const month = String(editDate.getMonth() + 1).padStart(2, "0");
       const day = String(editDate.getDate()).padStart(2, "0");
@@ -217,12 +213,10 @@ export default function TransactionHistoryScreen() {
   const displayTx = useMemo(() => {
     let filtered = transactions ?? [];
 
-    // Filter by type
     if (filter !== "all") {
       filtered = filtered.filter((tx) => tx.transactionType === filter);
     }
 
-    // Filter by search query
     const q = searchQuery.trim().toUpperCase();
     if (q) {
       filtered = filtered.filter(
@@ -263,7 +257,6 @@ export default function TransactionHistoryScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -274,7 +267,6 @@ export default function TransactionHistoryScreen() {
         <Text style={styles.headerTitle}>Transaction History</Text>
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
           <Search size={18} color={colors.textMuted} />
@@ -295,7 +287,6 @@ export default function TransactionHistoryScreen() {
         </View>
       </View>
 
-      {/* Filter Pills */}
       <View style={styles.filterRow}>
         {(["all", "BUY", "SELL"] as FilterType[]).map((f) => (
           <TouchableOpacity
@@ -327,7 +318,6 @@ export default function TransactionHistoryScreen() {
         windowSize={5}
       />
 
-      {/* Edit Transaction Modal */}
       <Modal
         visible={!!editTx}
         transparent
@@ -499,7 +489,6 @@ export default function TransactionHistoryScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Custom Date Picker */}
       <DatePickerModal
         visible={showDatePicker}
         onClose={() => setShowDatePicker(false)}
@@ -603,8 +592,6 @@ const styles = StyleSheet.create({
   txRight: { alignItems: "flex-end", gap: 4, flexShrink: 0 },
   txAmount: { fontSize: 14, fontWeight: "700", color: colors.textPrimary },
   txStatus: { fontSize: 12, fontWeight: "500" },
-
-  // Search bar
   searchRow: {
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -626,8 +613,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     padding: 0,
   },
-
-  // Edit modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",

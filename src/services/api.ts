@@ -126,11 +126,6 @@ const isRecent = (
   return diffMinutes < maxAgeMinutes;
 };
 
-/**
- * Build the Supabase upsert payload for a scraped stock.
- * sector is only included when present — omitting it preserves the existing
- * DB value instead of overwriting with null when the scraper can’t detect it.
- */
 function buildStockUpsertPayload(stock: {
   symbol: string;
   name: string;
@@ -165,8 +160,7 @@ function buildStockUpsertPayload(stock: {
     last_updated: stock.lastUpdated,
     updated_at: new Date().toISOString(),
   };
-  // Only set sector when we actually have a value — avoids overwriting a good
-  // sector with null when the scraper couldn’t extract it from the page.
+  // Preserve existing sector if scraper fails to detect it
   if (stock.sector) payload.sector = stock.sector;
   return payload;
 }
@@ -202,7 +196,6 @@ function buildPriceUpsertPayload(stock: {
   };
 }
 
-// Stocks
 export async function getStock(
   symbol: string,
   options?: { forceScrape?: boolean; preserveNonPriceFromDb?: boolean },
@@ -220,8 +213,6 @@ export async function getStock(
       .maybeSingle<DbStockRow>();
     dbStock = data;
 
-    // Only serve from cache if recent, has a real price, AND previousClose
-    // is not suspiciously equal to currentPrice (sign of a bad old scrape)
     const cpNum = toNumber(dbStock?.current_price);
     const pcNum = toNumber(dbStock?.previous_close);
     const prevCloseSeemsSane = pcNum > 0 && pcNum !== cpNum;
@@ -247,27 +238,7 @@ export async function getStock(
       params: { symbol: upper },
     });
 
-    const scraped = response.data as {
-      symbol: string;
-      name: string;
-      currentPrice: number;
-      previousClose: number;
-      change?: number;
-      changePercent: number;
-      open?: number;
-      high?: number;
-      low?: number;
-      volume: number;
-      marketCap?: number;
-      high52Week?: number;
-      low52Week?: number;
-      sector?: string;
-      peRatio?: number;
-      logoUrl?: string;
-      isShariahCompliant?: boolean;
-      lastUpdated: string;
-      source?: string;
-    };
+    const scraped = response.data as any;
 
     const merged = preserveNonPriceFromDb
       ? {
@@ -353,7 +324,6 @@ export async function searchStocks(query: string): Promise<Stock[]> {
   return (data as DbStockRow[]).map(mapDbStock);
 }
 
-// Portfolio
 export async function getPortfolioHoldings(
   userId: string,
 ): Promise<PortfolioHolding[]> {
@@ -379,7 +349,6 @@ export async function getPortfolioHoldings(
     return [];
   }
 
-  // Fetch fresh stock data for all symbols in portfolio
   const symbols = data.map((row: any) => row.stock_symbol);
   const { data: stocksData } = await supabase
     .from("stocks")
@@ -393,15 +362,13 @@ export async function getPortfolioHoldings(
     }
   }
 
-  // For any symbol missing a valid price OR with stale data, scrape fresh
   const staleSymbols = symbols.filter((sym) => {
     const s = stocksMap.get(sym);
     return !s || s.currentPrice <= 0 || !isRecent(s.lastUpdated);
   });
+
   if (staleSymbols.length > 0 && vercelApiUrl) {
-    // Fire-and-forget background refresh: don't block returning the
-    // portfolio with whatever DB values we already have. This avoids a
-    // long delay on first render when many symbols are stale.
+    // Background refresh stale symbols without blocking initial render
     (async () => {
       try {
         const response = await axios.post(
@@ -414,7 +381,7 @@ export async function getPortfolioHoldings(
 
         for (const stock of payload.data) {
           const existing = stocksMap.get(stock.symbol);
-          const { error: upsertErr } = await supabase.from("stocks").upsert(
+          await supabase.from("stocks").upsert(
             buildPriceUpsertPayload({
               ...stock,
               name: existing?.name ?? stock.name ?? stock.symbol,
@@ -423,20 +390,9 @@ export async function getPortfolioHoldings(
             }),
             { onConflict: "symbol" },
           );
-          if (upsertErr)
-            console.error(
-              "Stock upsert failed in background refresh:",
-              upsertErr,
-            );
         }
-        // NOTE: we don't update the local `stocksMap` here because the caller
-        // already received the old values. The UI layer can trigger a refetch
-        // / react-query invalidation if it wants to pick up the fresh rows.
       } catch (error) {
-        console.error(
-          "Error batch scraping stale symbols (background):",
-          error,
-        );
+        console.error("Error background scraping stale symbols:", error);
       }
     })();
   }
@@ -446,7 +402,6 @@ export async function getPortfolioHoldings(
     stockSymbol: row.stock_symbol,
     quantity: Number(row.quantity),
     averageBuyPrice: Number(row.average_buy_price),
-    // Compute from stored fields — total_invested may be a generated column that rejects writes
     totalInvested: Number(row.quantity) * Number(row.average_buy_price),
     stock: stocksMap.get(row.stock_symbol),
   }));
@@ -456,9 +411,7 @@ export async function addTransaction(
   userId: string,
   tx: Omit<Transaction, "id">,
 ): Promise<void> {
-  // Guarantee a stock row exists with at least the symbol before doing anything
-  // else, so FK constraints on transactions/portfolio_holdings never fail even
-  // if the scraper is temporarily unavailable.
+  // Ensure stock row exists to satisfy FK constraints
   const { error: seedError } = await supabase.from("stocks").upsert(
     {
       symbol: tx.stockSymbol.toUpperCase(),
@@ -468,18 +421,13 @@ export async function addTransaction(
   );
 
   if (seedError) {
-    // 403 = missing GRANT on stocks table in Supabase.
-    // Run the SQL in /database/schema.sql (GRANT section) in the Supabase SQL editor.
-    console.error(
-      "Cannot seed stock row — check Supabase GRANT permissions:",
-      seedError,
-    );
+    console.error("Supabase seed error (check GRANT permissions):", seedError);
     throw new Error(
-      `Cannot write stock '${tx.stockSymbol}' to DB (${seedError.code}): ${seedError.message}`,
+      `Failed to initialize stock '${tx.stockSymbol}': ${seedError.message}`,
     );
   }
 
-  // Now try to enrich with live price data (non-blocking — failure is OK)
+  // Non-blocking live price enrichment
   await getStock(tx.stockSymbol).catch(() => null);
 
   const { error: txError } = await supabase.from("transactions").insert({
@@ -497,23 +445,12 @@ export async function addTransaction(
     console.error("Error inserting transaction", txError);
     throw new Error(`Failed to add transaction: ${txError.message}`);
   }
-
-  // Portfolio holdings are now updated via database trigger (recalc_portfolio_holding)
-  // No client-side calculation needed
 }
 
 export async function updateTransaction(
   userId: string,
   id: string,
-  updates: Partial<
-    Omit<Transaction, "id" | "stockSymbol" | "transactionType"> & {
-      quantity: number;
-      pricePerShare: number;
-      totalAmount: number;
-      transactionDate: string;
-      notes: string | null;
-    }
-  >,
+  updates: Partial<Transaction>,
 ): Promise<void> {
   const { data: existingTx, error: fetchError } = await supabase
     .from("transactions")
@@ -526,7 +463,6 @@ export async function updateTransaction(
     throw new Error("Transaction not found or unauthorized");
   }
 
-  // Build the update payload for the transaction
   const updatePayload: any = {
     updated_at: new Date().toISOString(),
   };
@@ -540,7 +476,6 @@ export async function updateTransaction(
     updatePayload.transaction_date = updates.transactionDate;
   if ("notes" in updates) updatePayload.notes = updates.notes;
 
-  // Update the transaction record
   const { error: txUpdateError } = await supabase
     .from("transactions")
     .update(updatePayload)
@@ -550,9 +485,6 @@ export async function updateTransaction(
     console.error("Error updating transaction", txUpdateError);
     throw new Error(`Failed to update transaction: ${txUpdateError.message}`);
   }
-
-  // Portfolio holdings are now updated via database trigger (recalc_portfolio_holding)
-  // No client-side calculation needed
 }
 
 export async function deleteTransaction(
@@ -570,7 +502,6 @@ export async function deleteTransaction(
     throw new Error("Transaction not found or unauthorized");
   }
 
-  // Delete the transaction
   const { error: deleteError } = await supabase
     .from("transactions")
     .delete()
@@ -580,9 +511,6 @@ export async function deleteTransaction(
     console.error("Error deleting transaction", deleteError);
     throw new Error(`Failed to delete transaction: ${deleteError.message}`);
   }
-
-  // Portfolio holdings are now updated via database trigger (recalc_portfolio_holding)
-  // No client-side calculation needed
 }
 
 export async function getTransactions(userId: string): Promise<Transaction[]> {
@@ -611,11 +539,6 @@ export async function getTransactions(userId: string): Promise<Transaction[]> {
   );
 }
 
-/**
- * Scrape latest prices for the given symbols, upsert to DB, and return the
- * refreshed Stock objects so callers can patch their caches directly without
- * a second DB round-trip.
- */
 export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
   if (!vercelApiUrl || symbols.length === 0) return [];
 
@@ -625,6 +548,7 @@ export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
     .from("stocks")
     .select("*")
     .in("symbol", upperSymbols);
+
   const existingMap = new Map<string, Stock>(
     (existingRows as DbStockRow[] | null | undefined)?.map((row) => [
       row.symbol,
@@ -639,7 +563,6 @@ export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
 
   const refreshed: Stock[] = [];
 
-  // Run upserts in parallel — no need to await sequentially
   await Promise.all(
     payload.data.map(async (stock) => {
       const existing = existingMap.get(stock.symbol);
@@ -652,8 +575,9 @@ export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
         }),
         { onConflict: "symbol" },
       );
-      if (upsertErr)
-        console.error("Stock upsert failed in refreshStockPrices:", upsertErr);
+
+      if (upsertErr) console.error("Stock refresh upsert failed:", upsertErr);
+
       refreshed.push({
         symbol: stock.symbol,
         name: existing?.name ?? stock.name,

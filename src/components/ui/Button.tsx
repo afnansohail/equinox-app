@@ -5,6 +5,10 @@ import {
   ActivityIndicator,
   StyleSheet,
   type TouchableOpacityProps,
+  View,
+  type StyleProp,
+  type ViewStyle,
+  type TextStyle,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, borderRadius, fonts } from "../../constants/theme";
@@ -16,6 +20,7 @@ interface ButtonProps extends TouchableOpacityProps {
   title: string;
   variant?: ButtonVariant;
   loading?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function Button({
@@ -28,77 +33,51 @@ export function Button({
 }: ButtonProps) {
   const { accentGradient } = useAccentColor();
 
-  if (variant === "primary") {
-    return (
-      <TouchableOpacity
-        style={[styles.base, disabled && styles.disabled, style as any]}
-        disabled={disabled || loading}
-        activeOpacity={0.85}
-        {...props}
-      >
-        <LinearGradient
-          colors={accentGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.gradient}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.textInverse} size="small" />
-          ) : (
-            <Text style={styles.primaryText}>{title}</Text>
-          )}
-        </LinearGradient>
-      </TouchableOpacity>
-    );
-  }
+  const isGradient = variant === "primary" || variant === "danger";
+  const gradientColors = (variant === "danger" 
+    ? [colors.danger, "#E05555"] 
+    : accentGradient) as [string, string];
 
-  if (variant === "danger") {
-    return (
-      <TouchableOpacity
-        style={[styles.base, disabled && styles.disabled, style as any]}
-        disabled={disabled || loading}
-        activeOpacity={0.85}
-        {...props}
-      >
-        <LinearGradient
-          colors={[colors.danger, "#E05555"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.gradient}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.primaryText}>{title}</Text>
-          )}
-        </LinearGradient>
-      </TouchableOpacity>
-    );
-  }
+  const renderContent = () => {
+    if (loading) {
+      const loaderColor = isGradient ? colors.textInverse : colors.icon;
+      return <ActivityIndicator color={loaderColor} size="small" />;
+    }
+
+    const textStyle: StyleProp<TextStyle> = [
+      isGradient ? styles.primaryText : styles.secondaryText,
+      variant === "ghost" ? { color: colors.textMuted } : null,
+    ];
+
+    return <Text style={textStyle}>{title}</Text>;
+  };
 
   return (
     <TouchableOpacity
       style={[
         styles.base,
-        variant === "secondary" ? styles.secondary : styles.ghost,
+        variant === "secondary" && styles.secondary,
+        variant === "ghost" && styles.ghost,
         disabled && styles.disabled,
-        style as any,
+        style,
       ]}
       disabled={disabled || loading}
-      activeOpacity={0.8}
+      activeOpacity={isGradient ? 0.85 : 0.8}
       {...props}
     >
-      {loading ? (
-        <ActivityIndicator color={colors.icon} size="small" />
-      ) : (
-        <Text
-          style={[
-            styles.secondaryText,
-            variant === "ghost" && { color: colors.textMuted },
-          ]}
+      {isGradient ? (
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradient}
         >
-          {title}
-        </Text>
+          {renderContent()}
+        </LinearGradient>
+      ) : (
+        <View style={styles.contentWrap}>
+          {renderContent()}
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -119,21 +98,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-  secondary: {
-    backgroundColor: colors.glass,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
+  contentWrap: {
     paddingVertical: 14,
     paddingHorizontal: 24,
     alignItems: "center",
     justifyContent: "center",
   },
+  secondary: {
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
   ghost: {
     backgroundColor: "transparent",
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
   },
   primaryText: {
     fontSize: 15,

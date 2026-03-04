@@ -13,213 +13,59 @@ import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import {
-  TrendingUp,
-  TrendingDown,
-  Plus,
-  ChevronRight,
-  Moon,
-} from "lucide-react-native";
-import { usePortfolio, useTransactions } from "../hooks/usePortfolio";
-import { useRefreshStocks } from "../hooks/useStocks";
-import StockLogo from "../components/shared/StockLogo";
-import Toast from "../components/shared/Toast";
+import { Plus } from "lucide-react-native";
+
+import { HoldingRow } from "../components/portfolio/HoldingRow";
+import { SummaryGrid } from "../components/portfolio/SummaryGrid";
+import { RealizedHistory } from "../components/portfolio/RealizedHistory";
 import SectorPieChart from "../components/charts/SectorPieChart";
+import Toast from "../components/shared/Toast";
+
+import { usePortfolioData } from "../hooks/usePortfolioData";
+import { useRefreshStocks } from "../hooks/useStocks";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
-import type { PortfolioHolding, Transaction } from "../services/api";
+import type { PortfolioHolding } from "../services/api";
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Portfolio">,
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-function computeRealizedPnL(transactions: Transaction[]): {
-  realizedPnl: number;
-  realizedCost: number;
-} {
-  const positions = new Map<string, { quantity: number; avgCost: number }>();
-  let realizedPnl = 0;
-  let realizedCost = 0;
-
-  const ordered = [...transactions].sort(
-    (a, b) =>
-      a.transactionDate.localeCompare(b.transactionDate) ||
-      a.id.localeCompare(b.id),
-  );
-
-  for (const tx of ordered) {
-    const current = positions.get(tx.stockSymbol) ?? {
-      quantity: 0,
-      avgCost: 0,
-    };
-
-    if (tx.transactionType === "BUY") {
-      const totalCostBefore = current.quantity * current.avgCost;
-      const totalCostAfter = totalCostBefore + tx.quantity * tx.pricePerShare;
-      const quantityAfter = current.quantity + tx.quantity;
-      positions.set(tx.stockSymbol, {
-        quantity: quantityAfter,
-        avgCost: quantityAfter > 0 ? totalCostAfter / quantityAfter : 0,
-      });
-      continue;
-    }
-
-    const sellQty = Math.min(tx.quantity, current.quantity);
-    if (sellQty > 0) {
-      realizedPnl += (tx.pricePerShare - current.avgCost) * sellQty;
-      realizedCost += current.avgCost * sellQty;
-    }
-
-    const quantityAfter = Math.max(current.quantity - tx.quantity, 0);
-    positions.set(tx.stockSymbol, {
-      quantity: quantityAfter,
-      avgCost: quantityAfter > 0 ? current.avgCost : 0,
-    });
-  }
-
-  return { realizedPnl, realizedCost };
-}
-
-// Memoized holding row component for FlatList performance
-const HoldingRow = React.memo(function HoldingRow({
-  holding,
-  onPress,
-}: {
-  holding: PortfolioHolding;
-  onPress: () => void;
-}) {
-  const marketPrice = holding.stock?.currentPrice ?? 0;
-  const effectivePrice =
-    marketPrice > 0 ? marketPrice : holding.averageBuyPrice;
-  const currentValue = effectivePrice * holding.quantity;
-  const gainLoss = currentValue - holding.totalInvested;
-  const gainLossPct =
-    holding.totalInvested > 0 ? (gainLoss / holding.totalInvested) * 100 : 0;
-  const isUp = gainLoss >= 0;
-  const prevClose = holding.stock?.previousClose ?? 0;
-  const todayPnL =
-    marketPrice - prevClose !== 0
-      ? (marketPrice - prevClose) * holding.quantity
-      : 0;
-  const todayPct =
-    prevClose > 0 ? ((marketPrice - prevClose) / prevClose) * 100 : 0;
-
-  return (
-    <TouchableOpacity
-      style={styles.holdingRow}
-      activeOpacity={0.7}
-      onPress={onPress}
-    >
-      <StockLogo
-        logoUrl={holding.stock?.logoUrl}
-        symbol={holding.stockSymbol}
-        size={44}
-      />
-
-      <View style={styles.holdingMeta}>
-        <View style={styles.holdingTop}>
-          <Text style={styles.holdingSymbol}>{holding.stockSymbol}</Text>
-          {holding.stock?.isShariahCompliant && (
-            <View style={styles.shariahBadge}>
-              <Moon size={12} color={colors.success} />
-            </View>
-          )}
-        </View>
-        {/* Two separate lines: quantity + market price (replaced avg price) */}
-        <Text style={styles.holdingSubtitle} numberOfLines={1}>
-          {holding.quantity} shares
-        </Text>
-        <Text style={styles.holdingSubtitle} numberOfLines={1}>
-          {marketPrice > 0
-            ? `PKR ${marketPrice.toLocaleString("en-PK", { maximumFractionDigits: 2 })}`
-            : "—"}
-        </Text>
-      </View>
-
-      <View style={styles.holdingRight}>
-        <Text style={styles.holdingValue}>
-          PKR{" "}
-          {currentValue.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
-        </Text>
-        <View
-          style={[
-            styles.gainChip,
-            {
-              backgroundColor: isUp
-                ? "rgba(34,197,94,0.12)"
-                : "rgba(239,68,68,0.12)",
-              marginTop: 8,
-            },
-          ]}
-        >
-          {isUp ? (
-            <TrendingUp size={11} color="#22C55E" />
-          ) : (
-            <TrendingDown size={11} color={colors.danger} />
-          )}
-          <Text
-            style={[
-              styles.gainChipText,
-              { color: isUp ? "#22C55E" : colors.danger },
-            ]}
-          >
-            ALL {isUp ? "+" : ""}
-            {gainLossPct.toFixed(2)}%
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.gainChip,
-            {
-              backgroundColor:
-                todayPnL >= 0 ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-              marginTop: 6,
-            },
-          ]}
-        >
-          {todayPnL >= 0 ? (
-            <TrendingUp size={11} color="#22C55E" />
-          ) : (
-            <TrendingDown size={11} color={colors.danger} />
-          )}
-          <Text
-            style={[
-              styles.gainChipText,
-              { color: todayPnL >= 0 ? "#22C55E" : colors.danger },
-            ]}
-          >
-            DAY {todayPnL >= 0 ? "+" : ""}
-            {todayPct.toFixed(2)}%
-          </Text>
-        </View>
-      </View>
-
-      <ChevronRight size={16} color={colors.textMuted} />
-    </TouchableOpacity>
-  );
-});
-
 export default function PortfolioScreen() {
   const navigation = useNavigation<Nav>();
-  const { data: holdings, isLoading } = usePortfolio();
-  const { data: transactions } = useTransactions();
-  const refreshMutation = useRefreshStocks();
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [toastConfig, setToastConfig] = useState<{
     type: "success" | "error";
     msg: string;
   } | null>(null);
+
+  const {
+    holdings,
+    filteredHoldings,
+    soldTransactions,
+    totalValue,
+    totalInvested,
+    totalPnL,
+    totalPnLPct,
+    isPositive,
+    dayPnL,
+    dayPnLPct,
+    dayIsPositive,
+    totalRealizedPnL,
+    totalRealizedCost,
+    totalRealizedPct,
+    realizedIsPositive,
+  } = usePortfolioData(selectedSector);
+
+  const refreshMutation = useRefreshStocks();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const symbols = (holdings ?? []).map((h) => h.stockSymbol);
       if (symbols.length > 0) {
-        // refreshStockPrices scrapes live prices and onSuccess patches the
-        // portfolio cache directly — no extra DB round-trip needed.
         await refreshMutation.mutateAsync(symbols);
       }
       setToastConfig({ type: "success", msg: "Portfolio updated" });
@@ -233,74 +79,6 @@ export default function PortfolioScreen() {
       setRefreshing(false);
     }
   }, [holdings, refreshMutation]);
-
-  const totalValue =
-    holdings?.reduce(
-      (s, h) =>
-        s +
-        ((h.stock?.currentPrice ?? 0) > 0
-          ? (h.stock?.currentPrice ?? 0)
-          : h.averageBuyPrice) *
-          h.quantity,
-      0,
-    ) ?? 0;
-  const dayPnL = useMemo(
-    () =>
-      holdings?.reduce((s, h) => {
-        const price = h.stock?.currentPrice ?? 0;
-        const prev =
-          h.stock?.previousClose && h.stock.previousClose > 0
-            ? h.stock.previousClose
-            : price;
-        return s + (price - prev) * h.quantity;
-      }, 0) ?? 0,
-    [holdings],
-  );
-
-  const previousCloseValue = useMemo(
-    () =>
-      holdings?.reduce((s, h) => {
-        const prev =
-          h.stock?.previousClose && h.stock.previousClose > 0
-            ? h.stock.previousClose
-            : (h.stock?.currentPrice ?? 0);
-        return s + prev * h.quantity;
-      }, 0) ?? 0,
-    [holdings],
-  );
-  const totalInvested = holdings?.reduce((s, h) => s + h.totalInvested, 0) ?? 0;
-  const totalPnL = totalValue - totalInvested;
-  const totalPnLPct = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
-  const isPositive = totalPnL >= 0;
-  const dayIsPositive = dayPnL >= 0;
-  const dayPnLPct =
-    previousCloseValue > 0 ? (dayPnL / previousCloseValue) * 100 : 0;
-
-  const soldTransactions = useMemo(
-    () =>
-      [...(transactions ?? [])]
-        .filter((tx) => tx.transactionType === "SELL")
-        .sort(
-          (a, b) =>
-            b.transactionDate.localeCompare(a.transactionDate) ||
-            b.id.localeCompare(a.id),
-        ),
-    [transactions],
-  );
-
-  const { realizedPnl: totalRealizedPnL, realizedCost: totalRealizedCost } =
-    useMemo(() => computeRealizedPnL(transactions ?? []), [transactions]);
-  const realizedIsPositive = totalRealizedPnL >= 0;
-  const totalRealizedPct =
-    totalRealizedCost > 0 ? (totalRealizedPnL / totalRealizedCost) * 100 : 0;
-
-  const filteredHoldings = useMemo(
-    () =>
-      selectedSector
-        ? (holdings ?? []).filter((h) => h.stock?.sector === selectedSector)
-        : (holdings ?? []),
-    [holdings, selectedSector],
-  );
 
   const renderHolding: ListRenderItem<PortfolioHolding> = useCallback(
     ({ item }) => (
@@ -319,134 +97,17 @@ export default function PortfolioScreen() {
   const ListHeader = useMemo(
     () => (
       <>
-        {/* 2x2 summary grid: Today P/L | Total P/L  and Invested | Total Value */}
-        <View style={styles.summaryGrid}>
-          <View style={styles.gridRow}>
-            <View
-              style={[
-                styles.summaryCard,
-                styles.smallCard,
-                {
-                  borderColor: dayIsPositive
-                    ? "rgba(34,197,94,0.3)"
-                    : "rgba(239,68,68,0.3)",
-                },
-              ]}
-            >
-              <Text style={styles.summaryLabel}>Today's P/L</Text>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  { color: dayIsPositive ? "#22C55E" : colors.danger },
-                ]}
-              >
-                {dayIsPositive ? "+" : ""}PKR{" "}
-                {Math.abs(dayPnL).toLocaleString("en-PK", {
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
-              <View
-                style={[
-                  styles.summaryPill,
-                  {
-                    backgroundColor: dayIsPositive
-                      ? "rgba(34,197,94,0.12)"
-                      : "rgba(239,68,68,0.12)",
-                  },
-                ]}
-              >
-                {dayIsPositive ? (
-                  <TrendingUp size={11} color="#22C55E" />
-                ) : (
-                  <TrendingDown size={11} color={colors.danger} />
-                )}
-                <Text
-                  style={[
-                    styles.summaryPillText,
-                    { color: dayIsPositive ? "#22C55E" : colors.danger },
-                  ]}
-                >
-                  {dayIsPositive ? "+" : ""}
-                  {dayPnLPct.toFixed(2)}%
-                </Text>
-              </View>
-            </View>
+        <SummaryGrid
+          dayPnL={dayPnL}
+          dayPnLPct={dayPnLPct}
+          dayIsPositive={dayIsPositive}
+          totalPnL={totalPnL}
+          totalPnLPct={totalPnLPct}
+          isPositive={isPositive}
+          totalInvested={totalInvested}
+          totalValue={totalValue}
+        />
 
-            <View
-              style={[
-                styles.summaryCard,
-                styles.smallCard,
-                {
-                  borderColor: isPositive
-                    ? "rgba(34,197,94,0.3)"
-                    : "rgba(239,68,68,0.3)",
-                },
-              ]}
-            >
-              <Text style={styles.summaryLabel}>Unrealized P/L</Text>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  { color: isPositive ? "#22C55E" : colors.danger },
-                ]}
-              >
-                {isPositive ? "+" : ""}PKR{" "}
-                {Math.abs(totalPnL).toLocaleString("en-PK", {
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
-              <View
-                style={[
-                  styles.summaryPill,
-                  {
-                    backgroundColor: isPositive
-                      ? "rgba(34,197,94,0.12)"
-                      : "rgba(239,68,68,0.12)",
-                  },
-                ]}
-              >
-                {isPositive ? (
-                  <TrendingUp size={11} color="#22C55E" />
-                ) : (
-                  <TrendingDown size={11} color={colors.danger} />
-                )}
-                <Text
-                  style={[
-                    styles.summaryPillText,
-                    { color: isPositive ? "#22C55E" : colors.danger },
-                  ]}
-                >
-                  {isPositive ? "+" : ""}
-                  {totalPnLPct.toFixed(2)}%
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.gridRow}>
-            <View style={[styles.summaryCard, styles.smallCardNoPad]}>
-              <Text style={styles.summaryLabel}>Invested</Text>
-              <Text style={styles.summaryValue}>
-                PKR{" "}
-                {totalInvested.toLocaleString("en-PK", {
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
-            </View>
-
-            <View style={[styles.summaryCard, styles.smallCardNoPad]}>
-              <Text style={styles.summaryLabel}>Total Value</Text>
-              <Text style={styles.summaryValue}>
-                PKR{" "}
-                {totalValue.toLocaleString("en-PK", {
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Sector Allocation Chart */}
         {(holdings?.length ?? 0) > 0 && (
           <SectorPieChart
             holdings={holdings ?? []}
@@ -455,7 +116,6 @@ export default function PortfolioScreen() {
           />
         )}
 
-        {/* Active sector filter chip */}
         {selectedSector && (
           <TouchableOpacity
             style={styles.filterChip}
@@ -467,11 +127,9 @@ export default function PortfolioScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Holdings Section Title */}
         {holdings && holdings.length > 0 && (
           <Text style={styles.sectionTitle}>
-            Holdings (
-            {selectedSector ? filteredHoldings.length : holdings.length})
+            Holdings ({selectedSector ? filteredHoldings.length : holdings.length})
           </Text>
         )}
       </>
@@ -492,88 +150,15 @@ export default function PortfolioScreen() {
   );
 
   const ListFooter = useMemo(
-    () =>
-      soldTransactions.length > 0 ? (
-        <View style={styles.historySection}>
-          <View style={styles.historyDivider} />
-          <Text style={styles.sectionTitle}>Sold Shares History</Text>
-
-          <View
-            style={[
-              styles.summaryCard,
-              styles.realizedCard,
-              {
-                borderColor: realizedIsPositive
-                  ? "rgba(34,197,94,0.3)"
-                  : "rgba(239,68,68,0.3)",
-              },
-            ]}
-          >
-            <Text style={styles.summaryLabel}>Total Realized P/L</Text>
-            <View style={styles.realizedValueRow}>
-              <Text
-                style={[
-                  styles.summaryValue,
-                  { color: realizedIsPositive ? "#22C55E" : colors.danger },
-                ]}
-              >
-                {realizedIsPositive ? "+" : "-"}PKR{" "}
-                {Math.abs(totalRealizedPnL).toLocaleString("en-PK", {
-                  maximumFractionDigits: 0,
-                })}
-              </Text>
-              {totalRealizedCost > 0 && (
-                <View
-                  style={[
-                    styles.summaryPill,
-                    {
-                      backgroundColor: realizedIsPositive
-                        ? "rgba(34,197,94,0.12)"
-                        : "rgba(239,68,68,0.12)",
-                    },
-                  ]}
-                >
-                  {realizedIsPositive ? (
-                    <TrendingUp size={11} color="#22C55E" />
-                  ) : (
-                    <TrendingDown size={11} color={colors.danger} />
-                  )}
-                  <Text
-                    style={[
-                      styles.summaryPillText,
-                      { color: realizedIsPositive ? "#22C55E" : colors.danger },
-                    ]}
-                  >
-                    {realizedIsPositive ? "+" : ""}
-                    {totalRealizedPct.toFixed(2)}%
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {soldTransactions.map((tx) => (
-            <View key={tx.id} style={styles.soldTxCard}>
-              <View>
-                <Text style={styles.soldTxSymbol}>{tx.stockSymbol}</Text>
-                <Text style={styles.soldTxMeta}>
-                  {tx.quantity} shares @ PKR {tx.pricePerShare.toFixed(2)}
-                </Text>
-                <Text style={styles.soldTxDate}>{tx.transactionDate}</Text>
-              </View>
-              <View style={styles.soldTxRight}>
-                <Text style={styles.soldTxAmount}>
-                  PKR{" "}
-                  {tx.totalAmount.toLocaleString("en-PK", {
-                    maximumFractionDigits: 0,
-                  })}
-                </Text>
-                <Text style={styles.soldTxStatus}>Sold</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : null,
+    () => (
+      <RealizedHistory
+        transactions={soldTransactions}
+        totalRealizedPnL={totalRealizedPnL}
+        totalRealizedCost={totalRealizedCost}
+        totalRealizedPct={totalRealizedPct}
+        realizedIsPositive={realizedIsPositive}
+      />
+    ),
     [
       soldTransactions,
       totalRealizedPnL,
@@ -603,7 +188,6 @@ export default function PortfolioScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Portfolio</Text>
         <TouchableOpacity
@@ -667,25 +251,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
-  // Summary
-  summaryRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    gap: 4,
-  },
-  totalValueCard: {
-    flex: 0,
-    marginBottom: 24,
-  },
   filterChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -709,103 +274,12 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     fontWeight: "700",
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    letterSpacing: 0.3,
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  summarySub: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  realizedValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 8,
-  },
-  summaryPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  summaryPillText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  // Section
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: 12,
   },
-  // Holding row
-  holdingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    marginBottom: 10,
-    gap: 12,
-  },
-  letterAvatar: { justifyContent: "center", alignItems: "center" },
-  letterAvatarText: { color: "#fff", fontWeight: "700", letterSpacing: 0.5 },
-  stockLogo: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  holdingMeta: { flex: 1, gap: 4 },
-  holdingTop: { flexDirection: "row", alignItems: "center", gap: 6 },
-  holdingSymbol: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  shariahBadge: {
-    backgroundColor: "rgba(34,197,94,0.15)",
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  shariahText: { fontSize: 10, color: "#22C55E", fontWeight: "700" },
-  holdingSubtitle: { fontSize: 12, color: colors.textSecondary },
-  holdingMktPrice: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  holdingRight: { alignItems: "flex-end", gap: 5 },
-  holdingValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  gainChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  gainChipText: { fontSize: 11, fontWeight: "600" },
-  // Empty state
   emptyCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -837,63 +311,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.textInverse,
-  },
-  summaryGrid: { gap: 12, marginBottom: 12 },
-  gridRow: { flexDirection: "row", gap: 12 },
-  smallCard: { flex: 1, paddingVertical: 12 },
-  smallCardNoPad: { flex: 1, paddingVertical: 10, paddingHorizontal: 12 },
-  holdingToday: { fontSize: 11, marginTop: 4 },
-  holdingTotalPct: { fontSize: 12, fontWeight: "700", marginTop: 6 },
-  historySection: {
-    marginTop: 8,
-    marginBottom: 18,
-    gap: 10,
-  },
-  historyDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginBottom: 8,
-  },
-  realizedCard: {
-    paddingVertical: 12,
-  },
-  soldTxCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-  },
-  soldTxSymbol: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  soldTxMeta: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  soldTxDate: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  soldTxRight: {
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  soldTxAmount: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  soldTxStatus: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#22C55E",
   },
 });

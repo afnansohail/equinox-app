@@ -49,7 +49,6 @@ export default function AddTransactionScreen() {
   const [type, setType] = useState<TxKind>(initialType);
   const [notes, setNotes] = useState("");
 
-  // Bulk transaction entries
   const [entries, setEntries] = useState<TransactionEntry[]>([
     {
       id: "1",
@@ -59,7 +58,6 @@ export default function AddTransactionScreen() {
     },
   ]);
 
-  // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
 
@@ -68,7 +66,6 @@ export default function AddTransactionScreen() {
   const [symbolError, setSymbolError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Oversell guard
   const { data: holdings } = usePortfolio();
   const holding = holdings?.find(
     (h) => h.stockSymbol.toUpperCase() === symbol.toUpperCase(),
@@ -93,7 +90,6 @@ export default function AddTransactionScreen() {
       const stock = await getStock(sym.trim().toUpperCase());
       if (stock) {
         setSymbol(stock.symbol);
-        // Update all entries without prices
         setEntries((prev) =>
           prev.map((e) =>
             !e.price ? { ...e, price: stock.currentPrice.toString() } : e,
@@ -194,7 +190,6 @@ export default function AddTransactionScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -213,7 +208,6 @@ export default function AddTransactionScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* BUY / SELL Toggle */}
             <View style={styles.typeToggle}>
               <TouchableOpacity
                 style={[
@@ -252,7 +246,6 @@ export default function AddTransactionScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Stock Symbol */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Stock Symbol</Text>
               <View style={styles.symbolRow}>
@@ -297,7 +290,6 @@ export default function AddTransactionScreen() {
               )}
             </View>
 
-            {/* Oversell warning */}
             {type === "SELL" && (
               <View style={styles.holdingHint}>
                 <Text style={styles.holdingHintText}>
@@ -315,7 +307,6 @@ export default function AddTransactionScreen() {
               </View>
             )}
 
-            {/* Transaction Entries */}
             <View style={styles.entriesSection}>
               <View style={styles.entriesHeader}>
                 <Text style={styles.fieldLabel}>Transaction Details</Text>
@@ -408,7 +399,6 @@ export default function AddTransactionScreen() {
               </Text>
             )}
 
-            {/* Total Amount */}
             <View style={styles.totalCard}>
               <Text style={styles.totalLabel}>Total Amount</Text>
               <Text style={styles.totalValue}>
@@ -420,7 +410,6 @@ export default function AddTransactionScreen() {
               </Text>
             </View>
 
-            {/* Notes */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Notes (optional)</Text>
               <TextInput
@@ -436,12 +425,10 @@ export default function AddTransactionScreen() {
               />
             </View>
 
-            {/* Space for floating button */}
             <View style={{ height: 80 }} />
           </ScrollView>
         </TouchableWithoutFeedback>
 
-        {/* Floating Submit Button */}
         <View style={styles.floatingButtonContainer}>
           <TouchableOpacity
             style={[styles.submitBtn, disabled && styles.submitBtnDisabled]}
@@ -464,7 +451,6 @@ export default function AddTransactionScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Date Picker Modal */}
         <DatePickerModal
           visible={showDatePicker}
           onClose={() => setShowDatePicker(false)}
@@ -627,7 +613,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textInverse,
   },
-  // Bulk entry styles
   entriesSection: {
     gap: 12,
   },

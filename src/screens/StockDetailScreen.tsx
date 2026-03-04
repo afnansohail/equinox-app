@@ -677,7 +677,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statLabel: { fontSize: 12, color: colors.textSecondary },
-  statValue: { fontSize: 15, fontWeight: "600", color: colors.textPrimary },
+  statValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
   percentagePill: {
     flexDirection: "row",
     alignItems: "center",
