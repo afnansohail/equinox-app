@@ -46,6 +46,7 @@ export default function DividendsScreen() {
     type: "success" | "error";
     msg: string;
   } | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const { data: dividends } = useDividends();
   const deleteMutation = useDeleteDividend();
@@ -225,16 +226,26 @@ export default function DividendsScreen() {
 
         {(dividends?.length ?? 0) > 0 && (
           <>
-            <DividendStockRanking dividends={dividends ?? []} />
+            <DividendStockRanking
+              dividends={dividends ?? []}
+              selectedSymbol={selectedSymbol}
+              onSymbolPress={setSelectedSymbol}
+            />
 
             <Text style={styles.sectionTitle}>
-              All Records ({dividends?.length ?? 0})
+              All Records (
+              {selectedSymbol
+                ? (dividends ?? []).filter(
+                    (d) => d.stockSymbol === selectedSymbol,
+                  ).length
+                : (dividends?.length ?? 0)}
+              )
             </Text>
           </>
         )}
       </>
     ),
-    [dividends, totalAmount, topPayer, bestPercentageSymbol],
+    [dividends, totalAmount, topPayer, bestPercentageSymbol, selectedSymbol],
   );
 
   const EmptyList = useMemo(
@@ -249,6 +260,11 @@ export default function DividendsScreen() {
     [],
   );
 
+  const filteredDividends = useMemo(() => {
+    if (!selectedSymbol) return dividends ?? [];
+    return (dividends ?? []).filter((d) => d.stockSymbol === selectedSymbol);
+  }, [dividends, selectedSymbol]);
+
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
       <View style={styles.header}>
@@ -262,7 +278,7 @@ export default function DividendsScreen() {
       </View>
 
       <FlatList
-        data={dividends}
+        data={filteredDividends}
         renderItem={renderDividend}
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeader}

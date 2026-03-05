@@ -110,11 +110,16 @@ export default function AddDividendScreen() {
       const finalDividendPerShare =
         inputMode === "totalAmount" ? totalAmountNum / sharesNum : perShareNum;
 
+      const year = paymentDate.getFullYear();
+      const month = String(paymentDate.getMonth() + 1).padStart(2, "0");
+      const day = String(paymentDate.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+
       await mutation.mutateAsync({
         stockSymbol: symbol.trim().toUpperCase(),
         shares: sharesNum,
         dividendPerShare: finalDividendPerShare,
-        paymentDate: paymentDate.toISOString().slice(0, 10),
+        paymentDate: dateStr,
         notes: notes.trim() || null,
       });
       navigation.goBack();
