@@ -55,6 +55,10 @@ export default function DividendsScreen() {
   const [editDividend, setEditDividend] = useState<Dividend | null>(null);
   const [editShares, setEditShares] = useState("");
   const [editPerShare, setEditPerShare] = useState("");
+  const [editTotalAmount, setEditTotalAmount] = useState("");
+  const [editInputMode, setEditInputMode] = useState<
+    "perShare" | "totalAmount"
+  >("perShare");
   const [editDate, setEditDate] = useState<Date>(new Date());
   const [editNotes, setEditNotes] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -65,6 +69,8 @@ export default function DividendsScreen() {
     setEditDividend(dividend);
     setEditShares(String(dividend.shares));
     setEditPerShare(String(dividend.dividendPerShare));
+    setEditTotalAmount("");
+    setEditInputMode("perShare");
     const parts = dividend.paymentDate.split("-");
     setEditDate(
       new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])),
@@ -83,9 +89,25 @@ export default function DividendsScreen() {
     if (!editDividend) return;
     const shares = parseFloat(editShares) || 0;
     const perShare = parseFloat(editPerShare) || 0;
-    if (shares <= 0 || perShare <= 0) {
-      setEditError("Shares and amount must be greater than 0");
+    const totalAmount = parseFloat(editTotalAmount) || 0;
+
+    if (shares <= 0) {
+      setEditError("Shares must be greater than 0");
       return;
+    }
+
+    let finalPerShare = perShare;
+    if (editInputMode === "totalAmount") {
+      if (totalAmount <= 0) {
+        setEditError("Total amount must be greater than 0");
+        return;
+      }
+      finalPerShare = totalAmount / shares;
+    } else {
+      if (perShare <= 0) {
+        setEditError("Dividend per share must be greater than 0");
+        return;
+      }
     }
 
     setEditLoading(true);
@@ -101,7 +123,7 @@ export default function DividendsScreen() {
         id: editDividend.id,
         updates: {
           shares,
-          dividendPerShare: perShare,
+          dividendPerShare: finalPerShare,
           paymentDate: dateStr,
           notes: editNotes.trim() || null,
         },
@@ -287,6 +309,54 @@ export default function DividendsScreen() {
                   </Text>
                 </View>
 
+                {/* Input Mode Toggle */}
+                <View style={styles.modeToggleContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.modeToggleBtn,
+                      editInputMode === "perShare" &&
+                        styles.modeToggleBtnActive,
+                    ]}
+                    onPress={() => {
+                      setEditInputMode("perShare");
+                      setEditTotalAmount("");
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modeToggleBtnText,
+                        editInputMode === "perShare" &&
+                          styles.modeToggleBtnTextActive,
+                      ]}
+                    >
+                      Per Share
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.modeToggleBtn,
+                      editInputMode === "totalAmount" &&
+                        styles.modeToggleBtnActive,
+                    ]}
+                    onPress={() => {
+                      setEditInputMode("totalAmount");
+                      setEditPerShare("");
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modeToggleBtnText,
+                        editInputMode === "totalAmount" &&
+                          styles.modeToggleBtnTextActive,
+                      ]}
+                    >
+                      Total Amount
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.modalFieldRow}>
                   <View style={styles.modalField}>
                     <Text style={styles.modalLabel}>Shares</Text>
@@ -299,18 +369,50 @@ export default function DividendsScreen() {
                       placeholderTextColor={colors.textMuted}
                     />
                   </View>
-                  <View style={styles.modalField}>
-                    <Text style={styles.modalLabel}>Amount per Share</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      value={editPerShare}
-                      onChangeText={setEditPerShare}
-                      keyboardType="decimal-pad"
-                      placeholder="0.00"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
+                  {editInputMode === "perShare" ? (
+                    <View style={styles.modalField}>
+                      <Text style={styles.modalLabel}>Amount per Share</Text>
+                      <TextInput
+                        style={styles.modalInput}
+                        value={editPerShare}
+                        onChangeText={setEditPerShare}
+                        keyboardType="decimal-pad"
+                        placeholder="0.00"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  ) : (
+                    <View style={styles.modalField}>
+                      <Text style={styles.modalLabel}>Total Amount</Text>
+                      <TextInput
+                        style={styles.modalInput}
+                        value={editTotalAmount}
+                        onChangeText={setEditTotalAmount}
+                        keyboardType="decimal-pad"
+                        placeholder="0.00"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  )}
                 </View>
+
+                {/* Show calculated per share in totalAmount mode */}
+                {editInputMode === "totalAmount" &&
+                  parseFloat(editShares) > 0 &&
+                  parseFloat(editTotalAmount) > 0 && (
+                    <View style={styles.calculatedRow}>
+                      <Text style={styles.calculatedLabel}>Per Share:</Text>
+                      <Text style={styles.calculatedValue}>
+                        PKR{" "}
+                        {(
+                          parseFloat(editTotalAmount) / parseFloat(editShares)
+                        ).toLocaleString("en-PK", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 4,
+                        })}
+                      </Text>
+                    </View>
+                  )}
 
                 <View style={styles.modalField}>
                   <Text style={styles.modalLabel}>Payment Date</Text>
@@ -346,9 +448,10 @@ export default function DividendsScreen() {
                   <Text style={styles.modalTotalLabel}>Total</Text>
                   <Text style={styles.modalTotalValue}>
                     PKR{" "}
-                    {(
-                      (parseFloat(editShares) || 0) *
-                      (parseFloat(editPerShare) || 0)
+                    {(editInputMode === "perShare"
+                      ? (parseFloat(editShares) || 0) *
+                        (parseFloat(editPerShare) || 0)
+                      : parseFloat(editTotalAmount) || 0
                     ).toLocaleString("en-PK", { maximumFractionDigits: 2 })}
                   </Text>
                 </View>
@@ -600,4 +703,53 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnTextDisabled: { color: colors.textMuted },
+  modeToggleContainer: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  modeToggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+  },
+  modeToggleBtnActive: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  modeToggleBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  modeToggleBtnTextActive: {
+    color: colors.textInverse,
+  },
+  calculatedRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  calculatedLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  calculatedValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
 });
