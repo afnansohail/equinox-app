@@ -16,11 +16,13 @@ export type RootStackParamList = {
     type?: "BUY" | "SELL";
   };
   TransactionHistory: undefined;
+  AddDividend: { symbol?: string };
 };
 
 export type MainTabParamList = {
   Dashboard: undefined;
   Search: { symbol?: string } | undefined;
   Portfolio: undefined;
+  Dividends: undefined;
   Settings: undefined;
 };

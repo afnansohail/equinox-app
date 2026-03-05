@@ -3,7 +3,15 @@ import { ActivityIndicator, View, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Home, Search, BriefcaseBusiness, Settings } from "lucide-react-native";
+import {
+  Home,
+  Search,
+  BriefcaseBusiness,
+  Settings,
+  BadgeDollarSign,
+  HandCoins,
+  BanknoteArrowDown,
+} from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../stores/authStore";
 import { colors } from "../constants/theme";
@@ -22,6 +30,8 @@ import TransactionHistoryScreen from "../screens/TransactionHistoryScreen";
 import WelcomeScreen from "../screens/WelcomeScreen";
 import SignInScreen from "../screens/SignInScreen";
 import SignUpScreen from "../screens/SignUpScreen";
+import DividendsScreen from "../screens/DividendsScreen";
+import AddDividendScreen from "../screens/AddDividendScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -86,6 +96,8 @@ function MainTabs() {
           height: Platform.OS === "ios" ? 84 : 70 + bottomPadding,
           paddingBottom: bottomPadding,
           paddingTop: 10,
+          paddingLeft: 6,
+          paddingRight: 6,
           position: "absolute",
         },
         tabBarActiveTintColor: colors.primary, // #f5f5f5 near-white when selected
@@ -117,6 +129,15 @@ function MainTabs() {
         options={{
           tabBarIcon: ({ color, size }) => (
             <BriefcaseBusiness color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Dividends"
+        component={DividendsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <BanknoteArrowDown color={color} size={size} />
           ),
         }}
       />
@@ -183,6 +204,14 @@ export default function RootNavigator() {
           <Stack.Screen
             name="TransactionHistory"
             component={TransactionHistoryScreen}
+            options={{
+              headerShown: false,
+              animation: "none",
+            }}
+          />
+          <Stack.Screen
+            name="AddDividend"
+            component={AddDividendScreen}
             options={{
               headerShown: false,
               animation: "none",

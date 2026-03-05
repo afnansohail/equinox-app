@@ -737,6 +737,166 @@ export interface PortfolioHistoryPoint {
   invested: number;
 }
 
+// ── Dividends ─────────────────────────────────────────────────────────────────
+
+export interface Dividend {
+  id: string;
+  stockSymbol: string;
+  shares: number;
+  dividendPerShare: number;
+  totalAmount: number;
+  paymentDate: string; // YYYY-MM-DD
+  notes?: string | null;
+  // Enriched from stocks table where available
+  stockName?: string;
+  stockLogoUrl?: string;
+}
+
+export async function getDividends(userId: string): Promise<Dividend[]> {
+  const { data, error } = await supabase
+    .from("dividends")
+    .select("*")
+    .eq("user_id", userId)
+    .order("payment_date", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching dividends", error);
+    return [];
+  }
+
+  if (!data || data.length === 0) return [];
+
+  // Enrich with stock logo/name where the stock exists in our DB
+  const symbols = [
+    ...new Set((data as any[]).map((row) => row.stock_symbol as string)),
+  ];
+  const { data: stocksData } = await supabase
+    .from("stocks")
+    .select("symbol, name, logo_url")
+    .in("symbol", symbols);
+
+  const stockMap = new Map<string, { name: string; logoUrl: string | null }>();
+  if (stocksData) {
+    for (const s of stocksData as any[]) {
+      stockMap.set(s.symbol, { name: s.name, logoUrl: s.logo_url ?? null });
+    }
+  }
+
+  return (data as any[]).map((row) => {
+    const enriched = stockMap.get(row.stock_symbol);
+    return {
+      id: row.id,
+      stockSymbol: row.stock_symbol,
+      shares: Number(row.shares),
+      dividendPerShare: Number(row.dividend_per_share),
+      totalAmount: Number(row.total_amount),
+      paymentDate: row.payment_date,
+      notes: row.notes ?? null,
+      stockName: enriched?.name,
+      stockLogoUrl: enriched?.logoUrl ?? undefined,
+    };
+  });
+}
+
+export async function addDividend(
+  userId: string,
+  d: Omit<Dividend, "id" | "totalAmount" | "stockName" | "stockLogoUrl">,
+): Promise<void> {
+  // Seed a minimal stock row so logo/name enrichment works for known symbols
+  await supabase.from("stocks").upsert(
+    {
+      symbol: d.stockSymbol.toUpperCase(),
+      name: d.stockSymbol.toUpperCase(),
+    },
+    { onConflict: "symbol", ignoreDuplicates: true },
+  );
+
+  // Non-blocking price enrichment — same pattern as addTransaction
+  getStock(d.stockSymbol).catch(() => null);
+
+  const { error } = await supabase.from("dividends").insert({
+    user_id: userId,
+    stock_symbol: d.stockSymbol.toUpperCase(),
+    shares: d.shares,
+    dividend_per_share: d.dividendPerShare,
+    payment_date: d.paymentDate,
+    notes: d.notes ?? null,
+  });
+
+  if (error) {
+    console.error("Error inserting dividend", error);
+    throw new Error(`Failed to add dividend: ${error.message}`);
+  }
+}
+
+export async function updateDividend(
+  userId: string,
+  id: string,
+  updates: {
+    shares?: number;
+    dividendPerShare?: number;
+    paymentDate?: string;
+    notes?: string | null;
+  },
+): Promise<void> {
+  // Verify ownership
+  const { data: existing, error: fetchError } = await supabase
+    .from("dividends")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (fetchError || !existing) {
+    throw new Error("Dividend not found or unauthorized");
+  }
+
+  const updatePayload: any = {};
+  if (updates.shares !== undefined) updatePayload.shares = updates.shares;
+  if (updates.dividendPerShare !== undefined)
+    updatePayload.dividend_per_share = updates.dividendPerShare;
+  if (updates.paymentDate !== undefined)
+    updatePayload.payment_date = updates.paymentDate;
+  if (updates.notes !== undefined) updatePayload.notes = updates.notes;
+
+  // NOTE: total_amount is GENERATED ALWAYS in the database schema,
+  // so it automatically recalculates when shares or dividend_per_share change.
+  // Do NOT include it in the update payload.
+
+  const { error } = await supabase
+    .from("dividends")
+    .update(updatePayload)
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error updating dividend", error);
+    throw new Error(`Failed to update dividend: ${error.message}`);
+  }
+}
+
+export async function deleteDividend(
+  userId: string,
+  id: string,
+): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from("dividends")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (fetchError || !existing) {
+    throw new Error("Dividend not found or unauthorized");
+  }
+
+  const { error } = await supabase.from("dividends").delete().eq("id", id);
+
+  if (error) {
+    console.error("Error deleting dividend", error);
+    throw new Error(`Failed to delete dividend: ${error.message}`);
+  }
+}
+
 /**
  * Calls the Vercel portfolio-history endpoint which fetches PSX EOD data
  * server-side and returns a pre-computed day-by-day value series.
