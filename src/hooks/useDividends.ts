@@ -4,7 +4,9 @@ import {
   addDividend,
   updateDividend,
   deleteDividend,
+  getScrapedPayouts,
   type Dividend,
+  type ScrapedPayoutBySymbol,
 } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
 
@@ -67,5 +69,17 @@ export function useDeleteDividend() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dividends", user?.id] });
     },
+  });
+}
+
+export function useScrapedPayouts(symbols: string[]) {
+  const uniqueSymbols = [...new Set(symbols.map((s) => s.toUpperCase()))];
+
+  return useQuery<ScrapedPayoutBySymbol[]>({
+    queryKey: ["scraped-payouts", uniqueSymbols.sort().join("|")],
+    queryFn: () => getScrapedPayouts(uniqueSymbols),
+    enabled: uniqueSymbols.length > 0,
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours
+    refetchOnWindowFocus: false,
   });
 }

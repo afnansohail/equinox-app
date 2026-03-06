@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { colors } from "../../constants/theme";
 import { formatPKR } from "../../utils/format";
-import type { Dividend } from "../../services/api";
+import type { Dividend, ScrapedPayoutBySymbol } from "../../services/api";
 import {
   buildDividendRanking,
   type RankedDividendStock,
@@ -18,18 +18,19 @@ import {
 
 interface DividendStockRankingProps {
   dividends: Dividend[];
+  scrapedPayouts?: ScrapedPayoutBySymbol[];
   selectedSymbol?: string | null;
   holdingMeta?: Array<{
     symbol: string;
     currentPrice?: number;
     peRatio?: number | null;
   }>;
-  /** Called when a symbol row is tapped. Passes the symbol, or null when deselected. */
   onSymbolPress?: (symbol: string | null) => void;
 }
 
 export default function DividendStockRanking({
   dividends,
+  scrapedPayouts,
   selectedSymbol,
   holdingMeta,
   onSymbolPress,
@@ -42,9 +43,10 @@ export default function DividendStockRanking({
     () =>
       buildDividendRanking({
         dividends,
+        scrapedPayouts,
         holdingMeta,
-      }).filter((stock) => stock.score > 0 || stock.isETF), // Keep ETFs + holdings with scores
-    [dividends, holdingMeta],
+      }),
+    [dividends, scrapedPayouts, holdingMeta],
   );
 
   useEffect(() => {

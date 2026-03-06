@@ -1,4 +1,4 @@
-import type { Dividend } from "../services/api";
+import type { Dividend, ScrapedPayoutBySymbol } from "../services/api";
 
 export interface HoldingMeta {
   symbol: string;
@@ -24,59 +24,30 @@ export interface RankedDividendStock {
   isETF?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Scoring
-// ---------------------------------------------------------------------------
-
-/**
- * Yield score (max 40 pts).
- *
- * Rewards sustainable income yields (3–10%) and gently penalises extreme
- * yields (>14%) that are often a distress / dividend-trap signal.
- *
- *  0–3 %   → 0–8   (linear ramp)
- *  3–6 %   → 8–20  (linear ramp)
- *  6–10 %  → 20–40 (linear ramp, plateau at 40)
- * 10–14 %  → 40    (extended plateau — good dividend yields)
- * 14–22 %  → 40→20 (linear fade — distress warning zone)
- * >22 %    → 0     (almost certainly a trap or special situation)
- */
 function calcYieldScore(dividendYield: number): number {
   if (dividendYield <= 0) return 0;
   if (dividendYield <= 3) return (dividendYield / 3) * 8;
   if (dividendYield <= 6) return 8 + ((dividendYield - 3) / 3) * 12;
   if (dividendYield <= 10) return 20 + ((dividendYield - 6) / 4) * 20;
-  if (dividendYield <= 14) return 40; // extended plateau — good dividend yields
+  if (dividendYield <= 14) return 40;
   if (dividendYield <= 22)
     return Math.max(20, 40 - ((dividendYield - 14) / 8) * 20);
   return 0;
 }
 
-/**
- * Consistency score (max 40 pts).
- *
- * Based on year-to-year stability PLUS bonus for frequent/regular payouts.
- *
- * - Drops up to 20% year-to-year are treated as normal noise.
- * - Larger drops are penalized progressively (max at 70%+ drop).
- * - Bonus: Frequent payers (4+ payouts/year = quarterly) get +5 pts.
- * - Single year of data: return baseline + payout frequency bonus.
- */
 function calcConsistencyScore(
   yearlySums: number[],
   payoutCount: number = 0,
 ): number {
-  // Calculate payout frequency bonus upfront
   let bonusPts = 0;
   const avgPayoutsPerYear =
     yearlySums.length > 0 ? payoutCount / yearlySums.length : 0;
   if (avgPayoutsPerYear >= 4) {
-    bonusPts = 5; // +5 pts for quarterly or more frequent
+    bonusPts = 5;
   } else if (avgPayoutsPerYear >= 3) {
-    bonusPts = 2.5; // +2.5 pts for 3x/year
+    bonusPts = 2.5;
   }
 
-  // If only one year of data, return baseline + bonus
   if (yearlySums.length < 2) return Math.min(40, 26 + bonusPts);
 
   const severities: number[] = [];
@@ -90,8 +61,6 @@ function calcConsistencyScore(
     }
 
     const dropPct = (prev - curr) / prev;
-    // 20% drop is tolerated (accounts for biannual/lumpy payouts);
-    // 70%+ drop is treated as max severity to catch real cuts.
     const severity = Math.max(0, Math.min(1, (dropPct - 0.2) / 0.5));
     severities.push(severity);
   }
@@ -105,24 +74,9 @@ function calcConsistencyScore(
   return Math.min(40, baseScore + bonusPts);
 }
 
-/**
- * Valuation score (max 20 pts).
- *
- * When P/E is null/unavailable we return a neutral 10 pts rather than
- * penalising the stock for missing data.
- *
- * Negative P/E (loss-making company) is a genuine red flag → 0 pts.
- *
- *  null      → 10  (neutral / data unavailable)
- *  ≤0        →  0  (company not profitable)
- *  1–8       → 20  (cheap)
- *  8–15      → 20→12 (fair)
- * 15–25      → 12→2  (pricey)
- * >25        → max(0, 2 − (pe−25)×0.1)
- */
 function calcValuationScore(peRatio: number | null): number {
-  if (peRatio === null) return 10; // neutral — data unavailable
-  if (peRatio <= 0) return 0; // loss-making
+  if (peRatio === null) return 10;
+  if (peRatio <= 0) return 0;
   if (peRatio <= 8) return 20;
   if (peRatio <= 15) return 20 - ((peRatio - 8) / 7) * 8;
   if (peRatio <= 25) return 12 - ((peRatio - 15) / 10) * 10;
@@ -154,17 +108,13 @@ function calcDividendScore(data: {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Data aggregation
-// ---------------------------------------------------------------------------
-
 export function buildDividendRanking(params: {
   dividends: Dividend[];
+  scrapedPayouts?: ScrapedPayoutBySymbol[];
   holdingMeta?: HoldingMeta[];
 }): RankedDividendStock[] {
-  const { dividends, holdingMeta } = params;
+  const { dividends, scrapedPayouts, holdingMeta } = params;
 
-  // Leap-year-safe trailing-12-month window.
   const now = new Date();
   const ttmStart = new Date(now);
   ttmStart.setFullYear(now.getFullYear() - 1);
@@ -177,27 +127,66 @@ export function buildDividendRanking(params: {
     payoutCount: number;
     totalAmount: number;
     sector?: string;
+    scrapedYield: number | null;
+    scrapedYearlyYields: Map<number, number>;
+    scrapedPayoutCount: number;
+    manualRecordCount: number;
   };
 
   const accumMap = new Map<string, SymbolAccumulator>();
 
-  // Seed every held symbol so it always appears in results.
+  const holdingMetaMap = new Map<string, HoldingMeta>();
   for (const holding of holdingMeta ?? []) {
-    const sym = holding.symbol.toUpperCase();
-    if (!accumMap.has(sym)) {
-      accumMap.set(sym, {
-        yearlyDivPerShare: new Map(),
-        ttmDivPerShare: 0,
-        currentPrice: holding.currentPrice ?? 0,
-        peRatio: holding.peRatio ?? null,
-        payoutCount: 0,
-        totalAmount: 0,
-        sector: holding.sector,
-      });
-    }
+    holdingMetaMap.set(holding.symbol.toUpperCase(), holding);
   }
 
-  // Accumulate manual entries for both scoring and total-received display.
+  for (const stockPayout of scrapedPayouts ?? []) {
+    const sym = stockPayout.symbol.toUpperCase();
+
+    const acc: SymbolAccumulator = accumMap.get(sym) ?? {
+      yearlyDivPerShare: new Map(),
+      ttmDivPerShare: 0,
+      currentPrice: 0,
+      peRatio: null,
+      payoutCount: 0,
+      totalAmount: 0,
+      scrapedYield: null,
+      scrapedYearlyYields: new Map(),
+      scrapedPayoutCount: 0,
+      manualRecordCount: 0,
+    };
+
+    if (stockPayout.payouts && stockPayout.payouts.length > 0) {
+      const mostRecent = stockPayout.payouts[0];
+      acc.scrapedYield = mostRecent.dividendPercent;
+
+      for (const payout of stockPayout.payouts) {
+        if (payout.dividendPercent > 0) {
+          const paymentDate = new Date(payout.paymentDate);
+          const year = paymentDate.getFullYear();
+
+          const existing = acc.scrapedYearlyYields.get(year) ?? 0;
+          const count = acc.scrapedYearlyYields.has(year) ? 2 : 1;
+          acc.scrapedYearlyYields.set(
+            year,
+            (existing + payout.dividendPercent) / count,
+          );
+        }
+      }
+
+      acc.scrapedPayoutCount = stockPayout.payouts.length;
+    }
+
+    const holdingData = holdingMetaMap.get(sym);
+    if (holdingData) {
+      acc.currentPrice = holdingData.currentPrice ?? acc.currentPrice;
+      acc.peRatio = holdingData.peRatio ?? acc.peRatio;
+      acc.sector = holdingData.sector ?? acc.sector;
+    }
+
+    accumMap.set(sym, acc);
+  }
+
   for (const d of dividends) {
     const sym = d.stockSymbol.toUpperCase();
 
@@ -208,10 +197,14 @@ export function buildDividendRanking(params: {
       peRatio: d.stockPeRatio ?? null,
       payoutCount: 0,
       totalAmount: 0,
-      sector: undefined,
+      scrapedYield: null,
+      scrapedYearlyYields: new Map(),
+      scrapedPayoutCount: 0,
+      manualRecordCount: 0,
     };
 
     acc.totalAmount += d.totalAmount;
+    acc.manualRecordCount += 1;
 
     if (d.dividendPerShare > 0) {
       const paymentDate = new Date(d.paymentDate);
@@ -227,29 +220,50 @@ export function buildDividendRanking(params: {
     accumMap.set(sym, acc);
   }
 
-  // Build ranked results.
+  for (const [sym, acc] of accumMap.entries()) {
+    const holdingData = holdingMetaMap.get(sym);
+    if (holdingData) {
+      acc.currentPrice = holdingData.currentPrice ?? acc.currentPrice;
+      acc.peRatio = holdingData.peRatio ?? acc.peRatio;
+      acc.sector = holdingData.sector ?? acc.sector;
+    }
+  }
+
   const results: RankedDividendStock[] = [...accumMap.entries()].map(
     ([symbol, acc]) => {
-      const yearlySums = [...acc.yearlyDivPerShare.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([, value]) => value);
+      let dividendYield = 0;
 
-      const avgAnnualDivPerShare =
-        yearlySums.length > 0
-          ? yearlySums.reduce((sum, y) => sum + y, 0) / yearlySums.length
-          : 0;
+      if (acc.scrapedYield !== null && acc.scrapedYield > 0) {
+        dividendYield = acc.scrapedYield;
+      } else if (acc.currentPrice > 0) {
+        const avgAnnualDivPerShare =
+          acc.yearlyDivPerShare.size > 0
+            ? Array.from(acc.yearlyDivPerShare.values()).reduce(
+                (sum, y) => sum + y,
+                0,
+              ) / acc.yearlyDivPerShare.size
+            : 0;
+        const effectiveDivPerShare = Math.max(
+          acc.ttmDivPerShare,
+          avgAnnualDivPerShare,
+        );
+        dividendYield = (effectiveDivPerShare / acc.currentPrice) * 100;
+      }
 
-      // Cadence-aware yield: use the stronger of TTM and multi-year average so
-      // annual / biannual payers are not undercounted.
-      const effectiveDivPerShare = Math.max(
-        acc.ttmDivPerShare,
-        avgAnnualDivPerShare,
-      );
+      let yearlySums: number[];
+      let payoutCount: number;
 
-      const effectiveYield =
-        acc.currentPrice > 0
-          ? (effectiveDivPerShare / acc.currentPrice) * 100
-          : 0;
+      if (acc.scrapedYearlyYields.size > 0) {
+        yearlySums = Array.from(acc.scrapedYearlyYields.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([, yield_]) => yield_);
+        payoutCount = acc.scrapedPayoutCount;
+      } else {
+        yearlySums = Array.from(acc.yearlyDivPerShare.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([, value]) => value);
+        payoutCount = acc.payoutCount;
+      }
 
       const hasDividendData = yearlySums.length > 0;
       const isETF = acc.sector === "EXCHANGE TRADED FUNDS";
@@ -257,27 +271,29 @@ export function buildDividendRanking(params: {
       const scored = isETF
         ? { score: 0, breakdown: { yield: 0, consistency: 0, valuation: 0 } }
         : calcDividendScore({
-            dividendYield: effectiveYield,
+            dividendYield,
             yearlySums,
             peRatio: acc.peRatio,
-            payoutCount: acc.payoutCount,
+            payoutCount,
           });
 
       return {
         symbol,
         totalAmount: acc.totalAmount,
-        dividendYield: effectiveYield,
+        dividendYield,
         score: isETF ? 0 : hasDividendData ? scored.score : 0,
         breakdown: isETF
           ? { yield: 0, consistency: 0, valuation: 0 }
           : hasDividendData
             ? scored.breakdown
             : { yield: 0, consistency: 0, valuation: 0 },
-        recordCount: acc.payoutCount,
+        recordCount: acc.manualRecordCount,
         isETF,
       };
     },
   );
 
-  return results.sort((a, b) => b.score - a.score);
+  return results
+    .filter((stock) => stock.recordCount > 0)
+    .sort((a, b) => b.score - a.score);
 }

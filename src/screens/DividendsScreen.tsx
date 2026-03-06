@@ -31,6 +31,7 @@ import {
   useDividends,
   useDeleteDividend,
   useUpdateDividend,
+  useScrapedPayouts,
 } from "../hooks/useDividends";
 import { usePortfolio } from "../hooks/usePortfolio";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
@@ -55,6 +56,26 @@ export default function DividendsScreen() {
   const { data: holdings } = usePortfolio();
   const deleteMutation = useDeleteDividend();
   const updateMutation = useUpdateDividend();
+
+  const holdingSymbols = useMemo(
+    () => [
+      ...new Set((holdings ?? []).map((h) => h.stockSymbol.toUpperCase())),
+    ],
+    [holdings],
+  );
+
+  // Combine symbols from active holdings AND all dividends (for sold holdings with history)
+  const allChartSymbols = useMemo(
+    () => [
+      ...new Set([
+        ...holdingSymbols,
+        ...(dividends ?? []).map((d) => d.stockSymbol.toUpperCase()),
+      ]),
+    ],
+    [holdingSymbols, dividends],
+  );
+
+  const { data: scrapedPayouts } = useScrapedPayouts(allChartSymbols);
 
   // Pass all dividends to chart, not just those in active holdings
   const rankingDividends = dividends ?? [];
@@ -260,10 +281,11 @@ export default function DividendsScreen() {
   const highestScoreSymbol = useMemo(() => {
     const ranked = buildDividendRanking({
       dividends: rankingDividends,
+      scrapedPayouts: scrapedPayouts ?? [],
       holdingMeta: holdingMetaForRanking,
     });
     return ranked.find((r) => r.score > 0)?.symbol ?? null;
-  }, [rankingDividends, holdingMetaForRanking]);
+  }, [rankingDividends, scrapedPayouts, holdingMetaForRanking]);
 
   const ListHeader = useMemo(
     () => (
@@ -278,6 +300,7 @@ export default function DividendsScreen() {
           <>
             <DividendStockRanking
               dividends={rankingDividends}
+              scrapedPayouts={scrapedPayouts ?? []}
               holdingMeta={holdingMetaForRanking}
               selectedSymbol={selectedSymbol}
               onSymbolPress={setSelectedSymbol}
@@ -303,6 +326,7 @@ export default function DividendsScreen() {
       highestScoreSymbol,
       selectedSymbol,
       rankingDividends,
+      scrapedPayouts,
       holdings,
     ],
   );
