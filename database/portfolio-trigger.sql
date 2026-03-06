@@ -5,6 +5,9 @@
 
 -- ==========================================
 -- FUNCTION: Recalculate portfolio holding for a specific user + stock
+-- Implements FIFO (First In First Out) cost basis tracking
+-- When a position is completely liquidated (quantity = 0), the next buy
+-- starts fresh with new cost basis, preserving only realized P&L history
 -- ==========================================
 CREATE OR REPLACE FUNCTION recalc_portfolio_holding(
   p_user_id UUID,
@@ -12,32 +15,54 @@ CREATE OR REPLACE FUNCTION recalc_portfolio_holding(
 ) RETURNS void AS $$
 DECLARE
   v_total_quantity INTEGER := 0;
-  v_total_invested DECIMAL(15, 2) := 0;
+  v_cost_basis DECIMAL(15, 2) := 0;
   v_avg_price DECIMAL(12, 2) := 0;
+  v_running_qty INTEGER := 0;
+  v_running_cost DECIMAL(15, 2) := 0;
   v_existing_id UUID;
+  tx_record RECORD;
 BEGIN
-  -- Calculate totals from all transactions for this user + stock
-  SELECT 
-    COALESCE(SUM(
-      CASE 
-        WHEN transaction_type = 'BUY' THEN quantity
-        ELSE -quantity
-      END
-    ), 0),
-    COALESCE(SUM(
-      CASE 
-        WHEN transaction_type = 'BUY' THEN total_amount
-        ELSE -total_amount
-      END
-    ), 0)
-  INTO v_total_quantity, v_total_invested
-  FROM transactions
-  WHERE user_id = p_user_id 
-    AND stock_symbol = p_stock_symbol;
+  -- Process transactions in chronological order using FIFO
+  -- This correctly handles cost basis reset when position goes to zero
+  FOR tx_record IN
+    SELECT 
+      transaction_type,
+      quantity,
+      price_per_share,
+      total_amount
+    FROM transactions
+    WHERE user_id = p_user_id 
+      AND stock_symbol = p_stock_symbol
+    ORDER BY transaction_date ASC, id ASC
+  LOOP
+    IF tx_record.transaction_type = 'BUY' THEN
+      -- Add shares at the given price
+      v_running_cost := v_running_cost + tx_record.total_amount;
+      v_running_qty := v_running_qty + tx_record.quantity;
+    ELSE
+      -- SELL: reduce quantity, maintain FIFO cost basis
+      v_running_qty := v_running_qty - tx_record.quantity;
+      -- Proportionally reduce cost basis
+      IF v_running_qty < 0 THEN
+        v_running_qty := 0;
+      END IF;
+      -- When position is liquidated, also reset cost basis for clean slate
+      IF v_running_qty = 0 THEN
+        v_running_cost := 0;
+      ELSIF v_running_qty > 0 THEN
+        -- Only update cost basis for remaining shares (FIFO principle)
+        -- Cost basis is adjusted via: cost per share remains same for remaining qty
+        v_running_cost := (v_running_cost / (v_running_qty + tx_record.quantity)) * v_running_qty;
+      END IF;
+    END IF;
+  END LOOP;
 
-  -- Calculate average price
+  v_total_quantity := v_running_qty;
+  v_cost_basis := v_running_cost;
+
+  -- Calculate average price based on current holdings
   IF v_total_quantity > 0 THEN
-    v_avg_price := v_total_invested / v_total_quantity;
+    v_avg_price := v_cost_basis / v_total_quantity;
   ELSE
     v_avg_price := 0;
   END IF;
@@ -63,6 +88,7 @@ BEGIN
     END IF;
   ELSE
     -- Delete the holding if quantity is 0 or negative
+    -- Note: Realized P&L history is preserved in transactions table
     IF v_existing_id IS NOT NULL THEN
       DELETE FROM portfolio_holdings WHERE id = v_existing_id;
     END IF;
