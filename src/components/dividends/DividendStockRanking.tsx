@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+﻿import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { colors } from "../../constants/theme";
-import { formatPKR, formatPercentage } from "../../utils/format";
+import { formatPKR } from "../../utils/format";
 import type { Dividend } from "../../services/api";
 
 interface DividendStockRankingProps {
@@ -22,7 +22,9 @@ interface DividendStockRankingProps {
 interface StockAgg {
   symbol: string;
   totalAmount: number;
-  avgDividendPerShare: number;
+  avgAnnualDivPerShare: number;
+  /** null when currentPrice or peRatio is unavailable */
+  dividendScore: number | null;
   recordCount: number;
 }
 
@@ -32,8 +34,7 @@ export default function DividendStockRanking({
   onSymbolPress,
 }: DividendStockRankingProps) {
   const { width } = useWindowDimensions();
-  // Available bar width: screen - horizontal padding (40) - symbol (68) - divYield (60) - amount (72) - gaps
-  const barMaxWidth = width - 40 - 68 - 60 - 72 - 40;
+  const barMaxWidth = width - 40 - 68 - 64 - 72 - 40;
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   const ranked = useMemo(() => {
@@ -41,34 +42,64 @@ export default function DividendStockRanking({
       string,
       {
         totalAmount: number;
-        totalDivPerShare: number;
+        yearlyDivPerShare: Map<number, number>;
+        currentPrice: number;
+        peRatio: number | null;
         recordCount: number;
       }
     >();
 
     for (const d of dividends) {
-      const existing = map.get(d.stockSymbol) || {
+      const year = new Date(d.paymentDate).getFullYear();
+      const existing = map.get(d.stockSymbol) ?? {
         totalAmount: 0,
-        totalDivPerShare: 0,
+        yearlyDivPerShare: new Map<number, number>(),
+        currentPrice: d.stockCurrentPrice ?? 0,
+        peRatio: d.stockPeRatio ?? null,
         recordCount: 0,
       };
-      map.set(d.stockSymbol, {
-        totalAmount: existing.totalAmount + d.totalAmount,
-        totalDivPerShare: existing.totalDivPerShare + d.dividendPerShare,
-        recordCount: existing.recordCount + 1,
-      });
+      existing.totalAmount += d.totalAmount;
+      existing.yearlyDivPerShare.set(
+        year,
+        (existing.yearlyDivPerShare.get(year) ?? 0) + d.dividendPerShare,
+      );
+      existing.recordCount += 1;
+      if (d.stockCurrentPrice) existing.currentPrice = d.stockCurrentPrice;
+      if (d.stockPeRatio != null) existing.peRatio = d.stockPeRatio;
+      map.set(d.stockSymbol, existing);
     }
 
-    const results: StockAgg[] = [...map.entries()].map(([symbol, data]) => ({
-      symbol,
-      totalAmount: data.totalAmount,
-      avgDividendPerShare: data.totalDivPerShare / data.recordCount,
-      recordCount: data.recordCount,
-    }));
+    const results: StockAgg[] = [...map.entries()].map(([symbol, data]) => {
+      const yearlySums = [...data.yearlyDivPerShare.values()];
+      const avgAnnualDivPerShare =
+        yearlySums.reduce((a, b) => a + b, 0) / yearlySums.length;
 
-    return results.sort(
-      (a, b) => b.avgDividendPerShare - a.avgDividendPerShare,
-    );
+      let dividendScore: number | null = null;
+      if (data.currentPrice > 0) {
+        if (data.peRatio != null && data.peRatio > 0) {
+          dividendScore = Math.ceil(
+            (avgAnnualDivPerShare / (data.currentPrice * data.peRatio)) * 10000,
+          );
+        } else {
+          dividendScore = null;
+        }
+      }
+
+      return {
+        symbol,
+        totalAmount: data.totalAmount,
+        avgAnnualDivPerShare,
+        dividendScore,
+        recordCount: data.recordCount,
+      };
+    });
+
+    return results.sort((a, b) => {
+      if (a.dividendScore == null && b.dividendScore == null) return 0;
+      if (a.dividendScore == null) return 1;
+      if (b.dividendScore == null) return -1;
+      return b.dividendScore - a.dividendScore;
+    });
   }, [dividends]);
 
   useEffect(() => {
@@ -96,12 +127,16 @@ export default function DividendStockRanking({
 
   if (ranked.length === 0) return null;
 
-  const maxAmount = Math.max(...ranked.map((r) => r.avgDividendPerShare));
+  const maxScore = Math.max(...ranked.map((r) => r.dividendScore ?? 0));
 
   const renderRow: ListRenderItem<StockAgg> = ({ item, index }) => {
+    const scoreValue = item.dividendScore;
     const barWidth =
-      maxAmount > 0 ? (item.avgDividendPerShare / maxAmount) * barMaxWidth : 0;
+      maxScore > 0 && scoreValue != null
+        ? (scoreValue / maxScore) * barMaxWidth
+        : 0;
     const isActive = activeIdx === index;
+    const scoreDisplay = scoreValue != null ? scoreValue : "ETF";
 
     return (
       <TouchableOpacity
@@ -115,7 +150,6 @@ export default function DividendStockRanking({
         >
           {item.symbol}
         </Text>
-
         <View style={styles.barTrack}>
           <View
             style={[
@@ -125,11 +159,9 @@ export default function DividendStockRanking({
             ]}
           />
         </View>
-
-        <Text style={[styles.divYield, isActive && styles.divYieldActive]}>
-          {formatPercentage(item.avgDividendPerShare, false)}
+        <Text style={[styles.scoreText, isActive && styles.scoreTextActive]}>
+          {scoreDisplay}
         </Text>
-
         <Text
           style={[styles.amount, isActive && styles.amountActive]}
           numberOfLines={1}
@@ -143,15 +175,13 @@ export default function DividendStockRanking({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Dividend Shares</Text>
+        <Text style={styles.heading}>Dividend Score Ranking</Text>
       </View>
-
       <View style={styles.columnLabels}>
         <Text style={styles.labelSymbol}>Symbol</Text>
-        <Text style={styles.labelDiv}>Avg Div</Text>
-        <Text style={styles.labelAmount}>Total</Text>
+        <Text style={styles.labelScore}>Score</Text>
+        <Text style={styles.labelAmount}>Payout</Text>
       </View>
-
       <FlatList
         data={ranked}
         renderItem={renderRow}
@@ -172,9 +202,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 16,
   },
-  header: {
-    marginBottom: 10,
-  },
+  header: { marginBottom: 10 },
   heading: {
     fontSize: 12,
     fontWeight: "700",
@@ -199,7 +227,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
-  labelDiv: {
+  labelScore: {
     flex: 1,
     fontSize: 10,
     fontWeight: "700",
@@ -208,7 +236,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   labelAmount: {
-    width: 68,
+    width: 70,
     fontSize: 10,
     fontWeight: "700",
     color: colors.textMuted,
@@ -233,9 +261,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.textPrimary,
   },
-  symbolActive: {
-    color: colors.secondary,
-  },
+  symbolActive: { color: colors.secondary },
   barTrack: {
     flex: 1,
     height: 8,
@@ -243,24 +269,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: "hidden",
   },
-  bar: {
-    height: 8,
-    backgroundColor: colors.secondary,
-    borderRadius: 4,
-  },
-  barActive: {
-    backgroundColor: colors.secondary,
-  },
-  divYield: {
+  bar: { height: 8, backgroundColor: colors.secondary, borderRadius: 4 },
+  barActive: { backgroundColor: colors.secondary },
+  scoreText: {
     width: 56,
     fontSize: 11,
     fontWeight: "600",
     color: colors.secondary,
     textAlign: "center",
   },
-  divYieldActive: {
-    fontWeight: "700",
-  },
+  scoreTextActive: { fontWeight: "700" },
   amount: {
     width: 68,
     fontSize: 11,
@@ -268,7 +286,5 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: "right",
   },
-  amountActive: {
-    color: colors.secondary,
-  },
+  amountActive: { color: colors.secondary },
 });

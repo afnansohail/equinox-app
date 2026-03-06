@@ -34,14 +34,14 @@ export default function DividendSummaryCard({
           <Text style={styles.statValue} numberOfLines={1}>
             {bestPercentageSymbol ?? "—"}
           </Text>
-          <Text style={styles.statLabel}>Best Value</Text>
+          <Text style={styles.statLabel}>Highest Score</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
           <Text style={styles.statValue} numberOfLines={1}>
             {topPayer ?? "—"}
           </Text>
-          <Text style={styles.statLabel}>Top Payer</Text>
+          <Text style={styles.statLabel}>Highest Payout</Text>
         </View>
       </View>
     </View>

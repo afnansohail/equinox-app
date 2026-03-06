@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   day_low DECIMAL(12, 2),
   logo_url TEXT,
   is_shariah_compliant BOOLEAN DEFAULT FALSE,
+  pe_ratio DECIMAL(8, 2),
   last_updated TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS stocks (
 -- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS day_low DECIMAL(12, 2);
 -- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS logo_url TEXT;
 -- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS is_shariah_compliant BOOLEAN DEFAULT FALSE;
+-- ALTER TABLE stocks ADD COLUMN IF NOT EXISTS pe_ratio DECIMAL(8, 2);
 
 -- ==========================================
 -- PORTFOLIO HOLDINGS - User's stock holdings

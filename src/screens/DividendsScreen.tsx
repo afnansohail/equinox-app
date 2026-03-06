@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -48,9 +49,27 @@ export default function DividendsScreen() {
   } | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
-  const { data: dividends } = useDividends();
+  const { data: dividends, refetch: refetchDividends } = useDividends();
   const deleteMutation = useDeleteDividend();
   const updateMutation = useUpdateDividend();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetchDividends();
+      setToastConfig({ type: "success", msg: "Dividends updated" });
+    } catch (error: any) {
+      console.error("Error refreshing dividends:", error);
+      setToastConfig({
+        type: "error",
+        msg: error?.message || "Could not refresh dividends",
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchDividends]);
 
   // Edit state
   const [editDividend, setEditDividend] = useState<Dividend | null>(null);
@@ -291,6 +310,13 @@ export default function DividendsScreen() {
         initialNumToRender={15}
         maxToRenderPerBatch={10}
         windowSize={5}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.secondary}
+          />
+        }
       />
 
       <Toast config={toastConfig} onClose={() => setToastConfig(null)} />

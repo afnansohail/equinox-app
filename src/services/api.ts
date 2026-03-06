@@ -65,6 +65,7 @@ type DbStockRow = {
   day_low?: string | number | null;
   logo_url?: string | null;
   is_shariah_compliant?: boolean | null;
+  pe_ratio?: string | number | null;
   last_updated?: string | null;
 };
 
@@ -109,6 +110,10 @@ const mapDbStock = (row: DbStockRow): Stock => {
     low52Week:
       row.low_52week !== undefined ? toNumber(row.low_52week) : undefined,
     sector: row.sector ?? undefined,
+    peRatio:
+      row.pe_ratio !== undefined && row.pe_ratio !== null
+        ? toNumber(row.pe_ratio) || undefined
+        : undefined,
     logoUrl: row.logo_url ?? undefined,
     isShariahCompliant: row.is_shariah_compliant ?? undefined,
     lastUpdated: row.last_updated ?? new Date().toISOString(),
@@ -141,6 +146,7 @@ function buildStockUpsertPayload(stock: {
   low?: number | null;
   logoUrl?: string | null;
   isShariahCompliant?: boolean | null;
+  peRatio?: number | null;
   lastUpdated: string;
 }) {
   const payload: Record<string, unknown> = {
@@ -157,6 +163,7 @@ function buildStockUpsertPayload(stock: {
     day_low: stock.low ?? null,
     logo_url: stock.logoUrl ?? null,
     is_shariah_compliant: stock.isShariahCompliant ?? null,
+    pe_ratio: stock.peRatio ?? null,
     last_updated: stock.lastUpdated,
     updated_at: new Date().toISOString(),
   };
@@ -750,6 +757,8 @@ export interface Dividend {
   // Enriched from stocks table where available
   stockName?: string;
   stockLogoUrl?: string;
+  stockCurrentPrice?: number;
+  stockPeRatio?: number | null;
 }
 
 export async function getDividends(userId: string): Promise<Dividend[]> {
@@ -772,13 +781,26 @@ export async function getDividends(userId: string): Promise<Dividend[]> {
   ];
   const { data: stocksData } = await supabase
     .from("stocks")
-    .select("symbol, name, logo_url")
+    .select("symbol, name, logo_url, current_price, pe_ratio")
     .in("symbol", symbols);
 
-  const stockMap = new Map<string, { name: string; logoUrl: string | null }>();
+  const stockMap = new Map<
+    string,
+    {
+      name: string;
+      logoUrl: string | null;
+      currentPrice: number;
+      peRatio: number | null;
+    }
+  >();
   if (stocksData) {
     for (const s of stocksData as any[]) {
-      stockMap.set(s.symbol, { name: s.name, logoUrl: s.logo_url ?? null });
+      stockMap.set(s.symbol, {
+        name: s.name,
+        logoUrl: s.logo_url ?? null,
+        currentPrice: s.current_price ? Number(s.current_price) : 0,
+        peRatio: s.pe_ratio ? Number(s.pe_ratio) : null,
+      });
     }
   }
 
@@ -794,6 +816,8 @@ export async function getDividends(userId: string): Promise<Dividend[]> {
       notes: row.notes ?? null,
       stockName: enriched?.name,
       stockLogoUrl: enriched?.logoUrl ?? undefined,
+      stockCurrentPrice: enriched?.currentPrice ?? undefined,
+      stockPeRatio: enriched?.peRatio ?? null,
     };
   });
 }
