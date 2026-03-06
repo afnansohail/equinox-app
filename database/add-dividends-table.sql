@@ -9,12 +9,17 @@ CREATE TABLE IF NOT EXISTS dividends (
   user_id            UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   stock_symbol       VARCHAR(20) NOT NULL,
   shares             DECIMAL(15, 4) NOT NULL CHECK (shares > 0),
+  face_value         DECIMAL(12, 4) NOT NULL DEFAULT 10 CHECK (face_value > 0),
   dividend_per_share DECIMAL(12, 4) NOT NULL CHECK (dividend_per_share >= 0),
   total_amount       DECIMAL(15, 2) GENERATED ALWAYS AS (shares * dividend_per_share) STORED,
   payment_date       DATE NOT NULL,
   notes              TEXT,
   created_at         TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Migration for existing databases
+ALTER TABLE dividends
+  ADD COLUMN IF NOT EXISTS face_value DECIMAL(12, 4) NOT NULL DEFAULT 10;
 
 -- ── Row-Level Security ────────────────────────────────────────────────────────
 

@@ -751,6 +751,7 @@ export interface Dividend {
   stockSymbol: string;
   shares: number;
   dividendPerShare: number;
+  faceValue?: number;
   totalAmount: number;
   paymentDate: string; // YYYY-MM-DD
   notes?: string | null;
@@ -759,6 +760,21 @@ export interface Dividend {
   stockLogoUrl?: string;
   stockCurrentPrice?: number;
   stockPeRatio?: number | null;
+}
+
+export interface ScrapedPayout {
+  paymentDate: string;
+  dividendPercent: number;
+  details?: string;
+  financialResults?: string | null;
+  bookClosure?: string | null;
+}
+
+export interface ScrapedPayoutBySymbol {
+  symbol: string;
+  payouts: ScrapedPayout[];
+  source?: string;
+  scrapedAt?: string;
 }
 
 export async function getDividends(userId: string): Promise<Dividend[]> {
@@ -811,6 +827,7 @@ export async function getDividends(userId: string): Promise<Dividend[]> {
       stockSymbol: row.stock_symbol,
       shares: Number(row.shares),
       dividendPerShare: Number(row.dividend_per_share),
+      faceValue: row.face_value ? Number(row.face_value) : 10,
       totalAmount: Number(row.total_amount),
       paymentDate: row.payment_date,
       notes: row.notes ?? null,
@@ -843,6 +860,7 @@ export async function addDividend(
     stock_symbol: d.stockSymbol.toUpperCase(),
     shares: d.shares,
     dividend_per_share: d.dividendPerShare,
+    face_value: d.faceValue ?? 10,
     payment_date: d.paymentDate,
     notes: d.notes ?? null,
   });
@@ -859,6 +877,7 @@ export async function updateDividend(
   updates: {
     shares?: number;
     dividendPerShare?: number;
+    faceValue?: number;
     paymentDate?: string;
     notes?: string | null;
   },
@@ -879,6 +898,8 @@ export async function updateDividend(
   if (updates.shares !== undefined) updatePayload.shares = updates.shares;
   if (updates.dividendPerShare !== undefined)
     updatePayload.dividend_per_share = updates.dividendPerShare;
+  if (updates.faceValue !== undefined)
+    updatePayload.face_value = updates.faceValue;
   if (updates.paymentDate !== undefined)
     updatePayload.payment_date = updates.paymentDate;
   if (updates.notes !== undefined) updatePayload.notes = updates.notes;
@@ -918,6 +939,26 @@ export async function deleteDividend(
   if (error) {
     console.error("Error deleting dividend", error);
     throw new Error(`Failed to delete dividend: ${error.message}`);
+  }
+}
+
+export async function getScrapedPayouts(
+  symbols: string[],
+): Promise<ScrapedPayoutBySymbol[]> {
+  if (!vercelApiUrl || symbols.length === 0) return [];
+
+  const uniqueSymbols = [...new Set(symbols.map((s) => s.toUpperCase()))];
+
+  try {
+    const response = await axios.post(`${vercelApiUrl}/api/scrape-payouts`, {
+      symbols: uniqueSymbols,
+    });
+
+    const payload = response.data as { data?: ScrapedPayoutBySymbol[] };
+    return payload.data ?? [];
+  } catch (error) {
+    console.error("Error fetching scraped payouts", error);
+    return [];
   }
 }
 

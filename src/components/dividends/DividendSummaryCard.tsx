@@ -5,13 +5,13 @@ import { formatPKR } from "../../utils/format";
 
 interface DividendSummaryCardProps {
   totalAmount: number;
-  bestPercentageSymbol: string | null;
+  highestScoreSymbol: string | null;
   topPayer: string | null;
 }
 
 export default function DividendSummaryCard({
   totalAmount,
-  bestPercentageSymbol,
+  highestScoreSymbol,
   topPayer,
 }: DividendSummaryCardProps) {
   return (
@@ -32,7 +32,7 @@ export default function DividendSummaryCard({
       <View style={styles.secondaryStats}>
         <View style={styles.stat}>
           <Text style={styles.statValue} numberOfLines={1}>
-            {bestPercentageSymbol ?? "—"}
+            {highestScoreSymbol ?? "—"}
           </Text>
           <Text style={styles.statLabel}>Highest Score</Text>
         </View>

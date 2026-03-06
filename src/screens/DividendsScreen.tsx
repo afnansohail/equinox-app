@@ -31,10 +31,13 @@ import {
   useDividends,
   useDeleteDividend,
   useUpdateDividend,
+  useScrapedPayouts,
 } from "../hooks/useDividends";
+import { usePortfolio } from "../hooks/usePortfolio";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
 import type { Dividend } from "../services/api";
+import { buildDividendRanking } from "../utils/dividendRanking";
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Dividends">,
@@ -50,8 +53,42 @@ export default function DividendsScreen() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const { data: dividends, refetch: refetchDividends } = useDividends();
+  const { data: holdings } = usePortfolio();
   const deleteMutation = useDeleteDividend();
   const updateMutation = useUpdateDividend();
+
+  const holdingSymbols = useMemo(
+    () => [
+      ...new Set((holdings ?? []).map((h) => h.stockSymbol.toUpperCase())),
+    ],
+    [holdings],
+  );
+
+  // Combine symbols from active holdings AND all dividends (for sold holdings with history)
+  const allChartSymbols = useMemo(
+    () => [
+      ...new Set([
+        ...holdingSymbols,
+        ...(dividends ?? []).map((d) => d.stockSymbol.toUpperCase()),
+      ]),
+    ],
+    [holdingSymbols, dividends],
+  );
+
+  const { data: scrapedPayouts } = useScrapedPayouts(allChartSymbols);
+
+  // Pass all dividends to chart, not just those in active holdings
+  const rankingDividends = dividends ?? [];
+
+  const faceValueBySymbol = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const d of rankingDividends) {
+      if (d.faceValue && d.faceValue > 0) {
+        map[d.stockSymbol.toUpperCase()] = d.faceValue;
+      }
+    }
+    return map;
+  }, [rankingDividends]);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -76,6 +113,7 @@ export default function DividendsScreen() {
   const [editShares, setEditShares] = useState("");
   const [editPerShare, setEditPerShare] = useState("");
   const [editTotalAmount, setEditTotalAmount] = useState("");
+  const [editFaceValue, setEditFaceValue] = useState("10");
   const [editInputMode, setEditInputMode] = useState<
     "perShare" | "totalAmount"
   >("perShare");
@@ -90,6 +128,7 @@ export default function DividendsScreen() {
     setEditShares(String(dividend.shares));
     setEditPerShare(String(dividend.dividendPerShare));
     setEditTotalAmount("");
+    setEditFaceValue(String(dividend.faceValue ?? 10));
     setEditInputMode("perShare");
     const parts = dividend.paymentDate.split("-");
     setEditDate(
@@ -144,6 +183,8 @@ export default function DividendsScreen() {
         updates: {
           shares,
           dividendPerShare: finalPerShare,
+          faceValue:
+            parseFloat(editFaceValue) > 0 ? parseFloat(editFaceValue) : 10,
           paymentDate: dateStr,
           notes: editNotes.trim() || null,
         },
@@ -209,44 +250,80 @@ export default function DividendsScreen() {
     return top;
   }, [dividends]);
 
-  const bestPercentageSymbol = useMemo(() => {
-    if (!dividends || dividends.length === 0) return null;
-    const avgBySymbol = new Map<string, { total: number; count: number }>();
-    for (const d of dividends) {
-      const existing = avgBySymbol.get(d.stockSymbol) || {
-        total: 0,
-        count: 0,
-      };
-      avgBySymbol.set(d.stockSymbol, {
-        total: existing.total + d.dividendPerShare,
-        count: existing.count + 1,
+  // Build holdingMeta with all symbols: active holdings with their quantity, sold holdings with quantity = 0
+  const holdingMetaForRanking = useMemo(() => {
+    const holdingMap = new Map<
+      string,
+      {
+        quantity: number;
+        currentPrice?: number;
+        peRatio?: number | null;
+        sector?: string;
+      }
+    >();
+
+    // Add active holdings with their quantities
+    for (const h of holdings ?? []) {
+      const sym = h.stockSymbol.toUpperCase();
+      holdingMap.set(sym, {
+        quantity: h.quantity,
+        currentPrice: h.stock?.currentPrice,
+        peRatio: h.stock?.peRatio ?? null,
+        sector: h.stock?.sector,
       });
     }
-    let best: string | null = null;
-    let maxAvg = 0;
-    for (const [sym, data] of avgBySymbol) {
-      const avg = data.total / data.count;
-      if (avg > maxAvg) {
-        maxAvg = avg;
-        best = sym;
+
+    // Add sold holdings (from dividends) with quantity = 0
+    for (const d of rankingDividends) {
+      const sym = d.stockSymbol.toUpperCase();
+      if (!holdingMap.has(sym)) {
+        holdingMap.set(sym, {
+          quantity: 0,
+          currentPrice: d.stockCurrentPrice,
+          peRatio: d.stockPeRatio ?? null,
+          sector: undefined,
+        });
       }
     }
-    return best;
-  }, [dividends]);
+
+    return Array.from(holdingMap.entries()).map(([symbol, data]) => ({
+      symbol,
+      ...data,
+    }));
+  }, [holdings, rankingDividends]);
+
+  const highestScoreSymbol = useMemo(() => {
+    const ranked = buildDividendRanking({
+      dividends: rankingDividends ?? [],
+      scrapedPayouts: scrapedPayouts ?? [],
+      faceValueBySymbol,
+      holdingMeta: holdingMetaForRanking,
+    });
+    return ranked.find((r) => r.score > 0)?.symbol ?? null;
+  }, [
+    rankingDividends,
+    scrapedPayouts,
+    faceValueBySymbol,
+    holdingMetaForRanking,
+  ]);
 
   const ListHeader = useMemo(
     () => (
       <>
         <DividendSummaryCard
           totalAmount={totalAmount}
-          bestPercentageSymbol={bestPercentageSymbol}
+          highestScoreSymbol={highestScoreSymbol}
           topPayer={topPayer}
         />
 
-        {(dividends?.length ?? 0) > 0 && (
+        {((scrapedPayouts?.length ?? 0) > 0 ||
+          (dividends?.length ?? 0) > 0) && (
           <>
             <DividendStockRanking
-              dividends={dividends ?? []}
+              dividends={rankingDividends ?? []}
+              scrapedPayouts={scrapedPayouts ?? []}
+              faceValueBySymbol={faceValueBySymbol}
+              holdingMeta={holdingMetaForRanking}
               selectedSymbol={selectedSymbol}
               onSymbolPress={setSelectedSymbol}
             />
@@ -264,7 +341,17 @@ export default function DividendsScreen() {
         )}
       </>
     ),
-    [dividends, totalAmount, topPayer, bestPercentageSymbol, selectedSymbol],
+    [
+      dividends,
+      totalAmount,
+      topPayer,
+      highestScoreSymbol,
+      selectedSymbol,
+      rankingDividends,
+      scrapedPayouts,
+      faceValueBySymbol,
+      holdings,
+    ],
   );
 
   const EmptyList = useMemo(
@@ -437,6 +524,32 @@ export default function DividendsScreen() {
                     </View>
                   )}
                 </View>
+
+                <View style={styles.modalField}>
+                  <Text style={styles.modalLabel}>Face Value (PKR)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editFaceValue}
+                    onChangeText={setEditFaceValue}
+                    keyboardType="decimal-pad"
+                    placeholder="10"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
+
+                {editInputMode === "perShare" &&
+                  parseFloat(editFaceValue) > 0 && (
+                    <View style={styles.calculatedRow}>
+                      <Text style={styles.calculatedLabel}>Face Value:</Text>
+                      <Text style={styles.calculatedValue}>
+                        PKR{" "}
+                        {parseFloat(editFaceValue).toLocaleString("en-PK", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </View>
+                  )}
 
                 {/* Show calculated per share in totalAmount mode */}
                 {editInputMode === "totalAmount" &&
