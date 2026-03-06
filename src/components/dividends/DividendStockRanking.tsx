@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { colors } from "../../constants/theme";
 import { formatPKR } from "../../utils/format";
-import type { Dividend, ScrapedPayoutBySymbol } from "../../services/api";
+import type { Dividend } from "../../services/api";
 import {
   buildDividendRanking,
   type RankedDividendStock,
@@ -18,8 +18,6 @@ import {
 
 interface DividendStockRankingProps {
   dividends: Dividend[];
-  scrapedPayouts?: ScrapedPayoutBySymbol[];
-  faceValueBySymbol?: Record<string, number>;
   selectedSymbol?: string | null;
   holdingMeta?: Array<{
     symbol: string;
@@ -32,8 +30,6 @@ interface DividendStockRankingProps {
 
 export default function DividendStockRanking({
   dividends,
-  scrapedPayouts,
-  faceValueBySymbol,
   selectedSymbol,
   holdingMeta,
   onSymbolPress,
@@ -46,11 +42,9 @@ export default function DividendStockRanking({
     () =>
       buildDividendRanking({
         dividends,
-        scrapedPayouts,
-        faceValueBySymbol,
         holdingMeta,
       }).filter((stock) => stock.score > 0 || stock.isETF), // Keep ETFs + holdings with scores
-    [dividends, scrapedPayouts, faceValueBySymbol, holdingMeta],
+    [dividends, holdingMeta],
   );
 
   useEffect(() => {

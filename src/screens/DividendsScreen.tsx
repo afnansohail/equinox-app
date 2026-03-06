@@ -31,7 +31,6 @@ import {
   useDividends,
   useDeleteDividend,
   useUpdateDividend,
-  useScrapedPayouts,
 } from "../hooks/useDividends";
 import { usePortfolio } from "../hooks/usePortfolio";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
@@ -57,38 +56,8 @@ export default function DividendsScreen() {
   const deleteMutation = useDeleteDividend();
   const updateMutation = useUpdateDividend();
 
-  const holdingSymbols = useMemo(
-    () => [
-      ...new Set((holdings ?? []).map((h) => h.stockSymbol.toUpperCase())),
-    ],
-    [holdings],
-  );
-
-  // Combine symbols from active holdings AND all dividends (for sold holdings with history)
-  const allChartSymbols = useMemo(
-    () => [
-      ...new Set([
-        ...holdingSymbols,
-        ...(dividends ?? []).map((d) => d.stockSymbol.toUpperCase()),
-      ]),
-    ],
-    [holdingSymbols, dividends],
-  );
-
-  const { data: scrapedPayouts } = useScrapedPayouts(allChartSymbols);
-
   // Pass all dividends to chart, not just those in active holdings
   const rankingDividends = dividends ?? [];
-
-  const faceValueBySymbol = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const d of rankingDividends) {
-      if (d.faceValue && d.faceValue > 0) {
-        map[d.stockSymbol.toUpperCase()] = d.faceValue;
-      }
-    }
-    return map;
-  }, [rankingDividends]);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -113,7 +82,6 @@ export default function DividendsScreen() {
   const [editShares, setEditShares] = useState("");
   const [editPerShare, setEditPerShare] = useState("");
   const [editTotalAmount, setEditTotalAmount] = useState("");
-  const [editFaceValue, setEditFaceValue] = useState("10");
   const [editInputMode, setEditInputMode] = useState<
     "perShare" | "totalAmount"
   >("perShare");
@@ -128,7 +96,6 @@ export default function DividendsScreen() {
     setEditShares(String(dividend.shares));
     setEditPerShare(String(dividend.dividendPerShare));
     setEditTotalAmount("");
-    setEditFaceValue(String(dividend.faceValue ?? 10));
     setEditInputMode("perShare");
     const parts = dividend.paymentDate.split("-");
     setEditDate(
@@ -183,8 +150,6 @@ export default function DividendsScreen() {
         updates: {
           shares,
           dividendPerShare: finalPerShare,
-          faceValue:
-            parseFloat(editFaceValue) > 0 ? parseFloat(editFaceValue) : 10,
           paymentDate: dateStr,
           notes: editNotes.trim() || null,
         },
@@ -294,18 +259,11 @@ export default function DividendsScreen() {
 
   const highestScoreSymbol = useMemo(() => {
     const ranked = buildDividendRanking({
-      dividends: rankingDividends ?? [],
-      scrapedPayouts: scrapedPayouts ?? [],
-      faceValueBySymbol,
+      dividends: rankingDividends,
       holdingMeta: holdingMetaForRanking,
     });
     return ranked.find((r) => r.score > 0)?.symbol ?? null;
-  }, [
-    rankingDividends,
-    scrapedPayouts,
-    faceValueBySymbol,
-    holdingMetaForRanking,
-  ]);
+  }, [rankingDividends, holdingMetaForRanking]);
 
   const ListHeader = useMemo(
     () => (
@@ -316,13 +274,10 @@ export default function DividendsScreen() {
           topPayer={topPayer}
         />
 
-        {((scrapedPayouts?.length ?? 0) > 0 ||
-          (dividends?.length ?? 0) > 0) && (
+        {(dividends?.length ?? 0) > 0 && (
           <>
             <DividendStockRanking
-              dividends={rankingDividends ?? []}
-              scrapedPayouts={scrapedPayouts ?? []}
-              faceValueBySymbol={faceValueBySymbol}
+              dividends={rankingDividends}
               holdingMeta={holdingMetaForRanking}
               selectedSymbol={selectedSymbol}
               onSymbolPress={setSelectedSymbol}
@@ -348,8 +303,6 @@ export default function DividendsScreen() {
       highestScoreSymbol,
       selectedSymbol,
       rankingDividends,
-      scrapedPayouts,
-      faceValueBySymbol,
       holdings,
     ],
   );
@@ -525,32 +478,6 @@ export default function DividendsScreen() {
                   )}
                 </View>
 
-                <View style={styles.modalField}>
-                  <Text style={styles.modalLabel}>Face Value (PKR)</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    value={editFaceValue}
-                    onChangeText={setEditFaceValue}
-                    keyboardType="decimal-pad"
-                    placeholder="10"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                </View>
-
-                {editInputMode === "perShare" &&
-                  parseFloat(editFaceValue) > 0 && (
-                    <View style={styles.calculatedRow}>
-                      <Text style={styles.calculatedLabel}>Face Value:</Text>
-                      <Text style={styles.calculatedValue}>
-                        PKR{" "}
-                        {parseFloat(editFaceValue).toLocaleString("en-PK", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </Text>
-                    </View>
-                  )}
-
                 {/* Show calculated per share in totalAmount mode */}
                 {editInputMode === "totalAmount" &&
                   parseFloat(editShares) > 0 &&
@@ -598,7 +525,11 @@ export default function DividendsScreen() {
                     textAlignVertical="top"
                   />
                 </View>
+              </ScrollView>
+            )}
 
+            {editDividend && (
+              <View style={styles.modalBottom}>
                 <View style={styles.modalTotal}>
                   <Text style={styles.modalTotalLabel}>Total</Text>
                   <Text style={styles.modalTotalValue}>
@@ -662,7 +593,7 @@ export default function DividendsScreen() {
                     )}
                   </TouchableOpacity>
                 </View>
-              </ScrollView>
+              </View>
             )}
           </View>
         </KeyboardAvoidingView>
@@ -739,7 +670,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: "85%",
+    maxHeight: "90%",
   },
   modalHeader: {
     flexDirection: "row",
@@ -755,7 +686,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textPrimary,
   },
-  modalScrollContent: { paddingHorizontal: 16, paddingVertical: 16 },
+  modalScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    flexShrink: 1,
+  },
+  modalBottom: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   modalSymbolRow: {
     marginBottom: 16,
   },

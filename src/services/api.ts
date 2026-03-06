@@ -751,7 +751,6 @@ export interface Dividend {
   stockSymbol: string;
   shares: number;
   dividendPerShare: number;
-  faceValue?: number;
   totalAmount: number;
   paymentDate: string; // YYYY-MM-DD
   notes?: string | null;
@@ -827,7 +826,6 @@ export async function getDividends(userId: string): Promise<Dividend[]> {
       stockSymbol: row.stock_symbol,
       shares: Number(row.shares),
       dividendPerShare: Number(row.dividend_per_share),
-      faceValue: row.face_value ? Number(row.face_value) : 10,
       totalAmount: Number(row.total_amount),
       paymentDate: row.payment_date,
       notes: row.notes ?? null,
@@ -860,7 +858,6 @@ export async function addDividend(
     stock_symbol: d.stockSymbol.toUpperCase(),
     shares: d.shares,
     dividend_per_share: d.dividendPerShare,
-    face_value: d.faceValue ?? 10,
     payment_date: d.paymentDate,
     notes: d.notes ?? null,
   });
@@ -877,7 +874,6 @@ export async function updateDividend(
   updates: {
     shares?: number;
     dividendPerShare?: number;
-    faceValue?: number;
     paymentDate?: string;
     notes?: string | null;
   },
@@ -898,8 +894,6 @@ export async function updateDividend(
   if (updates.shares !== undefined) updatePayload.shares = updates.shares;
   if (updates.dividendPerShare !== undefined)
     updatePayload.dividend_per_share = updates.dividendPerShare;
-  if (updates.faceValue !== undefined)
-    updatePayload.face_value = updates.faceValue;
   if (updates.paymentDate !== undefined)
     updatePayload.payment_date = updates.paymentDate;
   if (updates.notes !== undefined) updatePayload.notes = updates.notes;

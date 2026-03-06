@@ -39,7 +39,6 @@ export default function AddDividendScreen() {
   const [shares, setShares] = useState("");
   const [dividendPerShare, setDividendPerShare] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
-  const [faceValue, setFaceValue] = useState("10");
   const [inputMode, setInputMode] = useState<"perShare" | "totalAmount">(
     "perShare",
   );
@@ -52,7 +51,6 @@ export default function AddDividendScreen() {
 
   const sharesNum = Number(shares);
   const perShareNum = Number(dividendPerShare);
-  const faceValueNum = Number(faceValue);
   const totalAmountNum = Number(totalAmount);
 
   const calculatedDividendPerShare =
@@ -120,7 +118,6 @@ export default function AddDividendScreen() {
         stockSymbol: symbol.trim().toUpperCase(),
         shares: sharesNum,
         dividendPerShare: finalDividendPerShare,
-        faceValue: faceValueNum > 0 && !isNaN(faceValueNum) ? faceValueNum : 10,
         paymentDate: dateStr,
         notes: notes.trim() || null,
       });
@@ -296,35 +293,6 @@ export default function AddDividendScreen() {
                     </View>
                   )}
               </>
-            )}
-
-            <Text style={styles.fieldLabel}>Face Value (PKR)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 10"
-              placeholderTextColor={colors.textMuted}
-              value={faceValue}
-              onChangeText={setFaceValue}
-              keyboardType="decimal-pad"
-            />
-            {inputMode === "totalAmount" ? (
-              <Text style={styles.fieldHint}>
-                Used for reference only in total amount mode
-              </Text>
-            ) : (
-              faceValueNum > 0 &&
-              !isNaN(faceValueNum) && (
-                <View style={styles.calculatedRow}>
-                  <Text style={styles.calculatedLabel}>Face Value:</Text>
-                  <Text style={styles.calculatedValue}>
-                    PKR{" "}
-                    {faceValueNum.toLocaleString("en-PK", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </Text>
-                </View>
-              )
             )}
 
             {/* Total Preview */}

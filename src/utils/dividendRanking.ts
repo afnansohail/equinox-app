@@ -1,4 +1,4 @@
-import type { Dividend, ScrapedPayoutBySymbol } from "../services/api";
+import type { Dividend } from "../services/api";
 
 export interface HoldingMeta {
   symbol: string;
@@ -158,143 +158,79 @@ function calcDividendScore(data: {
 // Data aggregation
 // ---------------------------------------------------------------------------
 
-type SymbolAccumulator = {
-  /** Sum of dividends per share across all recorded payouts. */
-  totalAmount: number;
-  yearlyDivPerShare: Map<number, number>;
-  ttmDivPerShare: number;
-  currentPrice: number;
-  peRatio: number | null;
-  recordCount: number;
-  sector?: string;
-};
-
 export function buildDividendRanking(params: {
   dividends: Dividend[];
-  scrapedPayouts?: ScrapedPayoutBySymbol[];
-  faceValueBySymbol?: Record<string, number>;
   holdingMeta?: HoldingMeta[];
 }): RankedDividendStock[] {
-  const { dividends, scrapedPayouts, faceValueBySymbol, holdingMeta } = params;
+  const { dividends, holdingMeta } = params;
 
-  // Use setFullYear for a leap-year-safe trailing-12-month window.
+  // Leap-year-safe trailing-12-month window.
   const now = new Date();
   const ttmStart = new Date(now);
   ttmStart.setFullYear(now.getFullYear() - 1);
 
-  const map = new Map<string, SymbolAccumulator>();
+  type SymbolAccumulator = {
+    yearlyDivPerShare: Map<number, number>;
+    ttmDivPerShare: number;
+    currentPrice: number;
+    peRatio: number | null;
+    payoutCount: number;
+    totalAmount: number;
+    sector?: string;
+  };
 
-  // Build a map of symbol → quantity from holdings for scraped payout calculations.
-  const holdingQtyBySymbol = new Map<string, number>();
+  const accumMap = new Map<string, SymbolAccumulator>();
+
+  // Seed every held symbol so it always appears in results.
   for (const holding of holdingMeta ?? []) {
-    const symbol = holding.symbol.toUpperCase();
-    if (holding.quantity && holding.quantity > 0) {
-      holdingQtyBySymbol.set(symbol, holding.quantity);
-    }
-  }
-
-  // Pre-populate map with metadata so every held symbol appears in results.
-  for (const holding of holdingMeta ?? []) {
-    const symbol = holding.symbol.toUpperCase();
-    if (map.has(symbol)) continue;
-    map.set(symbol, {
-      totalAmount: 0,
-      yearlyDivPerShare: new Map<number, number>(),
-      ttmDivPerShare: 0,
-      currentPrice: holding.currentPrice ?? 0,
-      peRatio: holding.peRatio ?? null,
-      recordCount: 0,
-      sector: holding.sector,
-    });
-  }
-
-  const hasScraped = (scrapedPayouts?.length ?? 0) > 0;
-  const symbolsWithScrapedData = new Set<string>();
-
-  // --- Scraped payouts (preferred source) ---
-  if (hasScraped) {
-    for (const stockPayout of scrapedPayouts ?? []) {
-      const symbol = stockPayout.symbol.toUpperCase();
-      const faceValue = faceValueBySymbol?.[symbol] ?? 10;
-      const existing: SymbolAccumulator = map.get(symbol) ?? {
-        totalAmount: 0,
-        yearlyDivPerShare: new Map<number, number>(),
+    const sym = holding.symbol.toUpperCase();
+    if (!accumMap.has(sym)) {
+      accumMap.set(sym, {
+        yearlyDivPerShare: new Map(),
         ttmDivPerShare: 0,
-        currentPrice: 0,
-        peRatio: null,
-        recordCount: 0,
-      };
-
-      const beforeCount = existing.recordCount;
-
-      for (const payout of stockPayout.payouts ?? []) {
-        if (!(payout.dividendPercent > 0) || !payout.paymentDate) continue;
-
-        const dividendPerShare = (payout.dividendPercent / 100) * faceValue;
-        const paymentDate = new Date(payout.paymentDate);
-        const year = paymentDate.getFullYear();
-
-        // For scraped payouts, multiply by current holding quantity to get total cash.
-        const holdingQty = holdingQtyBySymbol.get(symbol) ?? 0;
-        const totalCash = dividendPerShare * holdingQty;
-
-        existing.totalAmount += totalCash;
-        existing.yearlyDivPerShare.set(
-          year,
-          (existing.yearlyDivPerShare.get(year) ?? 0) + dividendPerShare,
-        );
-        if (paymentDate >= ttmStart) {
-          existing.ttmDivPerShare += dividendPerShare;
-        }
-        existing.recordCount += 1;
-      }
-
-      if (existing.recordCount > beforeCount) {
-        symbolsWithScrapedData.add(symbol);
-      }
-      map.set(symbol, existing);
+        currentPrice: holding.currentPrice ?? 0,
+        peRatio: holding.peRatio ?? null,
+        payoutCount: 0,
+        totalAmount: 0,
+        sector: holding.sector,
+      });
     }
   }
 
-  // --- Manual/broker dividends (fallback — skipped when scraped data exists) ---
+  // Accumulate manual entries for both scoring and total-received display.
   for (const d of dividends) {
-    const symbol = d.stockSymbol.toUpperCase();
-    if (hasScraped && symbolsWithScrapedData.has(symbol)) continue;
+    const sym = d.stockSymbol.toUpperCase();
 
-    const paymentDate = new Date(d.paymentDate);
-    const year = paymentDate.getFullYear();
-
-    const existing: SymbolAccumulator = map.get(symbol) ?? {
-      totalAmount: 0,
-      yearlyDivPerShare: new Map<number, number>(),
+    const acc: SymbolAccumulator = accumMap.get(sym) ?? {
+      yearlyDivPerShare: new Map(),
       ttmDivPerShare: 0,
       currentPrice: d.stockCurrentPrice ?? 0,
       peRatio: d.stockPeRatio ?? null,
-      recordCount: 0,
+      payoutCount: 0,
+      totalAmount: 0,
+      sector: undefined,
     };
 
-    // For manual dividends, use the recorded totalAmount (already includes shares * divPerShare).
-    existing.totalAmount += d.totalAmount;
-    existing.yearlyDivPerShare.set(
-      year,
-      (existing.yearlyDivPerShare.get(year) ?? 0) + d.dividendPerShare,
-    );
-    if (paymentDate >= ttmStart) {
-      existing.ttmDivPerShare += d.dividendPerShare;
+    acc.totalAmount += d.totalAmount;
+
+    if (d.dividendPerShare > 0) {
+      const paymentDate = new Date(d.paymentDate);
+      const year = paymentDate.getFullYear();
+      acc.yearlyDivPerShare.set(
+        year,
+        (acc.yearlyDivPerShare.get(year) ?? 0) + d.dividendPerShare,
+      );
+      if (paymentDate >= ttmStart) acc.ttmDivPerShare += d.dividendPerShare;
+      acc.payoutCount += 1;
     }
-    existing.recordCount += 1;
 
-    // Always prefer the most recent price / P/E from broker data.
-    if (d.stockCurrentPrice) existing.currentPrice = d.stockCurrentPrice;
-    if (d.stockPeRatio != null) existing.peRatio = d.stockPeRatio;
-
-    map.set(symbol, existing);
+    accumMap.set(sym, acc);
   }
 
-  // --- Build ranked results ---
-  const results: RankedDividendStock[] = [...map.entries()].map(
-    ([symbol, data]) => {
-      const yearlySums = [...data.yearlyDivPerShare.entries()]
+  // Build ranked results.
+  const results: RankedDividendStock[] = [...accumMap.entries()].map(
+    ([symbol, acc]) => {
+      const yearlySums = [...acc.yearlyDivPerShare.entries()]
         .sort((a, b) => a[0] - b[0])
         .map(([, value]) => value);
 
@@ -303,33 +239,33 @@ export function buildDividendRanking(params: {
           ? yearlySums.reduce((sum, y) => sum + y, 0) / yearlySums.length
           : 0;
 
-      // Cadence-aware yield proxy: use the stronger of trailing-12m and
-      // multi-year annual average so annual/biannual payers are not undercounted.
+      // Cadence-aware yield: use the stronger of TTM and multi-year average so
+      // annual / biannual payers are not undercounted.
       const effectiveDivPerShare = Math.max(
-        data.ttmDivPerShare,
+        acc.ttmDivPerShare,
         avgAnnualDivPerShare,
       );
 
       const effectiveYield =
-        data.currentPrice > 0
-          ? (effectiveDivPerShare / data.currentPrice) * 100
+        acc.currentPrice > 0
+          ? (effectiveDivPerShare / acc.currentPrice) * 100
           : 0;
 
       const hasDividendData = yearlySums.length > 0;
-      const isETF = data.sector === "EXCHANGE TRADED FUNDS";
+      const isETF = acc.sector === "EXCHANGE TRADED FUNDS";
 
       const scored = isETF
         ? { score: 0, breakdown: { yield: 0, consistency: 0, valuation: 0 } }
         : calcDividendScore({
             dividendYield: effectiveYield,
             yearlySums,
-            peRatio: data.peRatio, // pass null explicitly — scorer handles it
-            payoutCount: data.recordCount, // payout frequency bonus
+            peRatio: acc.peRatio,
+            payoutCount: acc.payoutCount,
           });
 
       return {
         symbol,
-        totalAmount: data.totalAmount,
+        totalAmount: acc.totalAmount,
         dividendYield: effectiveYield,
         score: isETF ? 0 : hasDividendData ? scored.score : 0,
         breakdown: isETF
@@ -337,7 +273,7 @@ export function buildDividendRanking(params: {
           : hasDividendData
             ? scored.breakdown
             : { yield: 0, consistency: 0, valuation: 0 },
-        recordCount: data.recordCount,
+        recordCount: acc.payoutCount,
         isETF,
       };
     },
