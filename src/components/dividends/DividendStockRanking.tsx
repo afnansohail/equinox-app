@@ -49,7 +49,7 @@ export default function DividendStockRanking({
         scrapedPayouts,
         faceValueBySymbol,
         holdingMeta,
-      }).filter((stock) => stock.score > 0), // Filter out holdings with 0 score/no dividends
+      }).filter((stock) => stock.score > 0 || stock.isETF), // Keep ETFs + holdings with scores
     [dividends, scrapedPayouts, faceValueBySymbol, holdingMeta],
   );
 
@@ -83,6 +83,7 @@ export default function DividendStockRanking({
     const barWidth =
       (Math.max(0, Math.min(100, scoreValue)) / 100) * barMaxWidth;
     const isActive = activeIdx === index;
+    const isETF = item.isETF;
 
     return (
       <TouchableOpacity
@@ -97,18 +98,28 @@ export default function DividendStockRanking({
           >
             {item.symbol}
           </Text>
-          <View style={styles.barTrack}>
-            <View
-              style={[
-                styles.bar,
-                isActive && styles.barActive,
-                { width: barWidth },
-              ]}
-            />
-          </View>
-          <Text style={[styles.scoreText, isActive && styles.scoreTextActive]}>
-            {item.isETF ? "ETF" : scoreValue}
-          </Text>
+          {isETF ? (
+            <Text style={[styles.etfLabel, isActive && styles.etfLabelActive]}>
+              Exchange Traded Fund
+            </Text>
+          ) : (
+            <>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.bar,
+                    isActive && styles.barActive,
+                    { width: barWidth },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[styles.scoreText, isActive && styles.scoreTextActive]}
+              >
+                {scoreValue}
+              </Text>
+            </>
+          )}
           <Text
             style={[styles.amount, isActive && styles.amountActive]}
             numberOfLines={1}
@@ -117,7 +128,7 @@ export default function DividendStockRanking({
           </Text>
         </View>
 
-        {isActive && (
+        {isActive && !isETF && (
           <View style={styles.breakdownContainer}>
             <Text style={styles.yieldText}>
               Yield: {item.dividendYield.toFixed(2)}%
@@ -258,6 +269,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   scoreTextActive: { fontWeight: "700" },
+  etfLabel: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "500",
+    color: colors.textMuted,
+    marginLeft: 8,
+  },
+  etfLabelActive: { color: colors.secondary },
   amount: {
     width: 68,
     fontSize: 11,
