@@ -91,6 +91,7 @@ export default function DividendStockRanking({
           <Text
             style={[styles.symbol, isActive && styles.symbolActive]}
             numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {item.symbol}
           </Text>
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   symbol: {
-    width: 60,
+    width: 55,
     fontSize: 12,
     fontWeight: "700",
     color: colors.textPrimary,

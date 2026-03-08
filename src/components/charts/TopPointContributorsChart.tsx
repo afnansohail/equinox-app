@@ -73,7 +73,7 @@ interface RenderContribution extends HoldingContribution {
 export default function TopPointContributorsChart({
   holdings,
 }: TopPointContributorsChartProps) {
-  const [mode, setMode] = useState<Mode>("allTime");
+  const [mode, setMode] = useState<Mode>("today");
 
   const contributions = useMemo(
     () => buildContributions(holdings, mode),
@@ -107,12 +107,8 @@ export default function TopPointContributorsChart({
     ];
   }, [contributions]);
 
-  if (topContributors.length === 0) {
-    return null; // Don't render if no holdings or all F/L is zero
-  }
-
   const BAR_HEIGHT = 32;
-  const BAR_GAP = 12;
+  const BAR_GAP = 2;
   const firstNegativeIndex = topContributors.findIndex((c) => c.percentage < 0);
   const hasSplitDivider = firstNegativeIndex > 0;
   const CHART_HEIGHT =
@@ -126,23 +122,6 @@ export default function TopPointContributorsChart({
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>Top Contributors</Text>
         <View style={styles.toggle}>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              mode === "allTime" && styles.toggleBtnActive,
-            ]}
-            onPress={() => setMode("allTime")}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                mode === "allTime" && styles.toggleTextActive,
-              ]}
-            >
-              All-Time
-            </Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.toggleBtn,
@@ -160,73 +139,113 @@ export default function TopPointContributorsChart({
               Today
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.toggleBtn,
+              mode === "allTime" && styles.toggleBtnActive,
+            ]}
+            onPress={() => setMode("allTime")}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                mode === "allTime" && styles.toggleTextActive,
+              ]}
+            >
+              All-Time
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Chart area */}
-      <View style={{ height: CHART_HEIGHT, overflow: "hidden" }}>
-        {topContributors.map((contrib, idx) => {
-          const barWidth: `${number}%` = `${Math.max(0, Math.min(contrib.widthRatio, 1)) * 100}%`;
-          const isPositive = contrib.netAmount >= 0;
+      {topContributors.length === 0 ? (
+        <Text
+          style={{
+            color: colors.textSecondary,
+            textAlign: "center",
+            fontSize: 12,
+            paddingVertical: 8,
+          }}
+        >
+          No contributors to show
+        </Text>
+      ) : (
+        <View
+          style={{
+            height: CHART_HEIGHT,
+            overflow: "hidden",
+          }}
+        >
+          {topContributors.map((contrib, idx) => {
+            const barWidth: `${number}%` = `${Math.max(0, Math.min(contrib.widthRatio, 1)) * 100}%`;
+            const isPositive = contrib.netAmount >= 0;
 
-          return (
-            <View key={contrib.symbol + idx}>
-              {idx === firstNegativeIndex && (
-                <View style={styles.splitDivider} />
-              )}
-              <View
-                style={[
-                  styles.barRowContainer,
-                  {
-                    marginBottom:
-                      idx < topContributors.length - 1 ? BAR_GAP : 0,
-                  },
-                ]}
-              >
-                {/* Symbol label - left side */}
-                <Text style={styles.barLabel}>{contrib.symbol}</Text>
-
-                {/* Bar container - center */}
-                <View style={styles.barChart}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        width: barWidth,
-                        backgroundColor: isPositive ? "#16A34A" : "#DC2626",
-                      },
-                    ]}
-                  />
-                </View>
-
-                {/* Percentage pill - right side */}
-                <View style={styles.pillSlot}>
-                  <View
-                    style={[
-                      styles.pnlBadge,
-                      {
-                        backgroundColor: isPositive
-                          ? "rgba(34, 197, 94, 0.14)"
-                          : "rgba(239, 68, 68, 0.14)",
-                      },
-                    ]}
+            return (
+              <View key={contrib.symbol + idx}>
+                {idx === firstNegativeIndex && (
+                  <View style={styles.splitDivider} />
+                )}
+                <View
+                  style={[
+                    styles.barRowContainer,
+                    {
+                      marginBottom:
+                        idx < topContributors.length - 1 ? BAR_GAP : 0,
+                    },
+                  ]}
+                >
+                  {/* Symbol label - left side */}
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={styles.barLabel}
                   >
-                    <Text
+                    {contrib.symbol}
+                  </Text>
+
+                  {/* Bar container - center */}
+                  <View style={styles.barChart}>
+                    <View
                       style={[
-                        styles.pnlBadgeText,
-                        { color: isPositive ? "#22C55E" : colors.danger },
+                        styles.bar,
+                        {
+                          width: barWidth,
+                          backgroundColor: isPositive ? "#22C55E" : "#EF4444",
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  {/* Percentage pill - right side */}
+                  <View style={styles.pillSlot}>
+                    <View
+                      style={[
+                        styles.pnlBadge,
+                        {
+                          backgroundColor: isPositive
+                            ? "rgba(34, 197, 94, 0.14)"
+                            : "rgba(239, 68, 68, 0.14)",
+                        },
                       ]}
                     >
-                      {isPositive ? "+" : ""}
-                      {contrib.percentage.toFixed(2)}%
-                    </Text>
+                      <Text
+                        style={[
+                          styles.pnlBadgeText,
+                          { color: isPositive ? "#22C55E" : colors.danger },
+                        ]}
+                      >
+                        {isPositive ? "+" : ""}
+                        {contrib.percentage.toFixed(2)}%
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Legend */}
       <View style={styles.legend}>
@@ -235,7 +254,7 @@ export default function TopPointContributorsChart({
             style={[
               styles.legendDot,
               {
-                backgroundColor: "#16A34A",
+                backgroundColor: "#22C55E",
               },
             ]}
           />
@@ -246,7 +265,7 @@ export default function TopPointContributorsChart({
             style={[
               styles.legendDot,
               {
-                backgroundColor: "#DC2626",
+                backgroundColor: "#EF4444",
               },
             ]}
           />
@@ -309,22 +328,22 @@ const styles = StyleSheet.create({
     height: 32,
   },
   barLabel: {
-    width: 50,
+    width: 48,
     fontSize: 13,
     fontWeight: "700",
     color: colors.textPrimary,
   },
   barChart: {
     flex: 1,
-    height: 28,
-    backgroundColor: "rgba(0, 0, 0, 0.03)",
-    borderRadius: 8,
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
     justifyContent: "center",
     overflow: "hidden",
   },
   bar: {
-    height: 28,
-    borderRadius: 6,
+    height: 8,
+    borderRadius: 4,
   },
   pillSlot: {
     width: PILL_W,
