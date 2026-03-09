@@ -45,6 +45,7 @@ export default function PortfolioScreen() {
     holdings,
     filteredHoldings,
     soldTransactions,
+    txPnL,
     totalValue,
     totalInvested,
     totalPnL,
@@ -153,6 +154,7 @@ export default function PortfolioScreen() {
     () => (
       <RealizedHistory
         transactions={soldTransactions}
+        txPnL={txPnL}
         totalRealizedPnL={totalRealizedPnL}
         totalRealizedCost={totalRealizedCost}
         totalRealizedPct={totalRealizedPct}
@@ -161,6 +163,7 @@ export default function PortfolioScreen() {
     ),
     [
       soldTransactions,
+      txPnL,
       totalRealizedPnL,
       totalRealizedCost,
       totalRealizedPct,

@@ -7,6 +7,7 @@ import { Transaction } from "../../services/api";
 
 interface RealizedHistoryProps {
   transactions: Transaction[];
+  txPnL: Record<string, number>;
   totalRealizedPnL: number;
   totalRealizedCost: number;
   totalRealizedPct: number;
@@ -16,6 +17,7 @@ interface RealizedHistoryProps {
 export const RealizedHistory = React.memo(
   ({
     transactions,
+    txPnL,
     totalRealizedPnL,
     totalRealizedCost,
     totalRealizedPct,
@@ -83,23 +85,35 @@ export const RealizedHistory = React.memo(
           </View>
         </View>
 
-        {transactions.map((tx) => (
-          <View key={tx.id} style={styles.soldTxCard}>
-            <View>
-              <Text style={styles.soldTxSymbol}>{tx.stockSymbol}</Text>
-              <Text style={styles.soldTxMeta}>
-                {tx.quantity} shares @ PKR {tx.pricePerShare.toFixed(2)}
-              </Text>
-              <Text style={styles.soldTxDate}>{tx.transactionDate}</Text>
+        {transactions.map((tx) => {
+          const pnl = txPnL[tx.id] ?? 0;
+          const isPos = pnl >= 0;
+
+          return (
+            <View key={tx.id} style={styles.soldTxCard}>
+              <View>
+                <Text style={styles.soldTxSymbol}>{tx.stockSymbol}</Text>
+                <Text style={styles.soldTxMeta}>
+                  {tx.quantity} shares @ PKR {tx.pricePerShare.toFixed(2)}
+                </Text>
+                <Text style={styles.soldTxDate}>{tx.transactionDate}</Text>
+              </View>
+              <View style={styles.soldTxRight}>
+                <Text style={styles.soldTxAmount}>
+                  PKR {formatPKR(tx.totalAmount)}
+                </Text>
+                <Text
+                  style={[
+                    styles.soldTxPnL,
+                    { color: isPos ? colors.success : colors.danger },
+                  ]}
+                >
+                  {isPos ? "+" : "-"}PKR {formatPKR(Math.abs(pnl))}
+                </Text>
+              </View>
             </View>
-            <View style={styles.soldTxRight}>
-              <Text style={styles.soldTxAmount}>
-                PKR {formatPKR(tx.totalAmount)}
-              </Text>
-              <Text style={styles.soldTxStatus}>Sold</Text>
-            </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
     );
   },
@@ -196,6 +210,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: colors.textPrimary,
+  },
+  soldTxPnL: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   soldTxStatus: {
     fontSize: 11,

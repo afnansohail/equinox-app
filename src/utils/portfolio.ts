@@ -107,10 +107,12 @@ export function buildChartFromHistory(
 export function computeRealizedPnL(transactions: Transaction[]): {
   realizedPnl: number;
   realizedCost: number;
+  txPnL: Record<string, number>;
 } {
   const positions = new Map<string, { quantity: number; avgCost: number }>();
   let realizedPnl = 0;
   let realizedCost = 0;
+  const txPnL: Record<string, number> = {};
 
   const ordered = [...transactions].sort(
     (a, b) =>
@@ -137,8 +139,10 @@ export function computeRealizedPnL(transactions: Transaction[]): {
 
     const sellQty = Math.min(tx.quantity, current.quantity);
     if (sellQty > 0) {
-      realizedPnl += (tx.pricePerShare - current.avgCost) * sellQty;
+      const pnl = (tx.pricePerShare - current.avgCost) * sellQty;
+      realizedPnl += pnl;
       realizedCost += current.avgCost * sellQty;
+      txPnL[tx.id] = pnl;
     }
 
     const quantityAfter = Math.max(current.quantity - tx.quantity, 0);
@@ -148,5 +152,5 @@ export function computeRealizedPnL(transactions: Transaction[]): {
     });
   }
 
-  return { realizedPnl, realizedCost };
+  return { realizedPnl, realizedCost, txPnL };
 }

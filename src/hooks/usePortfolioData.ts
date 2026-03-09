@@ -71,8 +71,11 @@ export function usePortfolioData(selectedSector: string | null) {
     [transactions],
   );
 
-  const { realizedPnl: totalRealizedPnL, realizedCost: totalRealizedCost } =
-    useMemo(() => computeRealizedPnL(transactions ?? []), [transactions]);
+  const {
+    realizedPnl: totalRealizedPnL,
+    realizedCost: totalRealizedCost,
+    txPnL,
+  } = useMemo(() => computeRealizedPnL(transactions ?? []), [transactions]);
 
   const realizedIsPositive = totalRealizedPnL >= 0;
   const totalRealizedPct =
@@ -91,6 +94,7 @@ export function usePortfolioData(selectedSector: string | null) {
     filteredHoldings,
     transactions,
     soldTransactions,
+    txPnL,
     totalValue,
     totalInvested,
     totalPnL,
