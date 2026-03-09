@@ -25,6 +25,7 @@ import {
 import { useStock } from "../hooks/useStocks";
 import { useIsInWishlist, useToggleWishlist } from "../hooks/useWishlist";
 import { usePortfolio, useTransactions } from "../hooks/usePortfolio";
+import { useDividends, useScrapedPayouts } from "../hooks/useDividends";
 import { getStock } from "../services/api";
 import StockLogo from "../components/shared/StockLogo";
 import RangeBar from "../components/ui/RangeBar";
@@ -94,6 +95,8 @@ export default function StockDetailScreen() {
   const toggleWishlistMutation = useToggleWishlist();
   const { data: holdings } = usePortfolio();
   const { data: transactions } = useTransactions();
+  const { data: dividends } = useDividends();
+  const { data: scrapedPayouts } = useScrapedPayouts(symbol ? [symbol] : []);
   const holding = holdings?.find((h) => h.stockSymbol === symbol);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -109,6 +112,60 @@ export default function StockDetailScreen() {
     [symbol, transactions],
   );
   const realizedPositive = realizedPnL >= 0;
+
+  // Calculate dividend yield for this stock
+  const dividendYield = useMemo(() => {
+    if (!stock) return 0;
+
+    // Check for scraped payouts first (most recent dividend percent)
+    let scrapedYield: number | null = null;
+    if (scrapedPayouts && scrapedPayouts.length > 0) {
+      const scrapedData = scrapedPayouts.find(
+        (p) => p.symbol.toUpperCase() === symbol.toUpperCase()
+      );
+      if (scrapedData?.payouts && scrapedData.payouts.length > 0) {
+        const mostRecent = scrapedData.payouts[0];
+        if (mostRecent.dividendPercent > 0) {
+          scrapedYield = mostRecent.dividendPercent;
+        }
+      }
+    }
+
+    if (scrapedYield !== null && scrapedYield > 0) {
+      return scrapedYield;
+    }
+
+    // Fall back to manual dividend records
+    if (!dividends) return 0;
+
+    const now = new Date();
+    const ttmStart = new Date(now);
+    ttmStart.setFullYear(now.getFullYear() - 1);
+
+    // Collect dividends for this symbol
+    let ttmDivPerShare = 0;
+    let yearlyDivPerShare = new Map<number, number>();
+
+    for (const d of dividends) {
+      if (d.stockSymbol.toUpperCase() !== symbol.toUpperCase()) continue;
+      if (d.dividendPerShare > 0) {
+        const paymentDate = new Date(d.paymentDate);
+        const year = paymentDate.getFullYear();
+        yearlyDivPerShare.set(year, (yearlyDivPerShare.get(year) ?? 0) + d.dividendPerShare);
+        if (paymentDate >= ttmStart) ttmDivPerShare += d.dividendPerShare;
+      }
+    }
+
+    if (stock.currentPrice <= 0) return 0;
+
+    const avgAnnualDivPerShare =
+      yearlyDivPerShare.size > 0
+        ? Array.from(yearlyDivPerShare.values()).reduce((sum, y) => sum + y, 0) /
+          yearlyDivPerShare.size
+        : 0;
+    const effectiveDivPerShare = Math.max(ttmDivPerShare, avgAnnualDivPerShare);
+    return (effectiveDivPerShare / stock.currentPrice) * 100;
+  }, [symbol, stock, dividends, scrapedPayouts]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -292,6 +349,10 @@ export default function StockDetailScreen() {
               [
                 { label: "Sector", value: stock.sector ?? "—" },
                 { label: "Previous Close", value: fmt(stock.previousClose) },
+              ],
+              [
+                { label: "P/E Ratio", value: stock.peRatio ? stock.peRatio.toFixed(2) : "—" },
+                { label: "Dividend Yield", value: dividendYield > 0 ? `${dividendYield.toFixed(2)}%` : "—" },
               ],
             ].map((row, ri) => (
               <View key={ri} style={styles.statRow}>
