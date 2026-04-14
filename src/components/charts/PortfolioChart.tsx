@@ -23,10 +23,8 @@ function buildLinePath(points: { x: number; y: number }[]): string {
   if (points.length < 2) return "";
   let d = `M ${points[0].x} ${points[0].y}`;
   for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
     const curr = points[i];
-    const cpX = (prev.x + curr.x) / 2;
-    d += ` C ${cpX} ${prev.y}, ${cpX} ${curr.y}, ${curr.x} ${curr.y}`;
+    d += ` L ${curr.x} ${curr.y}`;
   }
   return d;
 }
