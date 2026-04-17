@@ -1,5 +1,12 @@
 import React, { useRef, useState } from "react";
-import { View, Text, StyleSheet, Dimensions, PanResponder } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  PanResponder,
+  TouchableOpacity,
+} from "react-native";
 import Svg, {
   Path,
   Defs,
@@ -13,10 +20,17 @@ import Svg, {
 } from "react-native-svg";
 import { colors } from "../../constants/theme";
 
+type ChartMode = "absolute" | "relative";
+
 function fmtY(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
   return `${value.toFixed(0)}`;
+}
+
+function fmtPctY(value: number): string {
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
 }
 
 function buildLinePath(points: { x: number; y: number }[]): string {
@@ -56,15 +70,33 @@ export default function PortfolioChart({
   height = 160,
 }: PortfolioChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [chartMode, setChartMode] = useState<ChartMode>("absolute");
+
+  // Compute relative return % series when investedSeries is available
+  const relativeData: { value: number; label?: string }[] | null =
+    investedSeries && investedSeries.length === data.length
+      ? data.map((d, i) => ({
+          value:
+            investedSeries[i].value > 0
+              ? ((d.value - investedSeries[i].value) /
+                  investedSeries[i].value) *
+                100
+              : 0,
+          label: d.label,
+        }))
+      : null;
+
+  const showRelative = chartMode === "relative" && relativeData !== null;
+  const activeData = showRelative ? relativeData! : data;
 
   const PADDING = { top: 16, bottom: 32, left: 48, right: 12 };
   const chartW = width - PADDING.left - PADDING.right;
   const chartH = height - PADDING.top - PADDING.bottom;
 
-  // Keep a ref to latest data so panResponder callbacks always use fresh values
-  const dataRef = useRef(data);
+  // Keep a ref to latest activeData so panResponder callbacks always use fresh values
+  const dataRef = useRef(activeData);
   const chartWRef = useRef(chartW);
-  dataRef.current = data;
+  dataRef.current = activeData;
   chartWRef.current = chartW;
 
   const panResponder = useRef(
@@ -95,26 +127,29 @@ export default function PortfolioChart({
     );
   }
 
-  const values = data.map((d) => d.value);
-  const investedValues = investedSeries
-    ? investedSeries.map((d) => d.value)
-    : [];
+  const values = activeData.map((d) => d.value);
+  const investedValues =
+    !showRelative && investedSeries ? investedSeries.map((d) => d.value) : [];
   const allYValues = values.concat(investedValues);
   const minVal = Math.min(...allYValues);
   const maxVal = Math.max(...allYValues);
-  const valRange = maxVal - minVal || maxVal * 0.1 || 1;
+  const valRange = maxVal - minVal || Math.abs(maxVal) * 0.1 || 1;
   const yMin = minVal - valRange * 0.08;
   const yMax = maxVal + valRange * 0.12;
 
-  const toX = (i: number) => (i / (data.length - 1)) * chartW;
+  const toX = (i: number) => (i / (activeData.length - 1)) * chartW;
   const toY = (v: number) => chartH - ((v - yMin) / (yMax - yMin)) * chartH;
 
-  const svgPoints = data.map((d, i) => ({ x: toX(i), y: toY(d.value) }));
+  const svgPoints = activeData.map((d, i) => ({ x: toX(i), y: toY(d.value) }));
   const investedPoints =
-    investedSeries && investedSeries.length === data.length
+    !showRelative && investedSeries && investedSeries.length === data.length
       ? investedSeries.map((d, i) => ({ x: toX(i), y: toY(d.value) }))
       : null;
-  const baseline = chartH;
+
+  // In relative mode, area baseline is the zero line (or chart bottom if all positive)
+  const zeroLineY =
+    showRelative && yMin < 0 && yMax > 0 ? toY(0) : undefined;
+  const baseline = zeroLineY !== undefined ? zeroLineY : chartH;
 
   const linePath = buildLinePath(svgPoints);
   const areaPath = buildAreaPath(svgPoints, baseline);
@@ -132,40 +167,97 @@ export default function PortfolioChart({
   const investedColor = "#0a99ff";
   const gradientId = "areaGrad";
 
+  const yTickFmt = showRelative ? fmtPctY : fmtY;
   const yTicks = [0, 0.5, 1].map((t) => yMin + t * (yMax - yMin));
 
-  const n = data.length;
+  const n = activeData.length;
   const xLabelIndices = new Set([0, Math.floor(n / 2), n - 1]);
 
   // Clamp activeIndex to valid range (guards against stale index after filter change)
   const safeIndex =
     activeIndex !== null && activeIndex < svgPoints.length ? activeIndex : null;
-  const active = safeIndex !== null ? data[safeIndex] : null;
+  const active = safeIndex !== null ? activeData[safeIndex] : null;
   const activeX = safeIndex !== null ? (svgPoints[safeIndex]?.x ?? null) : null;
   const activeY = safeIndex !== null ? (svgPoints[safeIndex]?.y ?? null) : null;
 
   return (
-    <View
-      style={[styles.container, { width, height }]}
-      {...panResponder.panHandlers}
-    >
+    <View style={[styles.outerContainer, { width }]}>
+      {/* Mode toggle — only shown when relative data is available */}
+      {relativeData !== null && (
+        <View style={styles.toggleRow}>
+          <TouchableOpacity
+            style={[
+              styles.toggleBtn,
+              chartMode === "absolute" && styles.toggleBtnActive,
+            ]}
+            onPress={() => setChartMode("absolute")}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                chartMode === "absolute" && styles.toggleTextActive,
+              ]}
+            >
+              Value
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.toggleBtn,
+              chartMode === "relative" && styles.toggleBtnActive,
+            ]}
+            onPress={() => setChartMode("relative")}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                chartMode === "relative" && styles.toggleTextActive,
+              ]}
+            >
+              Return %
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View
+        style={[styles.container, { width, height }]}
+        {...panResponder.panHandlers}
+      >
       {active && (
         <View style={[styles.tooltip, { left: PADDING.left }]}>
-          <Text style={styles.tooltipValue}>
-            Value: PKR{" "}
-            {active.value.toLocaleString("en-PK", { maximumFractionDigits: 0 })}
-          </Text>
-          {investedSeries && investedSeries.length === data.length && (
-            <Text style={styles.tooltipValue}>
-              Invested: PKR{" "}
-              {getInvestedAt(safeIndex)?.toLocaleString("en-PK", {
-                maximumFractionDigits: 0,
-              })}
-            </Text>
+          {showRelative ? (
+            <>
+              <Text style={styles.tooltipValue}>
+                Return: {fmtPctY(active.value)}
+              </Text>
+              {active.label ? (
+                <Text style={styles.tooltipLabel}>{active.label}</Text>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.tooltipValue}>
+                Value: PKR{" "}
+                {active.value.toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+              {investedSeries && investedSeries.length === data.length && (
+                <Text style={styles.tooltipValue}>
+                  Invested: PKR{" "}
+                  {getInvestedAt(safeIndex)?.toLocaleString("en-PK", {
+                    maximumFractionDigits: 0,
+                  })}
+                </Text>
+              )}
+              {active.label ? (
+                <Text style={styles.tooltipLabel}>{active.label}</Text>
+              ) : null}
+            </>
           )}
-          {active.label ? (
-            <Text style={styles.tooltipLabel}>{active.label}</Text>
-          ) : null}
         </View>
       )}
 
@@ -198,16 +290,29 @@ export default function PortfolioChart({
                   fill={colors.textMuted}
                   textAnchor="end"
                 >
-                  {fmtY(v)}
+                  {yTickFmt(v)}
                 </SvgText>
               </G>
             );
           })}
 
+          {/* Zero reference line in relative mode when chart crosses zero */}
+          {zeroLineY !== undefined && (
+            <Line
+              x1={0}
+              y1={zeroLineY}
+              x2={chartW}
+              y2={zeroLineY}
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth={1}
+              strokeDasharray="4,3"
+            />
+          )}
+
           {/* Area fill */}
           <Path d={areaPath} fill={`url(#${gradientId})`} />
 
-          {/* Portfolio Value Line */}
+          {/* Portfolio Value / Return line */}
           <Path
             d={linePath}
             fill="none"
@@ -217,7 +322,7 @@ export default function PortfolioChart({
             strokeLinejoin="round"
           />
 
-          {/* Net Invested Line */}
+          {/* Net Invested Line — only in absolute mode */}
           {investedLinePath && (
             <Path
               d={investedLinePath}
@@ -231,7 +336,7 @@ export default function PortfolioChart({
           )}
 
           {/* X-axis labels */}
-          {data.map((d, i) => {
+          {activeData.map((d, i) => {
             if (!xLabelIndices.has(i) || !d.label) return null;
             return (
               <SvgText
@@ -269,23 +374,63 @@ export default function PortfolioChart({
             </G>
           )}
           {/* Legend */}
-          <G x={0} y={-10}>
-            <Rect x={0} y={0} width={10} height={3} fill={chartColor} />
-            <SvgText x={15} y={3} fontSize={10} fill={colors.textMuted}>
-              Value
-            </SvgText>
-            <Rect x={60} y={0} width={10} height={3} fill={investedColor} />
-            <SvgText x={75} y={3} fontSize={10} fill={colors.textMuted}>
-              Invested
-            </SvgText>
-          </G>
+          {showRelative ? (
+            <G x={0} y={-10}>
+              <Rect x={0} y={0} width={10} height={3} fill={chartColor} />
+              <SvgText x={15} y={3} fontSize={10} fill={colors.textMuted}>
+                Return %
+              </SvgText>
+            </G>
+          ) : (
+            <G x={0} y={-10}>
+              <Rect x={0} y={0} width={10} height={3} fill={chartColor} />
+              <SvgText x={15} y={3} fontSize={10} fill={colors.textMuted}>
+                Value
+              </SvgText>
+              <Rect x={60} y={0} width={10} height={3} fill={investedColor} />
+              <SvgText x={75} y={3} fontSize={10} fill={colors.textMuted}>
+                Invested
+              </SvgText>
+            </G>
+          )}
         </G>
       </Svg>
+    </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flexDirection: "column",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignSelf: "flex-end",
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 3,
+    gap: 2,
+    marginBottom: 8,
+  },
+  toggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  toggleBtnActive: {
+    backgroundColor: colors.secondary,
+  },
+  toggleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  toggleTextActive: {
+    color: colors.textInverse,
+  },
   container: {
     position: "relative",
   },
@@ -316,3 +461,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 });
+
