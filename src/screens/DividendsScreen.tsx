@@ -52,8 +52,12 @@ export default function DividendsScreen() {
   } | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
-  const { data: dividends, refetch: refetchDividends } = useDividends();
-  const { data: holdings } = usePortfolio();
+  const {
+    data: dividends,
+    refetch: refetchDividends,
+    isLoading: isDividendsLoading,
+  } = useDividends();
+  const { data: holdings, isLoading: isHoldingsLoading } = usePortfolio();
   const deleteMutation = useDeleteDividend();
   const updateMutation = useUpdateDividend();
 
@@ -331,22 +335,48 @@ export default function DividendsScreen() {
     ],
   );
 
+  const isLoading = isDividendsLoading || isHoldingsLoading;
+
   const EmptyList = useMemo(
-    () => (
-      <View style={styles.emptyCard}>
-        <Text style={styles.emptyTitle}>No dividends yet</Text>
-        <Text style={styles.emptySubtitle}>
-          Tap + to record your first dividend payment
-        </Text>
-      </View>
-    ),
-    [],
+    () =>
+      isLoading ? null : (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No dividends yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Tap + to record your first dividend payment
+          </Text>
+        </View>
+      ),
+    [isLoading],
   );
 
   const filteredDividends = useMemo(() => {
     if (!selectedSymbol) return dividends ?? [];
     return (dividends ?? []).filter((d) => d.stockSymbol === selectedSymbol);
   }, [dividends, selectedSymbol]);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.screen} edges={["top"]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Dividends</Text>
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => navigation.navigate("AddDividend", {})}
+          >
+            <Plus size={20} color={colors.textInverse} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.skeletonContainer}>
+          <View style={styles.skeletonCard} />
+          <View style={[styles.skeletonCard, { height: 100 }]} />
+          <View style={[styles.skeletonCard, { height: 60 }]} />
+          <View style={[styles.skeletonCard, { height: 60 }]} />
+          <View style={[styles.skeletonCard, { height: 60 }]} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -636,6 +666,16 @@ export default function DividendsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  skeletonContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 12,
+  },
+  skeletonCard: {
+    height: 130,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

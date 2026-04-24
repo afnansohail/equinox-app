@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import {
   ScrollView,
   Text,
@@ -6,6 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
+  AppState,
+  AppStateStatus,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -60,7 +62,54 @@ export default function DashboardScreen() {
     chartData,
     investedSeries,
     recentTransactions,
+    isLoading: isDashboardLoading,
   } = useDashboardData(chartFilter);
+
+  // ── Auto-refresh stock prices on app open / foreground ───────────────────
+  // Module-level timestamp so the throttle survives tab switches but resets on
+  // app kill (which is the desired behaviour — always scrape fresh on cold open).
+  const autoRefreshDone = useRef(false);
+
+  const triggerBackgroundRefresh = useCallback(
+    (holdingsData: typeof holdings, wishlistData: typeof wishlist) => {
+      const portfolioSymbols = holdingsData?.map((h) => h.stockSymbol) ?? [];
+      const wishlistSymbols = wishlistData?.map((w) => w.stockSymbol) ?? [];
+      const symbols = [...new Set([...portfolioSymbols, ...wishlistSymbols])];
+      if (symbols.length > 0) {
+        refreshMutation.mutate(symbols);
+      }
+    },
+    [refreshMutation],
+  );
+
+  // Trigger once after initial data load (cold open)
+  useEffect(() => {
+    if (autoRefreshDone.current) return;
+    if (holdings === undefined || wishlist === undefined) return;
+    autoRefreshDone.current = true;
+    triggerBackgroundRefresh(holdings, wishlist);
+  }, [holdings, wishlist, triggerBackgroundRefresh]);
+
+  // Re-trigger whenever the app comes back to the foreground (throttled to 30 min)
+  useEffect(() => {
+    const THIRTY_MINUTES = 30 * 60 * 1000;
+    let lastForegroundRefresh = 0;
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState !== "active") return;
+      const now = Date.now();
+      if (now - lastForegroundRefresh < THIRTY_MINUTES) return;
+      lastForegroundRefresh = now;
+      triggerBackgroundRefresh(holdings, wishlist);
+    };
+
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
+    return () => subscription.remove();
+  }, [holdings, wishlist, triggerBackgroundRefresh]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -127,6 +176,7 @@ export default function DashboardScreen() {
           investedSeries={investedSeries}
           chartFilter={chartFilter}
           onFilterChange={setChartFilter}
+          isChartLoading={isDashboardLoading}
         />
 
         <ActionButtons

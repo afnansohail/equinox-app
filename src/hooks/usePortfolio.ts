@@ -21,7 +21,8 @@ export function usePortfolio() {
     enabled: !!user,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    refetchOnMount: "always", // Fetch fresh data on app open
+    // No refetchOnMount — the auto-refresh in DashboardScreen handles live prices,
+    // and mutations invalidate the cache after any transaction change.
   });
 }
 
@@ -34,7 +35,7 @@ export function useTransactions() {
     enabled: !!user,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    refetchOnMount: "always", // Fetch fresh data on app open
+    // No refetchOnMount — mutations invalidate this cache after any transaction change.
   });
 }
 

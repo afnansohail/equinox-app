@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Animated,
 } from "react-native";
 import { TrendingUp, TrendingDown } from "lucide-react-native";
 import PortfolioChart from "../charts/PortfolioChart";
@@ -24,6 +25,7 @@ interface BalanceCardProps {
   investedSeries?: { value: number; label?: string }[];
   chartFilter: FilterPeriod;
   onFilterChange: (filter: FilterPeriod) => void;
+  isChartLoading?: boolean;
 }
 
 const FILTER_OPTIONS: FilterPeriod[] = ["1W", "1M", "YTD", "1Y", "ALL"];
@@ -41,7 +43,29 @@ export const BalanceCard = React.memo(
     investedSeries,
     chartFilter,
     onFilterChange,
+    isChartLoading = false,
   }: BalanceCardProps) => {
+    // Pulsing opacity animation for the chart skeleton
+    const pulseAnim = useRef(new Animated.Value(0.4)).current;
+    useEffect(() => {
+      if (!isChartLoading) return;
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.9,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0.4,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    }, [isChartLoading, pulseAnim]);
     return (
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Portfolio Balance</Text>
@@ -129,7 +153,7 @@ export const BalanceCard = React.memo(
           </View>
         </View>
 
-        {chartData.length >= 2 && (
+        {(isChartLoading || chartData.length >= 2) && (
           <View style={styles.chartWrap}>
             <View style={styles.filterRow}>
               {FILTER_OPTIONS.map((f) => (
@@ -140,6 +164,7 @@ export const BalanceCard = React.memo(
                     chartFilter === f && styles.filterPillActive,
                   ]}
                   onPress={() => onFilterChange(f)}
+                  disabled={isChartLoading}
                 >
                   <Text
                     style={[
@@ -152,13 +177,19 @@ export const BalanceCard = React.memo(
                 </TouchableOpacity>
               ))}
             </View>
-            <PortfolioChart
-              data={chartData}
-              investedSeries={investedSeries}
-              isPositive={isPositive}
-              width={Dimensions.get("window").width - 80}
-              height={160}
-            />
+            {isChartLoading ? (
+              <Animated.View
+                style={[styles.chartSkeleton, { opacity: pulseAnim }]}
+              />
+            ) : (
+              <PortfolioChart
+                data={chartData}
+                investedSeries={investedSeries}
+                isPositive={isPositive}
+                width={Dimensions.get("window").width - 80}
+                height={160}
+              />
+            )}
           </View>
         )}
       </View>
@@ -230,6 +261,11 @@ const styles = StyleSheet.create({
   chartWrap: {
     marginTop: 12,
     overflow: "visible",
+  },
+  chartSkeleton: {
+    height: 160,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.07)",
   },
   filterRow: {
     flexDirection: "row",

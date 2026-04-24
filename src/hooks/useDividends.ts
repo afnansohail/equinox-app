@@ -19,7 +19,6 @@ export function useDividends() {
     enabled: !!user,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    refetchOnMount: "always",
   });
 }
 
