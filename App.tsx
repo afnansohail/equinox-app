@@ -1,7 +1,8 @@
 import React, { useEffect, useCallback } from "react";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { useIsRestoring } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import {
@@ -15,12 +16,11 @@ import RootNavigator from "./src/navigation/RootNavigator";
 import { useAuthStore } from "./src/stores/authStore";
 import { useThemeStore } from "./src/stores/themeStore";
 import { colors } from "./src/constants/theme";
+import { queryClient, persistOptions } from "./src/lib/queryClient";
 import "./global.css";
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient();
 
 export default function App() {
   const { loading, initialize, cleanup } = useAuthStore();
@@ -43,18 +43,6 @@ export default function App() {
     };
   }, [initialize, loadSavedTheme, cleanup]);
 
-  const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded && !loading) {
-      await SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, loading]);
-
-  useEffect(() => {
-    if (fontsLoaded && !loading) {
-      void onLayoutRootView();
-    }
-  }, [fontsLoaded, loading, onLayoutRootView]);
-
   if (!fontsLoaded || loading) {
     return (
       <View style={styles.loadingRoot}>
@@ -64,13 +52,34 @@ export default function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={persistOptions}
+    >
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <RootNavigator />
+        <AppContent />
       </SafeAreaProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
+}
+
+function AppContent() {
+  const isRestoring = useIsRestoring();
+
+  const onLayoutRootView = useCallback(async () => {
+    if (!isRestoring) {
+      await SplashScreen.hideAsync();
+    }
+  }, [isRestoring]);
+
+  useEffect(() => {
+    if (!isRestoring) {
+      void onLayoutRootView();
+    }
+  }, [isRestoring, onLayoutRootView]);
+
+  return <RootNavigator />;
 }
 
 const styles = StyleSheet.create({

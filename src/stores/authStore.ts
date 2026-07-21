@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../services/supabase";
+import { queryClient } from "../lib/queryClient";
 import type { Subscription } from "@supabase/supabase-js";
 
 // Store subscription reference outside Zustand state to avoid re-renders
@@ -220,6 +221,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAnonymous: false,
         hasCompletedOnboarding: false,
       });
+      // Drop cached + persisted query data so a future sign-in on this
+      // device doesn't briefly show the previous user's data.
+      queryClient.clear();
     } catch (error) {
       console.error("Sign out error:", error);
     }

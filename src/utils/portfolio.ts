@@ -51,24 +51,13 @@ export function buildChartFromHistory(
       : history;
 
     if (filtered.length >= 2) {
-      const n = filtered.length;
-      const labelSet = new Set<number>([0, n - 1]);
-      if (n >= 4) {
-        labelSet.add(Math.round(n / 3));
-        labelSet.add(Math.round((2 * n) / 3));
-      } else if (n === 3) {
-        labelSet.add(1);
-      }
-
-      return filtered.map((p, i) => ({
+      return filtered.map((p) => ({
         value: p.marketValue,
         invested: p.invested,
-        label: labelSet.has(i)
-          ? new Date(p.timestamp * 1000).toLocaleDateString("en-PK", {
-              month: "short",
-              day: "numeric",
-            })
-          : undefined,
+        label: new Date(p.timestamp * 1000).toLocaleDateString("en-PK", {
+          month: "short",
+          day: "numeric",
+        }),
       }));
     }
   }

@@ -342,7 +342,8 @@ export async function getPortfolioHoldings(
       stock_symbol,
       quantity,
       average_buy_price,
-      total_invested
+      total_invested,
+      stocks (*)
     `,
     )
     .eq("user_id", userId);
@@ -356,19 +357,14 @@ export async function getPortfolioHoldings(
     return [];
   }
 
-  const symbols = data.map((row: any) => row.stock_symbol);
-  const { data: stocksData } = await supabase
-    .from("stocks")
-    .select("*")
-    .in("symbol", symbols);
-
   const stocksMap = new Map<string, Stock>();
-  if (stocksData) {
-    for (const row of stocksData) {
-      stocksMap.set(row.symbol, mapDbStock(row as DbStockRow));
+  for (const row of data as any[]) {
+    if (row.stocks) {
+      stocksMap.set(row.stock_symbol, mapDbStock(row.stocks as DbStockRow));
     }
   }
 
+  const symbols = data.map((row: any) => row.stock_symbol);
   const staleSymbols = symbols.filter((sym) => {
     const s = stocksMap.get(sym);
     return !s || s.currentPrice <= 0 || !isRecent(s.lastUpdated);
@@ -790,7 +786,9 @@ export async function getDividends(userId: string): Promise<Dividend[]> {
 
   if (!data || data.length === 0) return [];
 
-  // Enrich with stock logo/name where the stock exists in our DB
+  // dividends.stock_symbol has no FK to stocks (by design — dividends can be
+  // recorded for delisted/historical symbols), so this can't be an embedded
+  // select and needs a second lookup.
   const symbols = [
     ...new Set((data as any[]).map((row) => row.stock_symbol as string)),
   ];
