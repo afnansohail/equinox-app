@@ -1,96 +1,70 @@
 import { StyleSheet, Platform } from "react-native";
 
-// ─── Theme Presets ────────────────────────────────────────────────────────────
-export const THEME_PRESETS = {
-  teal: {
-    name: "Teal",
-    color: "#29fde6",
-    gradient: ["#29fde6", "#06B6D4"] as [string, string],
-  },
-  blue: {
-    name: "Blue",
-    color: "#0A84FF",
-    gradient: ["#0A84FF", "#005FCC"] as [string, string],
-  },
-  purple: {
-    name: "Purple",
-    color: "#BF5AF2",
-    gradient: ["#BF5AF2", "#9A3DD4"] as [string, string],
-  },
-  pink: {
-    name: "Pink",
-    color: "#FF2D8A",
-    gradient: ["#FF2D8A", "#CC1166"] as [string, string],
-  },
-  orange: {
-    name: "Orange",
-    color: "#FF6B35",
-    gradient: ["#FF6B35", "#E84F22"] as [string, string],
-  },
-  red: {
-    name: "Red",
-    color: "#FF3B30",
-    gradient: ["#FF3B30", "#CC1F15"] as [string, string],
-  },
-  gold: {
-    name: "Gold",
-    color: "#FFD60A",
-    gradient: ["#FFD60A", "#F5A623"] as [string, string],
-  },
-} as const;
-
-export type ThemePreset = keyof typeof THEME_PRESETS;
-
 export const colors = {
-  // Core palette
-  background: "#0c0c0c",
-  backgroundSecondary: "#111111",
-  card: "#171717",
-  cardHover: "#1e1e1e",
-  border: "#252525",
-  borderLight: "#333333",
+  // Core surfaces
+  background: "#06100E",
+  backgroundSecondary: "#08130F",
+  card: "#0F1A18",
+  cardHover: "#101C1A",
+  border: "rgba(255, 255, 255, 0.06)",
+  borderLight: "rgba(255, 255, 255, 0.08)",
+
+  // Additional surface tiers used by the redesign
+  accentTile: "#12211E",
+  trackDeep: "#0A1513",
+  positionCard: "#0C1614",
+  trackNeutral: "#182C28",
 
   // Primary - near-white; used for selected nav icons, main brand text
-  primary: "#f5f5f5",
+  primary: "#F2F5F4",
 
-  // Secondary - default teal accent (overridden dynamically by theme store)
-  secondary: "#29fde6",
-  secondaryDark: "#1AD4C3",
-  secondaryMuted: "rgba(41, 253, 230, 0.12)",
-  secondaryGlow: "rgba(41, 253, 230, 0.25)",
+  // Secondary - teal brand accent
+  secondary: "#1FE3B6",
+  secondaryDark: "#0B6F5C",
+  secondaryMuted: "rgba(31, 227, 182, 0.14)",
+  secondaryGlow: "rgba(31, 227, 182, 0.25)",
 
-  // Glass / Frosted
-  glass: "rgba(255, 255, 255, 0.05)",
-  glassBorder: "rgba(255, 255, 255, 0.10)",
-  glassBorderStrong: "rgba(255, 255, 255, 0.16)",
-  glassLight: "rgba(255, 255, 255, 0.03)",
+  // Glass tokens — kept for existing consumers, repointed to solid dark fills
+  // (the redesign has no translucency; these now match `card`/`cardHover`)
+  glass: "#0F1A18",
+  glassBorder: "rgba(255, 255, 255, 0.06)",
+  glassBorderStrong: "rgba(255, 255, 255, 0.08)",
+  glassLight: "#101C1A",
 
   // Semantic
-  success: "#00FF88",
-  successMuted: "rgba(0, 255, 136, 0.12)",
+  success: "#34D399",
+  successMuted: "rgba(52, 211, 153, 0.12)",
   danger: "#FF6B6B",
   dangerMuted: "rgba(255, 107, 107, 0.12)",
-  warning: "#FFB800",
+  warning: "#EFC940",
 
   // Text hierarchy
-  textPrimary: "#FFFFFF",
-  textSecondary: "#A8A8A8",
-  textMuted: "#555555",
-  textInverse: "#0c0c0c",
+  textPrimary: "#F2F5F4",
+  textSecondary: "#B9C6C3",
+  textMuted: "#7C8B88",
+  textDim: "#5D6D6A",
+  textInverse: "#04120F",
+  textOnCoral: "#180909",
 
   // Icons
-  icon: "#D4D4D4",
-  iconMuted: "#5A5A5A",
-  buttonText: "#f5f5f5",
+  icon: "#B9C6C3",
+  iconMuted: "#5D6D6A",
+  buttonText: "#F2F5F4",
+
+  // Chart categorical colors (sector donut, beyond secondary/success)
+  chartPurple: "#7C6CF5",
+  chartOrange: "#F27F3D",
+  chartYellow: "#EFC940",
+  chartSlate: "#8A97A6",
 
   // Gradients
-  gradientSecondary: ["#29fde6", "#06B6D4"] as const,
+  gradientSecondary: ["#1FE3B6", "#0B6F5C"] as const,
   gradientGlass: [
     "rgba(255, 255, 255, 0.08)",
     "rgba(255, 255, 255, 0.02)",
   ] as const,
-  gradientDark: ["#171717", "#0c0c0c"] as const,
-  gradientSuccess: ["#00FF88", "#00CC6A"] as const,
+  gradientDark: ["#0F1A18", "#06100E"] as const,
+  gradientSuccess: ["#34D399", "#22C55E"] as const,
   gradientDanger: ["#FF6B6B", "#E05555"] as const,
 } as const;
 
@@ -107,24 +81,25 @@ export const spacing = {
 // Tab bar height for proper bottom padding
 export const TAB_BAR_HEIGHT = Platform.OS === "ios" ? 84 : 70;
 
-// Font families — sans-serif only
+// Font family — Archivo throughout (replaces Inter)
 export const fonts = {
   sans: {
-    regular: "Inter_400Regular",
-    medium: "Inter_500Medium",
-    semibold: "Inter_600SemiBold",
-    bold: "Inter_700Bold",
+    regular: "Archivo_400Regular",
+    medium: "Archivo_500Medium",
+    semibold: "Archivo_600SemiBold",
+    bold: "Archivo_700Bold",
+    extrabold: "Archivo_800ExtraBold",
   },
 } as const;
 
-// Border radius — reduced roundness for modern 2026 aesthetic
+// Border radius — generous rounding per redesign (hero cards down to pills)
 export const borderRadius = {
-  xs: 2,
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  xxl: 20,
+  xs: 6,
+  sm: 10,
+  md: 18,
+  lg: 20,
+  xl: 24,
+  xxl: 28,
   full: 9999,
 } as const;
 
