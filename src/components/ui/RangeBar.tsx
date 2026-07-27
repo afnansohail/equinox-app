@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 
 interface Props {
   label: string;
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
   labelRow: {
     flexDirection: "row",
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   edgeText: {
     fontSize: 12,
     color: colors.textPrimary,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
   trackWrap: {
     height: 18,
