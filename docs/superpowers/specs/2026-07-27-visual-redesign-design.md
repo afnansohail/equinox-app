@@ -92,6 +92,10 @@ All screens below are a **restyle only** unless a delta is called out — same d
 - **Settings** — restyle profile card, Account/About/Danger Zone groups; replace the ad-hoc inline confirmation `Modal` markup with the new shared `Dialog` component for Delete All Data and Sign Out. Same rows/fields, no new settings added.
 - **Welcome / Sign In / Sign Up** — not in the mockup. Freeform redesign applying the same design tokens/components, preserving all current fields and flows (anonymous-first entry, email/password sign-in/up, account linking).
 
+## 3a. Addendum — dynamic accent-color theming
+
+`useAccentColor()` / `useThemeStore` / `THEME_PRESETS` (teal/blue/purple/pink/orange/red/gold) exist but are not wired into any UI — `Button.tsx` is the only consumer, and `SettingsScreen.tsx` has no theme-picker row. This is unused infrastructure, not a live user-facing feature (same category as the unused `EmptyState`/`LoadingState`/`ErrorState`). The redesign fixes the accent to the new brand teal (`#1FE3B6`) token directly; it does not need to preserve dynamic accent switching, since there is no way for a user to have ever changed it.
+
 ## 4. Explicit non-goals
 
 - No changes to `equinox-scraper-api` or Supabase schema/RLS.
