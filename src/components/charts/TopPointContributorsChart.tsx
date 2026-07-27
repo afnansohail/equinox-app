@@ -116,7 +116,7 @@ export default function TopPointContributorsChart({
     10;
 
   return (
-    <View style={styles.card}>
+    <View style={styles.section}>
       {/* Header: title + mode toggle */}
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>Today's movers</Text>
@@ -217,12 +217,7 @@ export default function TopPointContributorsChart({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
+  section: {
     marginBottom: 16,
   },
   cardHeader: {

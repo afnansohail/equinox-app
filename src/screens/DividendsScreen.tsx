@@ -38,6 +38,8 @@ import type { RootStackParamList, MainTabParamList } from "../navigation/types";
 import { colors, fonts, TAB_BAR_HEIGHT } from "../constants/theme";
 import type { Dividend } from "../services/api";
 import { buildDividendRanking } from "../utils/dividendRanking";
+import { MONTH_NAMES } from "../utils/dividendAggregation";
+import { SegmentedToggle } from "../components/ui/SegmentedToggle";
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, "Dividends">,
@@ -51,6 +53,10 @@ export default function DividendsScreen() {
     msg: string;
   } | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<{
+    year: number;
+    month: number;
+  } | null>(null);
 
   const {
     data: dividends,
@@ -222,7 +228,7 @@ export default function DividendsScreen() {
     [dividends],
   );
 
-  const topPayer = useMemo(() => {
+  const topPayerInfo = useMemo(() => {
     if (!dividends || dividends.length === 0) return null;
     const totalBySymbol = new Map<string, number>();
     for (const d of dividends) {
@@ -237,7 +243,7 @@ export default function DividendsScreen() {
         top = sym;
       }
     }
-    return top;
+    return top ? { symbol: top, amount: maxTotal } : null;
   }, [dividends]);
 
   // Build holdingMeta with all symbols: active holdings with their quantity, sold holdings with quantity = 0
@@ -282,23 +288,43 @@ export default function DividendsScreen() {
     }));
   }, [holdings, rankingDividends]);
 
-  const highestScoreSymbol = useMemo(() => {
+  const highestScoreInfo = useMemo(() => {
     const ranked = buildDividendRanking({
       dividends: rankingDividends,
       scrapedPayouts: scrapedPayouts ?? [],
       holdingMeta: holdingMetaForRanking,
     });
-    return ranked.find((r) => r.score > 0)?.symbol ?? null;
+    const top = ranked.find((r) => r.score > 0);
+    return top ? { symbol: top.symbol, score: top.score } : null;
   }, [rankingDividends, scrapedPayouts, holdingMetaForRanking]);
+
+  const filteredDividends = useMemo(() => {
+    return (dividends ?? []).filter((d) => {
+      if (selectedSymbol && d.stockSymbol !== selectedSymbol) return false;
+      if (selectedMonth) {
+        const parts = d.paymentDate.split("-");
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        if (year !== selectedMonth.year || month !== selectedMonth.month) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [dividends, selectedSymbol, selectedMonth]);
 
   const ListHeader = useMemo(
     () => (
       <>
         <DividendSummaryCard
           totalAmount={totalAmount}
-          highestScoreSymbol={highestScoreSymbol}
-          topPayer={topPayer}
+          highestScoreSymbol={highestScoreInfo?.symbol ?? null}
+          highestScore={highestScoreInfo?.score ?? null}
+          topPayerSymbol={topPayerInfo?.symbol ?? null}
+          topPayerAmount={topPayerInfo?.amount ?? null}
           dividends={dividends ?? []}
+          selectedMonth={selectedMonth}
+          onMonthPress={setSelectedMonth}
         />
 
         {(dividends?.length ?? 0) > 0 && (
@@ -311,14 +337,23 @@ export default function DividendsScreen() {
               onSymbolPress={setSelectedSymbol}
             />
 
+            {selectedMonth && (
+              <TouchableOpacity
+                style={styles.filterChip}
+                onPress={() => setSelectedMonth(null)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterChipText}>
+                  {MONTH_NAMES[selectedMonth.month]} {selectedMonth.year}
+                </Text>
+                <Text style={styles.filterChipClear}>✕</Text>
+              </TouchableOpacity>
+            )}
+
             <Text style={styles.sectionTitle}>
               All Records{" "}
               <Text style={styles.sectionTitleCount}>
-                {selectedSymbol
-                  ? (dividends ?? []).filter(
-                      (d) => d.stockSymbol === selectedSymbol,
-                    ).length
-                  : (dividends?.length ?? 0)}
+                {filteredDividends.length}
               </Text>
             </Text>
           </>
@@ -328,9 +363,11 @@ export default function DividendsScreen() {
     [
       dividends,
       totalAmount,
-      topPayer,
-      highestScoreSymbol,
+      topPayerInfo,
+      highestScoreInfo,
       selectedSymbol,
+      selectedMonth,
+      filteredDividends,
       rankingDividends,
       scrapedPayouts,
       holdings,
@@ -351,11 +388,6 @@ export default function DividendsScreen() {
       ),
     [isLoading],
   );
-
-  const filteredDividends = useMemo(() => {
-    if (!selectedSymbol) return dividends ?? [];
-    return (dividends ?? []).filter((d) => d.stockSymbol === selectedSymbol);
-  }, [dividends, selectedSymbol]);
 
   if (isLoading) {
     return (
@@ -450,51 +482,21 @@ export default function DividendsScreen() {
                 </View>
 
                 {/* Input Mode Toggle */}
-                <View style={styles.modeToggleContainer}>
-                  <TouchableOpacity
-                    style={[
-                      styles.modeToggleBtn,
-                      editInputMode === "perShare" &&
-                        styles.modeToggleBtnActive,
+                <View style={styles.modeToggleWrap}>
+                  <SegmentedToggle
+                    options={[
+                      { label: "Per Share", value: "perShare" },
+                      { label: "Total Amount", value: "totalAmount" },
                     ]}
-                    onPress={() => {
-                      setEditInputMode("perShare");
-                      setEditTotalAmount("");
+                    value={editInputMode}
+                    onChange={(mode) => {
+                      setEditInputMode(mode);
+                      if (mode === "perShare") setEditTotalAmount("");
+                      else setEditPerShare("");
                     }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.modeToggleBtnText,
-                        editInputMode === "perShare" &&
-                          styles.modeToggleBtnTextActive,
-                      ]}
-                    >
-                      Per Share
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modeToggleBtn,
-                      editInputMode === "totalAmount" &&
-                        styles.modeToggleBtnActive,
-                    ]}
-                    onPress={() => {
-                      setEditInputMode("totalAmount");
-                      setEditPerShare("");
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.modeToggleBtnText,
-                        editInputMode === "totalAmount" &&
-                          styles.modeToggleBtnTextActive,
-                      ]}
-                    >
-                      Total Amount
-                    </Text>
-                  </TouchableOpacity>
+                    trackColor={colors.cardHover}
+                    variant="full"
+                  />
                 </View>
 
                 <View style={styles.modalFieldRow}>
@@ -710,6 +712,29 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: colors.secondaryMuted,
+    borderColor: colors.secondary,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 12,
+    gap: 8,
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.secondary,
+  },
+  filterChipClear: {
+    fontSize: 12,
+    fontFamily: fonts.sans.bold,
+    color: colors.secondary,
+  },
   sectionTitle: {
     fontSize: 16,
     fontFamily: fonts.sans.bold,
@@ -743,37 +768,37 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "flex-end",
   },
   modalCard: {
     backgroundColor: colors.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: "90%",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 16,
-    fontFamily: fonts.sans.semibold,
+    fontSize: 18,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   modalScrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 8,
     flexShrink: 1,
   },
   modalBottom: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 16,
     paddingTop: 8,
     borderTopWidth: 1,
@@ -784,8 +809,11 @@ const styles = StyleSheet.create({
   },
   modalSymbol: {
     fontSize: 18,
-    fontFamily: fonts.sans.bold,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
+  },
+  modeToggleWrap: {
+    marginBottom: 16,
   },
   modalFieldRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
   modalField: {
@@ -793,45 +821,45 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalLabel: {
-    fontSize: 12,
-    fontFamily: fonts.sans.semibold,
+    fontSize: 11,
+    fontFamily: fonts.sans.bold,
     color: colors.textMuted,
-    marginBottom: 6,
+    marginBottom: 8,
     textTransform: "uppercase",
-    letterSpacing: 0.2,
+    letterSpacing: 0.12,
   },
   modalInput: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.background,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    backgroundColor: colors.cardHover,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 16,
     color: colors.textPrimary,
-    fontSize: 14,
-    fontFamily: fonts.sans.medium,
+    fontSize: 15,
+    fontFamily: fonts.sans.bold,
   },
   modalNotesInput: { minHeight: 80 },
   dateBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.background,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    backgroundColor: colors.cardHover,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    gap: 8,
+    borderRadius: 16,
+    gap: 10,
   },
-  dateBtnText: { color: colors.textPrimary, fontSize: 14, fontFamily: fonts.sans.medium },
+  dateBtnText: { color: colors.textPrimary, fontSize: 15, fontFamily: fonts.sans.bold },
   modalTotal: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: colors.cardHover,
+    borderRadius: 16,
     marginBottom: 16,
   },
   modalTotalLabel: {
@@ -845,26 +873,26 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   errorBox: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "rgba(239,68,68,0.1)",
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: colors.dangerMuted,
+    borderRadius: 12,
     marginBottom: 16,
   },
   errorText: { fontSize: 13, fontFamily: fonts.sans.medium, color: colors.danger },
   modalActions: {
     flexDirection: "row",
-    gap: 8,
+    gap: 12,
   },
   deleteBtn: {
     flex: 1,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 12,
-    backgroundColor: "rgba(239,68,68,0.1)",
-    borderRadius: 8,
-    gap: 6,
+    paddingVertical: 15,
+    backgroundColor: colors.dangerMuted,
+    borderRadius: 16,
+    gap: 8,
   },
   deleteBtnText: { fontSize: 14, fontFamily: fonts.sans.semibold, color: colors.danger },
   saveBtn: {
@@ -872,53 +900,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 15,
     backgroundColor: colors.secondary,
-    borderRadius: 8,
-    gap: 6,
+    borderRadius: 16,
+    gap: 8,
   },
   saveBtnText: {
     fontSize: 14,
-    fontFamily: fonts.sans.semibold,
-    color: colors.background,
+    fontFamily: fonts.sans.bold,
+    color: colors.textInverse,
   },
   btnDisabled: { opacity: 0.5 },
   btnTextDisabled: { color: colors.textMuted },
-  modeToggleContainer: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
-  },
-  modeToggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-  },
-  modeToggleBtnActive: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
-  },
-  modeToggleBtnText: {
-    fontSize: 12,
-    fontFamily: fonts.sans.bold,
-    color: colors.textMuted,
-  },
-  modeToggleBtnTextActive: {
-    color: colors.textInverse,
-  },
   calculatedRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
+    backgroundColor: colors.cardHover,
+    borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.border,

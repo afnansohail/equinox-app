@@ -399,8 +399,8 @@ export default function TransactionHistoryScreen() {
                       {
                         backgroundColor:
                           editTx.transactionType === "BUY"
-                            ? "rgba(34,197,94,0.12)"
-                            : "rgba(239,68,68,0.12)",
+                            ? colors.secondaryMuted
+                            : colors.dangerMuted,
                       },
                     ]}
                   >
@@ -410,7 +410,7 @@ export default function TransactionHistoryScreen() {
                         {
                           color:
                             editTx.transactionType === "BUY"
-                              ? "#22C55E"
+                              ? colors.secondary
                               : colors.danger,
                         },
                       ]}
@@ -521,12 +521,12 @@ export default function TransactionHistoryScreen() {
                   >
                     {editLoading ? (
                       <ActivityIndicator
-                        color={colors.background}
+                        color={colors.textInverse}
                         size="small"
                       />
                     ) : (
                       <>
-                        <Edit3 size={18} color={colors.background} />
+                        <Edit3 size={18} color={colors.textInverse} />
                         <Text style={styles.saveBtnText}>Save Changes</Text>
                       </>
                     )}
@@ -560,9 +560,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -570,9 +570,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
+    letterSpacing: -0.1,
   },
   filterRow: {
     flexDirection: "row",
@@ -678,7 +679,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -727,41 +728,41 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalLabel: {
-    fontSize: 12,
-    fontFamily: fonts.sans.semibold,
+    fontSize: 11,
+    fontFamily: fonts.sans.bold,
     color: colors.textMuted,
     textTransform: "uppercase",
-    letterSpacing: 0.2,
+    letterSpacing: 0.12,
   },
   modalInput: {
-    backgroundColor: colors.background,
-    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
     fontSize: 15,
-    fontFamily: fonts.sans.medium,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   modalNotesInput: {
     minHeight: 60,
-    paddingTop: 12,
+    paddingTop: 14,
   },
   dateBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.background,
-    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
     gap: 10,
   },
   dateBtnText: {
     fontSize: 15,
-    fontFamily: fonts.sans.medium,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   datePickerDone: {
@@ -804,11 +805,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: "rgba(239,68,68,0.12)",
+    paddingVertical: 15,
+    borderRadius: 16,
+    backgroundColor: colors.dangerMuted,
     borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.3)",
+    borderColor: "rgba(255,107,107,0.3)",
   },
   deleteBtnText: {
     fontSize: 14,
@@ -827,20 +828,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 15,
+    borderRadius: 16,
     backgroundColor: colors.secondary,
   },
   saveBtnText: {
     fontSize: 14,
-    fontFamily: fonts.sans.semibold,
-    color: colors.background,
+    fontFamily: fonts.sans.bold,
+    color: colors.textInverse,
   },
   errorBox: {
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    borderRadius: 10,
+    backgroundColor: colors.dangerMuted,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderColor: "rgba(255,107,107,0.3)",
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 12,

@@ -68,40 +68,50 @@ export const BalanceCard = React.memo(
     }, [isChartLoading, pulseAnim]);
     return (
       <View style={styles.balanceCard}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.balanceLabel}>Portfolio value</Text>
-            <View style={styles.balanceValueRow}>
+        <View>
+          <Text style={styles.balanceLabel}>Portfolio value</Text>
+          <View style={styles.balanceValueRow}>
+            <View style={styles.balanceAmountGroup}>
               <Text style={styles.balanceCurrency}>PKR</Text>
-              <Text style={styles.balanceValue}>{formatPKR(totalValue)}</Text>
-            </View>
-          </View>
-          {totalValue > 0 && (
-            <View
-              style={[
-                styles.pnlBadge,
-                {
-                  backgroundColor: dayIsPositive
-                    ? "rgba(52,211,153,0.14)"
-                    : "rgba(255,107,107,0.14)",
-                },
-              ]}
-            >
-              {dayIsPositive ? (
-                <TrendingUp size={13} color={colors.success} />
-              ) : (
-                <TrendingDown size={13} color={colors.danger} />
-              )}
               <Text
-                style={[
-                  styles.pnlBadgeText,
-                  { color: dayIsPositive ? colors.success : colors.danger },
-                ]}
+                style={styles.balanceValue}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.5}
               >
-                {formatPercentage(dayPnLPct)}
+                {formatPKR(totalValue)}
               </Text>
             </View>
-          )}
+            {totalValue > 0 && (
+              <View
+                style={[
+                  styles.pnlBadge,
+                  {
+                    backgroundColor: dayIsPositive
+                      ? "rgba(52,211,153,0.14)"
+                      : "rgba(255,107,107,0.14)",
+                  },
+                ]}
+              >
+                {dayIsPositive ? (
+                  <TrendingUp size={12} color={colors.success} />
+                ) : (
+                  <TrendingDown size={12} color={colors.danger} />
+                )}
+                <Text
+                  style={[
+                    styles.pnlBadgeText,
+                    { color: dayIsPositive ? colors.success : colors.danger },
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {formatPercentage(dayPnLPct)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.pnlBlock}>
@@ -119,13 +129,16 @@ export const BalanceCard = React.memo(
 
           <View style={styles.pnlDivider} />
 
-          <View style={styles.pnlCol}>
+          <View style={[styles.pnlCol, styles.pnlColFlex]}>
             <Text style={styles.pnlRowLabel}>Total P/L</Text>
             <Text
               style={[
                 styles.pnlRowAmount,
                 { color: isPositive ? colors.success : colors.danger },
               ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
             >
               {isPositive ? "+" : "-"}PKR {formatPKR(Math.abs(totalPnL))}{" "}
               <Text style={styles.pnlRowAmountMuted}>
@@ -189,11 +202,6 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-  },
   balanceLabel: {
     fontSize: 11,
     fontFamily: fonts.sans.semibold,
@@ -204,7 +212,13 @@ const styles = StyleSheet.create({
   },
   balanceValueRow: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  balanceAmountGroup: {
+    flexDirection: "row",
     alignItems: "baseline",
+    flexShrink: 1,
     gap: 6,
   },
   balanceCurrency: {
@@ -213,6 +227,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   balanceValue: {
+    flexShrink: 1,
     fontSize: 38,
     fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
@@ -227,6 +242,10 @@ const styles = StyleSheet.create({
   },
   pnlCol: {
     gap: 3,
+  },
+  pnlColFlex: {
+    flex: 1,
+    minWidth: 0,
   },
   pnlDivider: {
     width: 1,
@@ -248,13 +267,15 @@ const styles = StyleSheet.create({
   pnlBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    flexShrink: 0,
+    maxWidth: 110,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 999,
   },
   pnlBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fonts.sans.bold,
   },
   chartWrap: {

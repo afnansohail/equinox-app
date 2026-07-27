@@ -62,7 +62,7 @@ export function aggregateDividendsByMonth(
   });
 }
 
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
   "Jan",
   "Feb",
   "Mar",

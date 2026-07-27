@@ -200,7 +200,8 @@ export default function PortfolioScreen() {
           style={styles.addBtn}
           onPress={() => navigation.navigate("AddTransaction", { type: "BUY" })}
         >
-          <Plus size={20} color={colors.textInverse} />
+          <Plus size={15} color={colors.textInverse} strokeWidth={2.6} />
+          <Text style={styles.addBtnText}>Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -249,19 +250,26 @@ const styles = StyleSheet.create({
     letterSpacing: -0.02,
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 999,
     backgroundColor: colors.secondary,
     justifyContent: "center",
-    alignItems: "center",
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontFamily: fonts.sans.bold,
+    color: colors.textInverse,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
   filterChip: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "rgba(108,99,255,0.15)",
+    backgroundColor: colors.secondaryMuted,
     borderColor: colors.secondary,
     borderWidth: 1,
     borderRadius: 20,

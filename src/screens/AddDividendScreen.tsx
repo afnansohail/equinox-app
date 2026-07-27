@@ -20,6 +20,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ArrowLeft, Search, Calendar } from "lucide-react-native";
 import DatePickerModal from "../components/ui/DatePickerModal";
+import { SegmentedToggle } from "../components/ui/SegmentedToggle";
 import StockLogo from "../components/shared/StockLogo";
 import { useAddDividend } from "../hooks/useDividends";
 import { useStock } from "../hooks/useStocks";
@@ -231,48 +232,21 @@ export default function AddDividendScreen() {
             {!!symbolHint && <Text style={styles.fieldHint}>{symbolHint}</Text>}
 
             {/* Input Mode Toggle */}
-            <View style={styles.modeToggleContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.modeToggleBtn,
-                  inputMode === "perShare" && styles.modeToggleBtnActive,
+            <View style={styles.modeToggleWrap}>
+              <SegmentedToggle
+                options={[
+                  { label: "Per share", value: "perShare" },
+                  { label: "Total amount", value: "totalAmount" },
                 ]}
-                onPress={() => {
-                  setInputMode("perShare");
-                  setTotalAmount("");
+                value={inputMode}
+                onChange={(mode) => {
+                  setInputMode(mode);
+                  if (mode === "perShare") setTotalAmount("");
+                  else setDividendPerShare("");
                 }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.modeToggleBtnText,
-                    inputMode === "perShare" && styles.modeToggleBtnTextActive,
-                  ]}
-                >
-                  Per share
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modeToggleBtn,
-                  inputMode === "totalAmount" && styles.modeToggleBtnActive,
-                ]}
-                onPress={() => {
-                  setInputMode("totalAmount");
-                  setDividendPerShare("");
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.modeToggleBtnText,
-                    inputMode === "totalAmount" &&
-                      styles.modeToggleBtnTextActive,
-                  ]}
-                >
-                  Total amount
-                </Text>
-              </TouchableOpacity>
+                trackColor={colors.card}
+                variant="full"
+              />
             </View>
 
             {/* Shares */}
@@ -590,32 +564,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans.extrabold,
     color: colors.textInverse,
   },
-  modeToggleContainer: {
-    flexDirection: "row",
-    backgroundColor: colors.card,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 4,
-    gap: 4,
+  modeToggleWrap: {
     marginTop: 14,
-  },
-  modeToggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  modeToggleBtnActive: {
-    backgroundColor: colors.secondary,
-  },
-  modeToggleBtnText: {
-    fontSize: 13,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
-  },
-  modeToggleBtnTextActive: {
-    color: colors.textInverse,
-    fontFamily: fonts.sans.extrabold,
   },
 });

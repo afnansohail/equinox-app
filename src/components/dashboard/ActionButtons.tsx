@@ -73,7 +73,7 @@ function ActionBtn({
 const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 10,
     marginBottom: 24,
   },
   actionBtn: {
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionIconCircle: {
-    width: 52,
+    width: "100%",
     height: 52,
     borderRadius: borderRadius.md,
     backgroundColor: colors.cardHover,
