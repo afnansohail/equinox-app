@@ -9,26 +9,26 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: "#0A0A0A",
-        card: "#151515",
+        background: "#06100E",
+        card: "#0F1A18",
         border: "#262626",
-        primary: "#3B82F6",
-        success: "#22C55E",
-        danger: "#EF4444",
-        "text-primary": "#FFFFFF",
-        "text-secondary": "#A3A3A3",
-        "text-muted": "#737373",
+        primary: "#1FE3B6",
+        success: "#34D399",
+        danger: "#FF6B6B",
+        "text-primary": "#F2F5F4",
+        "text-secondary": "#B9C6C3",
+        "text-muted": "#7C8B88",
         blue: {
           500: "#3B82F6",
           600: "#2563EB",
         },
         green: {
-          500: "#22C55E",
-          600: "#16A34A",
+          500: "#34D399",
+          600: "#22C55E",
         },
         red: {
-          500: "#EF4444",
-          600: "#DC2626",
+          500: "#FF6B6B",
+          600: "#E05555",
         },
       },
     },
