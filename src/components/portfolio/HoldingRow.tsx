@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { TrendingUp, TrendingDown, ChevronRight, Moon } from "lucide-react-native";
+import { Moon } from "lucide-react-native";
 import StockLogo from "../shared/StockLogo";
 import { colors, fonts } from "../../constants/theme";
 import { formatPKR, formatPercentage } from "../../utils/format";
@@ -20,13 +20,6 @@ export const HoldingRow = React.memo(({ holding, onPress }: HoldingRowProps) => 
   const gainLossPct =
     holding.totalInvested > 0 ? (gainLoss / holding.totalInvested) * 100 : 0;
   const isUp = gainLoss >= 0;
-  const prevClose = holding.stock?.previousClose ?? 0;
-  const todayPnL =
-    marketPrice - prevClose !== 0
-      ? (marketPrice - prevClose) * holding.quantity
-      : 0;
-  const todayPct =
-    prevClose > 0 ? ((marketPrice - prevClose) / prevClose) * 100 : 0;
 
   return (
     <TouchableOpacity
@@ -37,12 +30,17 @@ export const HoldingRow = React.memo(({ holding, onPress }: HoldingRowProps) => 
       <StockLogo
         logoUrl={holding.stock?.logoUrl}
         symbol={holding.stockSymbol}
-        size={44}
+        size={40}
       />
 
       <View style={styles.holdingMeta}>
         <View style={styles.holdingTop}>
-          <Text style={styles.holdingSymbol}>{holding.stockSymbol}</Text>
+          <Text style={styles.holdingSymbol}>
+            {holding.stockSymbol}{" "}
+            <Text style={styles.holdingShares}>
+              · {holding.quantity} sh
+            </Text>
+          </Text>
           {holding.stock?.isShariahCompliant && (
             <View style={styles.shariahBadge}>
               <Moon size={12} color={colors.success} />
@@ -50,70 +48,21 @@ export const HoldingRow = React.memo(({ holding, onPress }: HoldingRowProps) => 
           )}
         </View>
         <Text style={styles.holdingSubtitle} numberOfLines={1}>
-          {holding.quantity} shares
-        </Text>
-        <Text style={styles.holdingSubtitle} numberOfLines={1}>
-          {marketPrice > 0 ? `PKR ${marketPrice.toFixed(2)}` : "—"}
+          Avg PKR {holding.averageBuyPrice.toFixed(2)}
         </Text>
       </View>
 
       <View style={styles.holdingRight}>
-        <Text style={styles.holdingValue}>
-          PKR {formatPKR(currentValue)}
+        <Text style={styles.holdingValue}>{formatPKR(currentValue)}</Text>
+        <Text
+          style={[
+            styles.holdingPct,
+            { color: isUp ? colors.success : colors.danger },
+          ]}
+        >
+          {formatPercentage(gainLossPct)}
         </Text>
-        <View
-          style={[
-            styles.gainChip,
-            {
-              backgroundColor: isUp
-                ? "rgba(34,197,94,0.12)"
-                : "rgba(239,68,68,0.12)",
-              marginTop: 8,
-            },
-          ]}
-        >
-          {isUp ? (
-            <TrendingUp size={11} color={colors.success} />
-          ) : (
-            <TrendingDown size={11} color={colors.danger} />
-          )}
-          <Text
-            style={[
-              styles.gainChipText,
-              { color: isUp ? colors.success : colors.danger },
-            ]}
-          >
-            ALL {formatPercentage(gainLossPct)}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.gainChip,
-            {
-              backgroundColor:
-                todayPnL >= 0 ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-              marginTop: 6,
-            },
-          ]}
-        >
-          {todayPnL >= 0 ? (
-            <TrendingUp size={11} color={colors.success} />
-          ) : (
-            <TrendingDown size={11} color={colors.danger} />
-          )}
-          <Text
-            style={[
-              styles.gainChipText,
-              { color: todayPnL >= 0 ? colors.success : colors.danger },
-            ]}
-          >
-            DAY {formatPercentage(todayPct)}
-          </Text>
-        </View>
       </View>
-
-      <ChevronRight size={16} color={colors.textMuted} />
     </TouchableOpacity>
   );
 });
@@ -137,26 +86,25 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
+  holdingShares: {
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+  },
   shariahBadge: {
-    backgroundColor: "rgba(34,197,94,0.15)",
+    backgroundColor: colors.successMuted,
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
   holdingSubtitle: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted },
-  holdingRight: { alignItems: "flex-end", gap: 5 },
+  holdingRight: { alignItems: "flex-end", gap: 3 },
   holdingValue: {
     fontSize: 14,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
-  gainChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+  holdingPct: {
+    fontSize: 12,
+    fontFamily: fonts.sans.bold,
   },
-  gainChipText: { fontSize: 11, fontFamily: fonts.sans.semibold },
 });

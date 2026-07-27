@@ -1,17 +1,7 @@
 import React, { useState } from "react";
 import { Image, View, Text, StyleSheet } from "react-native";
 import { SvgUri } from "react-native-svg";
-
-const AVATAR_COLORS = [
-  "#6366F1",
-  "#8B5CF6",
-  "#EC4899",
-  "#06B6D4",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#3B82F6",
-];
+import { colors, fonts } from "../../constants/theme";
 
 interface StockLogoProps {
   logoUrl?: string | null;
@@ -22,6 +12,7 @@ interface StockLogoProps {
 /**
  * Displays a stock logo with fallback to letter avatar.
  * Handles SVG and raster images, with graceful error fallback.
+ * Rounded-square tile (not circular) to match the redesign's avatar language.
  */
 export default function StockLogo({
   logoUrl,
@@ -29,8 +20,7 @@ export default function StockLogo({
   size = 44,
 }: StockLogoProps) {
   const [hasError, setHasError] = useState(false);
-
-  const color = AVATAR_COLORS[symbol.charCodeAt(0) % AVATAR_COLORS.length];
+  const radius = Math.round(size * 0.34);
 
   // Show letter avatar if no URL or if image failed to load
   if (!logoUrl || hasError) {
@@ -38,15 +28,10 @@ export default function StockLogo({
       <View
         style={[
           styles.avatar,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: color,
-          },
+          { width: size, height: size, borderRadius: radius },
         ]}
       >
-        <Text style={[styles.avatarText, { fontSize: size * 0.32 }]}>
+        <Text style={[styles.avatarText, { fontSize: size * 0.28 }]}>
           {symbol.slice(0, 2).toUpperCase()}
         </Text>
       </View>
@@ -62,7 +47,7 @@ export default function StockLogo({
         style={{
           width: size,
           height: size,
-          borderRadius: size / 2,
+          borderRadius: radius,
           overflow: "hidden",
           backgroundColor: "#fff",
         }}
@@ -83,7 +68,7 @@ export default function StockLogo({
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
+        borderRadius: radius,
       }}
       resizeMode="contain"
       onError={() => setHasError(true)}
@@ -95,9 +80,10 @@ const styles = StyleSheet.create({
   avatar: {
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: colors.accentTile,
   },
   avatarText: {
-    color: "#fff",
-    fontWeight: "700",
+    color: colors.secondary,
+    fontFamily: fonts.sans.extrabold,
   },
 });

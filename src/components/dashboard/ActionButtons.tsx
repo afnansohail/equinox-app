@@ -19,22 +19,23 @@ export const ActionButtons = React.memo(({
   return (
     <View style={styles.actionsRow}>
       <ActionBtn
-        icon={<ArrowUpRight size={22} color={colors.success} />}
+        icon={<ArrowUpRight size={20} color={colors.textInverse} />}
         label="Buy"
         onPress={onBuy}
+        primary
       />
       <ActionBtn
-        icon={<ArrowDownRight size={22} color={colors.danger} />}
+        icon={<ArrowDownRight size={20} color={colors.danger} />}
         label="Sell"
         onPress={onSell}
       />
       <ActionBtn
-        icon={<History size={22} color={colors.icon} />}
+        icon={<History size={20} color={colors.icon} />}
         label="History"
         onPress={onHistory}
       />
       <ActionBtn
-        icon={<RefreshCw size={22} color={colors.icon} />}
+        icon={<RefreshCw size={20} color={colors.icon} />}
         label="Refresh"
         onPress={onRefresh}
       />
@@ -46,10 +47,12 @@ function ActionBtn({
   icon,
   label,
   onPress,
+  primary = false,
 }: {
   icon: React.ReactNode;
   label: string;
   onPress: () => void;
+  primary?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -57,7 +60,11 @@ function ActionBtn({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={styles.actionIconCircle}>{icon}</View>
+      <View
+        style={[styles.actionIconCircle, primary && styles.actionIconPrimary]}
+      >
+        {icon}
+      </View>
       <Text style={styles.actionLabel}>{label}</Text>
     </TouchableOpacity>
   );
@@ -83,6 +90,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     justifyContent: "center",
     alignItems: "center",
+  },
+  actionIconPrimary: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
   },
   actionLabel: {
     fontSize: 11,

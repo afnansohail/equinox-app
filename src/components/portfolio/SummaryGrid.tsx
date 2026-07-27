@@ -1,6 +1,5 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { TrendingUp, TrendingDown } from "lucide-react-native";
 import { colors, fonts } from "../../constants/theme";
 import { formatPKR, formatPercentage } from "../../utils/format";
 
@@ -28,14 +27,30 @@ export const SummaryGrid = React.memo(({
   return (
     <View style={styles.summaryGrid}>
       <View style={styles.gridRow}>
+        <View style={[styles.summaryCard, styles.plainCard]}>
+          <Text style={styles.summaryLabel}>Invested</Text>
+          <Text style={styles.summaryValue}>
+            {formatPKR(totalInvested)}
+          </Text>
+        </View>
+
+        <View style={[styles.summaryCard, styles.plainCard]}>
+          <Text style={styles.summaryLabel}>Market value</Text>
+          <Text style={styles.summaryValue}>{formatPKR(totalValue)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.gridRow}>
         <View
           style={[
             styles.summaryCard,
-            styles.smallCard,
             {
+              backgroundColor: dayIsPositive
+                ? colors.successMuted
+                : colors.dangerMuted,
               borderColor: dayIsPositive
-                ? "rgba(34,197,94,0.3)"
-                : "rgba(239,68,68,0.3)",
+                ? "rgba(52,211,153,0.22)"
+                : "rgba(255,107,107,0.22)",
             },
           ]}
         >
@@ -46,93 +61,49 @@ export const SummaryGrid = React.memo(({
               { color: dayIsPositive ? colors.success : colors.danger },
             ]}
           >
-            {dayIsPositive ? "+" : ""}PKR {formatPKR(Math.abs(dayPnL))}
+            {dayIsPositive ? "+" : ""}
+            {formatPKR(dayPnL)}
           </Text>
-          <View
+          <Text
             style={[
-              styles.summaryPill,
-              {
-                backgroundColor: dayIsPositive
-                  ? "rgba(34,197,94,0.12)"
-                  : "rgba(239,68,68,0.12)",
-              },
+              styles.summaryPct,
+              { color: dayIsPositive ? colors.success : colors.danger },
             ]}
           >
-            {dayIsPositive ? (
-              <TrendingUp size={11} color={colors.success} />
-            ) : (
-              <TrendingDown size={11} color={colors.danger} />
-            )}
-            <Text
-              style={[
-                styles.summaryPillText,
-                { color: dayIsPositive ? colors.success : colors.danger },
-              ]}
-            >
-              {formatPercentage(dayPnLPct)}
-            </Text>
-          </View>
+            {formatPercentage(dayPnLPct)}
+          </Text>
         </View>
 
         <View
           style={[
             styles.summaryCard,
-            styles.smallCard,
             {
+              backgroundColor: isPositive
+                ? colors.successMuted
+                : colors.dangerMuted,
               borderColor: isPositive
-                ? "rgba(34,197,94,0.3)"
-                : "rgba(239,68,68,0.3)",
+                ? "rgba(52,211,153,0.22)"
+                : "rgba(255,107,107,0.22)",
             },
           ]}
         >
-          <Text style={styles.summaryLabel}>Unrealized P/L</Text>
+          <Text style={styles.summaryLabel}>Unrealised</Text>
           <Text
             style={[
               styles.summaryValue,
               { color: isPositive ? colors.success : colors.danger },
             ]}
           >
-            {isPositive ? "+" : ""}PKR {formatPKR(Math.abs(totalPnL))}
+            {isPositive ? "+" : ""}
+            {formatPKR(totalPnL)}
           </Text>
-          <View
+          <Text
             style={[
-              styles.summaryPill,
-              {
-                backgroundColor: isPositive
-                  ? "rgba(34,197,94,0.12)"
-                  : "rgba(239,68,68,0.12)",
-              },
+              styles.summaryPct,
+              { color: isPositive ? colors.success : colors.danger },
             ]}
           >
-            {isPositive ? (
-              <TrendingUp size={11} color={colors.success} />
-            ) : (
-              <TrendingDown size={11} color={colors.danger} />
-            )}
-            <Text
-              style={[
-                styles.summaryPillText,
-                { color: isPositive ? colors.success : colors.danger },
-              ]}
-            >
-              {formatPercentage(totalPnLPct)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.gridRow}>
-        <View style={[styles.summaryCard, styles.smallCardNoPad]}>
-          <Text style={styles.summaryLabel}>Invested</Text>
-          <Text style={styles.summaryValue}>
-            PKR {formatPKR(totalInvested)}
-          </Text>
-        </View>
-
-        <View style={[styles.summaryCard, styles.smallCardNoPad]}>
-          <Text style={styles.summaryLabel}>Total Value</Text>
-          <Text style={styles.summaryValue}>
-            PKR {formatPKR(totalValue)}
+            {formatPercentage(totalPnLPct)}
           </Text>
         </View>
       </View>
@@ -146,14 +117,16 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
-    gap: 4,
+    padding: 14,
+    gap: 6,
   },
-  smallCard: { flex: 1, paddingVertical: 12 },
-  smallCardNoPad: { flex: 1, paddingVertical: 10, paddingHorizontal: 12 },
+  plainCard: {
+    backgroundColor: colors.accentTile,
+    borderColor: colors.border,
+  },
   summaryLabel: {
     fontSize: 11,
     fontFamily: fonts.sans.semibold,
@@ -167,17 +140,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: -0.02,
   },
-  summaryPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  summaryPillText: {
+  summaryPct: {
     fontSize: 12,
     fontFamily: fonts.sans.semibold,
+    opacity: 0.8,
   },
 });

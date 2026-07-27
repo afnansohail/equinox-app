@@ -21,46 +21,39 @@ export const RecentActivity = React.memo(({
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Latest activity</Text>
         <TouchableOpacity onPress={onViewAll}>
-          <Text style={styles.seeAllText}>View all →</Text>
+          <Text style={styles.seeAllText}>View all</Text>
         </TouchableOpacity>
       </View>
-      {transactions.map((tx) => {
+      {transactions.map((tx, idx) => {
         const isBuy = tx.transactionType === "BUY";
         return (
-          <View key={tx.id} style={styles.txRow}>
-            <View
-              style={[
-                styles.txIconCircle,
-                {
-                  backgroundColor: isBuy
-                    ? "rgba(34,197,94,0.12)"
-                    : "rgba(239,68,68,0.12)",
-                },
-              ]}
-            >
-              {isBuy ? (
-                <ArrowUpRight size={18} color={colors.success} />
-              ) : (
-                <ArrowDownRight size={18} color={colors.danger} />
-              )}
-            </View>
-            <View style={styles.txMeta}>
-              <Text style={styles.txTitle}>
-                {isBuy ? "Bought" : "Sold"} {tx.quantity} {tx.stockSymbol}
-              </Text>
-              <Text style={styles.txDate}>{tx.transactionDate}</Text>
-            </View>
-            <View style={styles.txRight}>
-              <Text style={styles.txAmount}>
-                PKR {formatPKR(tx.totalAmount)}
-              </Text>
-              <Text
+          <View key={tx.id}>
+            {idx > 0 && <View style={styles.divider} />}
+            <View style={styles.txRow}>
+              <View
                 style={[
-                  styles.txStatus,
-                  { color: !isBuy ? colors.danger : colors.success },
+                  styles.txIconCircle,
+                  {
+                    backgroundColor: isBuy
+                      ? colors.secondaryMuted
+                      : colors.dangerMuted,
+                  },
                 ]}
               >
-                {isBuy ? "Bought" : "Sold"}
+                {isBuy ? (
+                  <ArrowUpRight size={16} color={colors.secondary} />
+                ) : (
+                  <ArrowDownRight size={16} color={colors.danger} />
+                )}
+              </View>
+              <View style={styles.txMeta}>
+                <Text style={styles.txTitle}>
+                  {isBuy ? "Bought" : "Sold"} {tx.quantity} {tx.stockSymbol}
+                </Text>
+                <Text style={styles.txDate}>{tx.transactionDate}</Text>
+              </View>
+              <Text style={styles.txAmount}>
+                PKR {formatPKR(tx.totalAmount)}
               </Text>
             </View>
           </View>
@@ -90,25 +83,27 @@ const styles = StyleSheet.create({
   txRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 10,
     gap: 12,
   },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
   txIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   txMeta: {
     flex: 1,
-    gap: 3,
+    gap: 2,
   },
   txTitle: {
     fontSize: 14,
-    fontFamily: fonts.sans.bold,
+    fontFamily: fonts.sans.semibold,
     color: colors.textPrimary,
   },
   txDate: {
@@ -116,17 +111,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans.medium,
     color: colors.textMuted,
   },
-  txRight: {
-    alignItems: "flex-end",
-    gap: 3,
-  },
   txAmount: {
     fontSize: 14,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
-  },
-  txStatus: {
-    fontSize: 11,
-    fontFamily: fonts.sans.semibold,
   },
 });

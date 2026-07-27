@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { colors, fonts, borderRadius } from "../../constants/theme";
+import { formatPKR } from "../../utils/format";
 import type { PortfolioHolding } from "../../services/api";
 
 type Mode = "today" | "allTime";
@@ -58,9 +59,6 @@ function buildContributions(
     })
     .filter((c) => c.percentage !== 0); // Only show holdings with non-zero percentage change
 }
-
-const BAR_LABEL_W = 50;
-const PILL_W = 68;
 
 interface TopPointContributorsChartProps {
   holdings: PortfolioHolding[];
@@ -120,7 +118,7 @@ export default function TopPointContributorsChart({
     <View style={styles.card}>
       {/* Header: title + mode toggle */}
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Top Contributors</Text>
+        <Text style={styles.cardTitle}>Today's movers</Text>
         <View style={styles.toggle}>
           <TouchableOpacity
             style={[
@@ -211,67 +209,35 @@ export default function TopPointContributorsChart({
                         styles.bar,
                         {
                           width: barWidth,
-                          backgroundColor: isPositive ? "#22C55E" : "#EF4444",
+                          backgroundColor: isPositive
+                            ? colors.success
+                            : colors.danger,
                         },
                       ]}
                     />
                   </View>
 
-                  {/* Percentage pill - right side */}
-                  <View style={styles.pillSlot}>
-                    <View
-                      style={[
-                        styles.pnlBadge,
-                        {
-                          backgroundColor: isPositive
-                            ? "rgba(34, 197, 94, 0.14)"
-                            : "rgba(239, 68, 68, 0.14)",
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.pnlBadgeText,
-                          { color: isPositive ? "#22C55E" : colors.danger },
-                        ]}
-                      >
-                        {isPositive ? "+" : ""}
-                        {contrib.percentage.toFixed(2)}%
-                      </Text>
-                    </View>
-                  </View>
+                  {/* Amount + percentage - right side */}
+                  <Text
+                    style={[
+                      styles.amountText,
+                      { color: isPositive ? colors.success : colors.danger },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {isPositive ? "+" : "-"}
+                    {formatPKR(Math.abs(contrib.netAmount))}
+                  </Text>
+                  <Text style={styles.pctText} numberOfLines={1}>
+                    {isPositive ? "+" : ""}
+                    {contrib.percentage.toFixed(2)}%
+                  </Text>
                 </View>
               </View>
             );
           })}
         </View>
       )}
-
-      {/* Legend */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendDot,
-              {
-                backgroundColor: "#22C55E",
-              },
-            ]}
-          />
-          <Text style={styles.legendText}>Gainers</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendDot,
-              {
-                backgroundColor: "#EF4444",
-              },
-            ]}
-          />
-          <Text style={styles.legendText}>Losers</Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -329,67 +295,40 @@ const styles = StyleSheet.create({
     height: 32,
   },
   barLabel: {
-    width: 48,
+    width: 52,
     fontSize: 13,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   barChart: {
     flex: 1,
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: colors.trackNeutral,
+    borderRadius: 999,
     justifyContent: "center",
     overflow: "hidden",
   },
   bar: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 999,
   },
-  pillSlot: {
-    width: PILL_W,
-    alignItems: "flex-end",
-  },
-  pnlBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: PILL_W,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-  },
-  pnlBadgeText: {
-    fontSize: 12,
+  amountText: {
+    width: 68,
+    textAlign: "right",
+    fontSize: 13,
     fontFamily: fonts.sans.bold,
+  },
+  pctText: {
+    width: 54,
+    textAlign: "right",
+    fontSize: 12,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textSecondary,
   },
   splitDivider: {
     height: 1,
     width: "100%",
     marginBottom: 10,
     backgroundColor: colors.border,
-  },
-  legend: {
-    flexDirection: "row",
-    gap: 20,
-    marginTop: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 12,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
   },
 });

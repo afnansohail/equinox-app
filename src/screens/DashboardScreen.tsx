@@ -15,6 +15,7 @@ import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Settings } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { BalanceCard } from "../components/dashboard/BalanceCard";
 import { ActionButtons } from "../components/dashboard/ActionButtons";
@@ -136,9 +137,19 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeLabel}>Welcome back,</Text>
-          <Text style={styles.welcomeName}>{displayName} 🫡</Text>
+        <View style={styles.headerLeft}>
+          <LinearGradient
+            colors={colors.gradientSecondary}
+            style={styles.avatar}
+          >
+            <Text style={styles.avatarText}>
+              {displayName?.[0]?.toUpperCase() ?? "U"}
+            </Text>
+          </LinearGradient>
+          <View>
+            <Text style={styles.welcomeLabel}>Welcome back</Text>
+            <Text style={styles.welcomeName}>{displayName}</Text>
+          </View>
         </View>
         <TouchableOpacity
           style={styles.iconBtn}
@@ -146,7 +157,7 @@ export default function DashboardScreen() {
             navigation.navigate("MainTabs", { screen: "Settings" })
           }
         >
-          <Settings size={20} color={colors.textSecondary} />
+          <Settings size={18} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -213,11 +224,28 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    fontSize: 15,
+    fontFamily: fonts.sans.extrabold,
+    color: colors.textInverse,
+  },
   welcomeLabel: {
     fontSize: 12,
     fontFamily: fonts.sans.medium,
     color: colors.textMuted,
-    letterSpacing: 0.2,
+    letterSpacing: 0.02,
   },
   welcomeName: {
     fontSize: 17,

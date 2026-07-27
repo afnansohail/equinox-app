@@ -163,8 +163,6 @@ export default function SectorPieChart({
   });
 
   const activeSlice = activeIdx !== null ? arcData[activeIdx] : null;
-  const mainSlices = slices.filter((s) => s.percentage >= 1);
-  const otherSlices = slices.filter((s) => s.percentage < 1);
 
   return (
     <View style={styles.card}>
@@ -272,51 +270,31 @@ export default function SectorPieChart({
         </View>
       </View>
 
-      {/* Legend grid — 2 columns */}
-      <View style={styles.legendGrid}>
-        {mainSlices.map((s) => {
-          const idx = arcData.findIndex((a) => a.sector === s.sector);
+      {/* Legend — single column list */}
+      <View style={styles.legendList}>
+        {slices.map((s, idx) => {
           const isActive = activeIdx === idx;
           return (
             <TouchableOpacity
               key={s.sector}
-              style={[styles.legendItem, isActive && styles.legendItemActive]}
+              style={styles.legendRow}
               onPress={() => handleSlicePress(idx, s.sector)}
               activeOpacity={0.7}
             >
-              <View style={styles.legendLeft}>
-                <View
-                  style={[styles.legendDot, { backgroundColor: s.color }]}
-                />
-                <Text style={styles.legendName} numberOfLines={1}>
-                  {s.sector}
-                </Text>
-              </View>
-              <Text style={[styles.legendPct, { color: s.color }]}>
-                {s.percentage.toFixed(1)}%
+              <View
+                style={[styles.legendDot, { backgroundColor: s.color }]}
+              />
+              <Text
+                style={[styles.legendName, isActive && styles.legendNameActive]}
+                numberOfLines={1}
+              >
+                {s.sector}
               </Text>
+              <Text style={styles.legendPct}>{s.percentage.toFixed(1)}%</Text>
             </TouchableOpacity>
           );
         })}
       </View>
-
-      {/* Others strip */}
-      {otherSlices.length > 0 && (
-        <View style={styles.othersStrip}>
-          <Text style={styles.othersLabel}>Others</Text>
-          <View style={styles.othersRow}>
-            {otherSlices.map((s) => (
-              <View key={s.sector} style={styles.otherChip}>
-                <View style={[styles.otherDot, { backgroundColor: s.color }]} />
-                <Text style={styles.otherText}>{s.sector}</Text>
-                <Text style={[styles.otherPct, { color: s.color }]}>
-                  {s.percentage.toFixed(1)}%
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -344,7 +322,7 @@ const styles = StyleSheet.create({
   toggle: {
     flexDirection: "row",
     backgroundColor: colors.background,
-    borderRadius: 10,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 3,
@@ -409,32 +387,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 15,
   },
-  legendGrid: {
+  legendList: {
+    gap: 9,
+  },
+  legendRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
     gap: 8,
-  },
-  legendItem: {
-    width: "47%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  legendItemActive: {
-    borderColor: colors.borderLight,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  legendLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    flex: 1,
   },
   legendDot: {
     width: 8,
@@ -443,57 +402,19 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   legendName: {
-    fontSize: 11,
-    fontFamily: fonts.sans.medium,
-    color: colors.textMuted,
     flex: 1,
+    fontSize: 12,
+    fontFamily: fonts.sans.medium,
+    color: colors.textSecondary,
+  },
+  legendNameActive: {
+    color: colors.textPrimary,
+    fontFamily: fonts.sans.semibold,
   },
   legendPct: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: fonts.sans.bold,
+    color: colors.textPrimary,
     flexShrink: 0,
-  },
-  othersStrip: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 8,
-  },
-  othersLabel: {
-    fontSize: 10,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
-  },
-  othersRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  otherChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  otherDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  otherText: {
-    fontSize: 10,
-    fontFamily: fonts.sans.medium,
-    color: colors.textMuted,
-  },
-  otherPct: {
-    fontSize: 10,
-    fontFamily: fonts.sans.semibold,
   },
 });

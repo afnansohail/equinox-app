@@ -16,7 +16,6 @@ import Svg, {
   Circle,
   G,
   Text as SvgText,
-  Rect,
 } from "react-native-svg";
 import { colors, fonts } from "../../constants/theme";
 
@@ -182,45 +181,64 @@ export default function PortfolioChart({
 
   return (
     <View style={[styles.outerContainer, { width }]}>
-      {/* Mode toggle — only shown when relative data is available */}
-      {relativeData !== null && (
-        <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              chartMode === "absolute" && styles.toggleBtnActive,
-            ]}
-            onPress={() => setChartMode("absolute")}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                chartMode === "absolute" && styles.toggleTextActive,
-              ]}
-            >
-              Value
+      {/* Legend (left) + mode toggle (right) — one combined row */}
+      <View style={styles.legendToggleRow}>
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: chartColor }]} />
+            <Text style={styles.legendText}>
+              {showRelative ? "Return %" : "Value"}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              chartMode === "relative" && styles.toggleBtnActive,
-            ]}
-            onPress={() => setChartMode("relative")}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                chartMode === "relative" && styles.toggleTextActive,
-              ]}
-            >
-              Return %
-            </Text>
-          </TouchableOpacity>
+          </View>
+          {!showRelative && investedLinePath && (
+            <View style={styles.legendItem}>
+              <View
+                style={[styles.legendDot, { backgroundColor: investedColor }]}
+              />
+              <Text style={styles.legendText}>Invested</Text>
+            </View>
+          )}
         </View>
-      )}
+
+        {relativeData !== null && (
+          <View style={styles.toggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.toggleBtn,
+                chartMode === "absolute" && styles.toggleBtnActive,
+              ]}
+              onPress={() => setChartMode("absolute")}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.toggleText,
+                  chartMode === "absolute" && styles.toggleTextActive,
+                ]}
+              >
+                Value
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.toggleBtn,
+                chartMode === "relative" && styles.toggleBtnActive,
+              ]}
+              onPress={() => setChartMode("relative")}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.toggleText,
+                  chartMode === "relative" && styles.toggleTextActive,
+                ]}
+              >
+                Return %
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       <View
         style={[styles.container, { width, height }]}
@@ -373,26 +391,6 @@ export default function PortfolioChart({
               />
             </G>
           )}
-          {/* Legend */}
-          {showRelative ? (
-            <G x={0} y={-10}>
-              <Rect x={0} y={0} width={10} height={3} fill={chartColor} />
-              <SvgText x={15} y={3} fontSize={10} fill={colors.textMuted}>
-                Return %
-              </SvgText>
-            </G>
-          ) : (
-            <G x={0} y={-10}>
-              <Rect x={0} y={0} width={10} height={3} fill={chartColor} />
-              <SvgText x={15} y={3} fontSize={10} fill={colors.textMuted}>
-                Value
-              </SvgText>
-              <Rect x={60} y={0} width={10} height={3} fill={investedColor} />
-              <SvgText x={75} y={3} fontSize={10} fill={colors.textMuted}>
-                Invested
-              </SvgText>
-            </G>
-          )}
         </G>
       </Svg>
     </View>
@@ -404,16 +402,39 @@ const styles = StyleSheet.create({
   outerContainer: {
     flexDirection: "column",
   },
+  legendToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  legendRow: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 14,
+    height: 3,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textSecondary,
+  },
   toggleRow: {
     flexDirection: "row",
-    alignSelf: "flex-end",
     backgroundColor: colors.background,
-    borderRadius: 10,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 3,
     gap: 2,
-    marginBottom: 8,
   },
   toggleBtn: {
     paddingHorizontal: 10,

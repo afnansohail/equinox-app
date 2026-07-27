@@ -68,93 +68,89 @@ export const BalanceCard = React.memo(
     }, [isChartLoading, pulseAnim]);
     return (
       <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Portfolio Balance</Text>
-        <Text style={styles.balanceValue}>PKR {formatPKR(totalValue)}</Text>
-
-        <View style={styles.pnlBlock}>
-          <View style={styles.pnlRow}>
-            <Text style={styles.pnlRowLabel}>Total P/L</Text>
-            <View style={styles.pnlRowRight}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.balanceLabel}>Portfolio value</Text>
+            <View style={styles.balanceValueRow}>
+              <Text style={styles.balanceCurrency}>PKR</Text>
+              <Text style={styles.balanceValue}>{formatPKR(totalValue)}</Text>
+            </View>
+          </View>
+          {totalValue > 0 && (
+            <View
+              style={[
+                styles.pnlBadge,
+                {
+                  backgroundColor: dayIsPositive
+                    ? "rgba(52,211,153,0.14)"
+                    : "rgba(255,107,107,0.14)",
+                },
+              ]}
+            >
+              {dayIsPositive ? (
+                <TrendingUp size={13} color={colors.success} />
+              ) : (
+                <TrendingDown size={13} color={colors.danger} />
+              )}
               <Text
                 style={[
-                  styles.pnlRowAmount,
-                  { color: isPositive ? colors.success : colors.danger },
+                  styles.pnlBadgeText,
+                  { color: dayIsPositive ? colors.success : colors.danger },
                 ]}
               >
-                {isPositive ? "+" : "-"}PKR {formatPKR(Math.abs(totalPnL))}
+                {formatPercentage(dayPnLPct)}
               </Text>
-              <View
-                style={[
-                  styles.pnlBadge,
-                  {
-                    backgroundColor: isPositive
-                      ? "rgba(34,197,94,0.14)"
-                      : "rgba(239,68,68,0.14)",
-                  },
-                ]}
-              >
-                {isPositive ? (
-                  <TrendingUp size={11} color={colors.success} />
-                ) : (
-                  <TrendingDown size={11} color={colors.danger} />
-                )}
-                <Text
-                  style={[
-                    styles.pnlBadgeText,
-                    { color: isPositive ? colors.success : colors.danger },
-                  ]}
-                >
-                  {formatPercentage(totalPnLPct)}
-                </Text>
-              </View>
             </View>
+          )}
+        </View>
+
+        <View style={styles.pnlBlock}>
+          <View style={styles.pnlCol}>
+            <Text style={styles.pnlRowLabel}>Today</Text>
+            <Text
+              style={[
+                styles.pnlRowAmount,
+                { color: dayIsPositive ? colors.success : colors.danger },
+              ]}
+            >
+              {dayIsPositive ? "+" : "-"}PKR {formatPKR(Math.abs(dayPnL))}
+            </Text>
           </View>
 
           <View style={styles.pnlDivider} />
 
-          <View style={styles.pnlRow}>
-            <Text style={styles.pnlRowLabel}>Today</Text>
-            <View style={styles.pnlRowRight}>
-              <Text
-                style={[
-                  styles.pnlRowAmount,
-                  { color: dayIsPositive ? colors.success : colors.danger },
-                ]}
-              >
-                {dayIsPositive ? "+" : "-"}PKR {formatPKR(Math.abs(dayPnL))}
+          <View style={styles.pnlCol}>
+            <Text style={styles.pnlRowLabel}>Total P/L</Text>
+            <Text
+              style={[
+                styles.pnlRowAmount,
+                { color: isPositive ? colors.success : colors.danger },
+              ]}
+            >
+              {isPositive ? "+" : "-"}PKR {formatPKR(Math.abs(totalPnL))}{" "}
+              <Text style={styles.pnlRowAmountMuted}>
+                · {formatPercentage(totalPnLPct)}
               </Text>
-              {totalValue > 0 && (
-                <View
-                  style={[
-                    styles.pnlBadge,
-                    {
-                      backgroundColor: dayIsPositive
-                        ? "rgba(34,197,94,0.14)"
-                        : "rgba(239,68,68,0.14)",
-                    },
-                  ]}
-                >
-                  {dayIsPositive ? (
-                    <TrendingUp size={11} color={colors.success} />
-                  ) : (
-                    <TrendingDown size={11} color={colors.danger} />
-                  )}
-                  <Text
-                    style={[
-                      styles.pnlBadgeText,
-                      { color: dayIsPositive ? colors.success : colors.danger },
-                    ]}
-                  >
-                    {formatPercentage(dayPnLPct)}
-                  </Text>
-                </View>
-              )}
-            </View>
+            </Text>
           </View>
         </View>
 
         {(isChartLoading || chartData.length >= 2) && (
           <View style={styles.chartWrap}>
+            {isChartLoading ? (
+              <Animated.View
+                style={[styles.chartSkeleton, { opacity: pulseAnim }]}
+              />
+            ) : (
+              <PortfolioChart
+                data={chartData}
+                investedSeries={investedSeries}
+                isPositive={isPositive}
+                width={Dimensions.get("window").width - 80}
+                height={160}
+              />
+            )}
+
             <View style={styles.filterRow}>
               {FILTER_OPTIONS.map((f) => (
                 <TouchableOpacity
@@ -177,19 +173,6 @@ export const BalanceCard = React.memo(
                 </TouchableOpacity>
               ))}
             </View>
-            {isChartLoading ? (
-              <Animated.View
-                style={[styles.chartSkeleton, { opacity: pulseAnim }]}
-              />
-            ) : (
-              <PortfolioChart
-                data={chartData}
-                investedSeries={investedSeries}
-                isPositive={isPositive}
-                width={Dimensions.get("window").width - 80}
-                height={160}
-              />
-            )}
           </View>
         )}
       </View>
@@ -200,11 +183,16 @@ export const BalanceCard = React.memo(
 const styles = StyleSheet.create({
   balanceCard: {
     backgroundColor: colors.card,
-    borderRadius: 20,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondaryGlow,
     padding: 20,
     marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
   },
   balanceLabel: {
     fontSize: 11,
@@ -214,55 +202,62 @@ const styles = StyleSheet.create({
     letterSpacing: 0.16,
     textTransform: "uppercase",
   },
+  balanceValueRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 6,
+  },
+  balanceCurrency: {
+    fontSize: 15,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+  },
   balanceValue: {
     fontSize: 38,
     fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
     letterSpacing: -0.03,
-    marginBottom: 10,
+    lineHeight: 40,
   },
   pnlBlock: {
-    marginBottom: 12,
-    gap: 8,
-  },
-  pnlRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    gap: 22,
+    marginTop: 14,
+    marginBottom: 14,
+  },
+  pnlCol: {
+    gap: 3,
   },
   pnlDivider: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 8,
+    width: 1,
+    backgroundColor: colors.borderLight,
   },
   pnlRowLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
   },
-  pnlRowRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   pnlRowAmount: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: fonts.sans.bold,
+  },
+  pnlRowAmountMuted: {
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
   pnlBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
   pnlBadgeText: {
-    fontSize: 12,
-    fontFamily: fonts.sans.semibold,
+    fontSize: 13,
+    fontFamily: fonts.sans.bold,
   },
   chartWrap: {
-    marginTop: 12,
     overflow: "visible",
   },
   chartSkeleton: {
@@ -272,26 +267,25 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    gap: 6,
+    marginTop: 10,
   },
   filterPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "transparent",
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 7,
+    borderRadius: 999,
   },
   filterPillActive: {
-    backgroundColor: "rgba(41,253,230,0.12)",
-    borderColor: "rgba(41,253,230,0.35)",
+    backgroundColor: colors.secondary,
   },
   filterPillText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
   },
   filterPillTextActive: {
-    color: colors.secondary,
+    fontFamily: fonts.sans.bold,
+    color: colors.textInverse,
   },
 });
