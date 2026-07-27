@@ -30,7 +30,7 @@ import { getStock } from "../services/api";
 import StockLogo from "../components/shared/StockLogo";
 import RangeBar from "../components/ui/RangeBar";
 import type { RootStackParamList } from "../navigation/types";
-import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import { colors, fonts, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Route = RouteProp<RootStackParamList, "StockDetail">;
 type Nav = NativeStackNavigationProp<RootStackParamList, "StockDetail">;
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textPrimary,
   },
   headerRight: { flexDirection: "row", gap: 6 },
@@ -647,15 +647,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  loadingText: { fontSize: 14, color: colors.textSecondary },
-  errorText: { fontSize: 15, color: colors.textSecondary },
+  loadingText: { fontSize: 14, fontFamily: fonts.sans.medium, color: colors.textMuted },
+  errorText: { fontSize: 15, fontFamily: fonts.sans.medium, color: colors.textMuted },
   retryBtn: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: colors.secondary,
     borderRadius: 20,
   },
-  retryText: { fontSize: 14, fontWeight: "700", color: colors.textInverse },
+  retryText: { fontSize: 14, fontFamily: fonts.sans.bold, color: colors.textInverse },
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
   identityRow: {
     flexDirection: "row",
@@ -672,10 +672,10 @@ const styles = StyleSheet.create({
   identityMeta: { flex: 1, gap: 4 },
   identitySymbol: {
     fontSize: 20,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
   },
-  identityName: { fontSize: 14, color: colors.textSecondary },
+  identityName: { fontSize: 13, fontFamily: fonts.sans.medium, color: colors.textMuted },
   shariahBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -685,13 +685,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  shariahText: { fontSize: 11, color: "#22C55E", fontWeight: "600" },
+  shariahText: { fontSize: 11, fontFamily: fonts.sans.semibold, color: "#22C55E" },
   priceSection: { marginBottom: 24, gap: 10 },
   priceValue: {
     fontSize: 38,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
-    letterSpacing: -1,
+    letterSpacing: -0.03,
   },
   changeChip: {
     flexDirection: "row",
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
   },
-  changeChipText: { fontSize: 13, fontWeight: "600" },
+  changeChipText: { fontSize: 13, fontFamily: fonts.sans.semibold },
   statsCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -714,10 +714,10 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   statsCardTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+    letterSpacing: 0.2,
     textTransform: "uppercase",
     marginBottom: 8,
   },
@@ -737,10 +737,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 4,
   },
-  statLabel: { fontSize: 12, color: colors.textSecondary },
+  statLabel: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted },
   statValue: {
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textPrimary,
   },
   percentagePill: {
@@ -753,8 +753,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   percentagePillText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
   },
   // Action bar
   actionBar: {
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
   },
   sellBtnText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   buyBtn: {
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
   },
   buyBtnText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
 });
