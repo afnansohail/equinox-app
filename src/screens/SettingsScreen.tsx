@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import {
   ChevronRight,
@@ -139,10 +140,13 @@ export default function SettingsScreen() {
         <Text style={styles.title}>Settings</Text>
 
         {/* Account Card */}
-        <View style={styles.accountCard}>
-          <View style={styles.avatar}>
+        <LinearGradient colors={["#0E2320", "#091513"]} style={styles.accountCard}>
+          <LinearGradient
+            colors={colors.gradientSecondary}
+            style={styles.avatar}
+          >
             <Text style={styles.avatarText}>{avatarLetter}</Text>
-          </View>
+          </LinearGradient>
           <View style={styles.accountInfo}>
             <Text style={styles.accountName}>{displayName}</Text>
             {isAnonymous ? (
@@ -160,7 +164,7 @@ export default function SettingsScreen() {
               <Text style={styles.accountId}>{user?.email}</Text>
             )}
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Link Account (guests only) */}
         {isAnonymous && (
@@ -185,7 +189,7 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.card}>
             <SettingsRow
-              icon={<History size={18} color={colors.textSecondary} />}
+              icon={<History size={18} color={colors.secondary} />}
               label="Transaction History"
               onPress={() => navigation.navigate("TransactionHistory")}
             />
@@ -196,14 +200,14 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
             <SettingsRow
-              icon={<Info size={18} color={colors.textSecondary} />}
+              icon={<Info size={18} color={colors.secondary} />}
               label="Equinox v1.0"
               onPress={() => {}}
               showChevron={false}
             />
             <View style={styles.divider} />
             <SettingsRow
-              icon={<Shield size={18} color={colors.textSecondary} />}
+              icon={<Shield size={18} color={colors.secondary} />}
               label="Created by Afnan Sohail"
               onPress={() => {}}
               showChevron={false}
@@ -444,10 +448,9 @@ const styles = StyleSheet.create({
   },
   // Account card
   accountCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondaryGlow,
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
@@ -455,10 +458,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.secondary,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -490,10 +492,10 @@ const styles = StyleSheet.create({
   linkBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(41,253,230,0.07)",
-    borderColor: "rgba(41,253,230,0.25)",
+    backgroundColor: colors.secondaryMuted,
+    borderColor: colors.secondaryGlow,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 20,
     padding: 14,
     marginBottom: 20,
     gap: 12,
@@ -517,7 +519,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: "hidden",
@@ -525,19 +527,19 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 14,
     gap: 12,
   },
   rowIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.backgroundSecondary,
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: colors.accentTile,
     justifyContent: "center",
     alignItems: "center",
   },
   dangerIcon: {
-    backgroundColor: "rgba(239,68,68,0.12)",
+    backgroundColor: colors.dangerMuted,
   },
   rowLabel: {
     flex: 1,
