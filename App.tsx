@@ -6,15 +6,15 @@ import { useIsRestoring } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from "@expo-google-fonts/inter";
+  Archivo_400Regular,
+  Archivo_500Medium,
+  Archivo_600SemiBold,
+  Archivo_700Bold,
+  Archivo_800ExtraBold,
+} from "@expo-google-fonts/archivo";
 import * as SplashScreen from "expo-splash-screen";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { useAuthStore } from "./src/stores/authStore";
-import { useThemeStore } from "./src/stores/themeStore";
 import { colors } from "./src/constants/theme";
 import { queryClient, persistOptions } from "./src/lib/queryClient";
 import "./global.css";
@@ -24,24 +24,23 @@ SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   const { loading, initialize, cleanup } = useAuthStore();
-  const { loadSavedTheme } = useThemeStore();
 
   const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    Archivo_400Regular,
+    Archivo_500Medium,
+    Archivo_600SemiBold,
+    Archivo_700Bold,
+    Archivo_800ExtraBold,
   });
 
   useEffect(() => {
     void initialize();
-    void loadSavedTheme();
 
     // Cleanup auth subscription on unmount
     return () => {
       cleanup();
     };
-  }, [initialize, loadSavedTheme, cleanup]);
+  }, [initialize, cleanup]);
 
   if (!fontsLoaded || loading) {
     return (
