@@ -22,7 +22,7 @@ import DatePickerModal from "../components/ui/DatePickerModal";
 import { useAddTransaction, usePortfolio } from "../hooks/usePortfolio";
 import { getStock } from "../services/api";
 import type { RootStackParamList } from "../navigation/types";
-import { colors } from "../constants/theme";
+import { colors, fonts } from "../constants/theme";
 
 type Route = RouteProp<RootStackParamList, "AddTransaction">;
 type Nav = NativeStackNavigationProp<RootStackParamList, "AddTransaction">;
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   scroll: { padding: 20, paddingTop: 28, gap: 16 },
@@ -521,12 +521,12 @@ const styles = StyleSheet.create({
   },
   typeBtnText: {
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textSecondary,
   },
   typeBtnTextActive: {
     color: colors.textInverse,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
   },
   field: { gap: 8 },
   symbolRow: { flexDirection: "row", gap: 8 },
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: "500",
+    fontFamily: fonts.sans.medium,
     color: colors.textSecondary,
   },
   input: {
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   totalLabel: { fontSize: 14, color: colors.textSecondary },
-  totalValue: { fontSize: 20, fontWeight: "700", color: colors.secondary },
+  totalValue: { fontSize: 20, fontFamily: fonts.sans.bold, color: colors.secondary },
   floatingButtonContainer: {
     paddingHorizontal: 20,
     paddingBottom: 16,
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
   submitBtnDisabled: { opacity: 0.4 },
   submitBtnText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
   entriesSection: {
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
   },
   addEntryText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.secondary,
   },
   entryCard: {
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   },
   entryNumber: {
     fontSize: 13,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textSecondary,
   },
   dateInput: {
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
   },
   entryTotalValue: {
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textPrimary,
   },
 });
