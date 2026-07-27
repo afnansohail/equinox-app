@@ -14,13 +14,16 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ArrowLeft, Search, Calendar } from "lucide-react-native";
 import DatePickerModal from "../components/ui/DatePickerModal";
+import StockLogo from "../components/shared/StockLogo";
 import { useAddDividend } from "../hooks/useDividends";
-import { getStock } from "../services/api";
+import { useStock } from "../hooks/useStocks";
+import { getStock, type Stock } from "../services/api";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, fonts } from "../constants/theme";
 
@@ -36,6 +39,7 @@ export default function AddDividendScreen() {
   const hasSymbolParam = !!route.params?.symbol;
 
   const [symbol, setSymbol] = useState(initialSymbol);
+  const [manualStock, setManualStock] = useState<Stock | null>(null);
   const [shares, setShares] = useState("");
   const [dividendPerShare, setDividendPerShare] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
@@ -48,6 +52,9 @@ export default function AddDividendScreen() {
   const [symbolLoading, setSymbolLoading] = useState(false);
   const [symbolHint, setSymbolHint] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const { data: routeStock } = useStock(hasSymbolParam ? initialSymbol : "");
+  const resolvedStock = hasSymbolParam ? (routeStock ?? null) : manualStock;
 
   const sharesNum = Number(shares);
   const perShareNum = Number(dividendPerShare);
@@ -83,6 +90,7 @@ export default function AddDividendScreen() {
       const stock = await getStock(sym.trim().toUpperCase());
       if (stock) {
         setSymbol(stock.symbol);
+        setManualStock(stock);
         setSymbolHint("");
       } else {
         setSymbolHint("Symbol not found — will be saved as entered");
@@ -92,6 +100,13 @@ export default function AddDividendScreen() {
     } finally {
       setSymbolLoading(false);
     }
+  };
+
+  const clearResolvedSymbol = () => {
+    if (hasSymbolParam) return;
+    setManualStock(null);
+    setSymbol("");
+    setSymbolHint("");
   };
 
   const disabled =
@@ -147,7 +162,7 @@ export default function AddDividendScreen() {
           >
             <ArrowLeft size={22} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add Dividend</Text>
+          <Text style={styles.headerTitle}>Add dividend</Text>
         </View>
 
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -157,23 +172,44 @@ export default function AddDividendScreen() {
             showsVerticalScrollIndicator={false}
           >
             {/* Symbol */}
-            <Text style={styles.fieldLabel}>Stock Symbol</Text>
-            <View style={styles.symbolRow}>
-              <TextInput
-                style={styles.symbolInput}
-                placeholder="e.g. ENGRO"
-                placeholderTextColor={colors.textMuted}
-                value={symbol}
-                onChangeText={(t) => {
-                  setSymbol(t);
-                  setSymbolHint("");
-                }}
-                autoCapitalize="characters"
-                editable={!hasSymbolParam && !symbolLoading}
-                returnKeyType="search"
-                onSubmitEditing={() => lookupSymbol(symbol)}
-              />
-              {!hasSymbolParam && (
+            <Text style={styles.fieldLabel}>Stock symbol</Text>
+            {resolvedStock ? (
+              <TouchableOpacity
+                style={styles.stockChip}
+                onPress={clearResolvedSymbol}
+                activeOpacity={hasSymbolParam ? 1 : 0.7}
+                disabled={hasSymbolParam}
+              >
+                <StockLogo
+                  logoUrl={resolvedStock.logoUrl}
+                  symbol={resolvedStock.symbol}
+                  size={36}
+                />
+                <View style={styles.stockChipMeta}>
+                  <Text style={styles.stockChipSymbol}>
+                    {resolvedStock.symbol}
+                  </Text>
+                  <Text style={styles.stockChipName} numberOfLines={1}>
+                    {resolvedStock.name}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.symbolRow}>
+                <TextInput
+                  style={styles.symbolInput}
+                  placeholder="e.g. ENGRO"
+                  placeholderTextColor={colors.textMuted}
+                  value={symbol}
+                  onChangeText={(t) => {
+                    setSymbol(t);
+                    setSymbolHint("");
+                  }}
+                  autoCapitalize="characters"
+                  editable={!symbolLoading}
+                  returnKeyType="search"
+                  onSubmitEditing={() => lookupSymbol(symbol)}
+                />
                 <TouchableOpacity
                   style={[
                     styles.searchBtn,
@@ -190,8 +226,8 @@ export default function AddDividendScreen() {
                     <Search size={20} color={colors.secondary} />
                   )}
                 </TouchableOpacity>
-              )}
-            </View>
+              </View>
+            )}
             {!!symbolHint && <Text style={styles.fieldHint}>{symbolHint}</Text>}
 
             {/* Input Mode Toggle */}
@@ -213,7 +249,7 @@ export default function AddDividendScreen() {
                     inputMode === "perShare" && styles.modeToggleBtnTextActive,
                   ]}
                 >
-                  Per Share
+                  Per share
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -234,13 +270,13 @@ export default function AddDividendScreen() {
                       styles.modeToggleBtnTextActive,
                   ]}
                 >
-                  Total Amount
+                  Total amount
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Shares */}
-            <Text style={styles.fieldLabel}>Number of Shares</Text>
+            <Text style={styles.fieldLabel}>Number of shares</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. 500"
@@ -253,7 +289,7 @@ export default function AddDividendScreen() {
             {/* Dividend Per Share or Total Amount */}
             {inputMode === "perShare" ? (
               <>
-                <Text style={styles.fieldLabel}>Dividend Per Share (PKR)</Text>
+                <Text style={styles.fieldLabel}>Dividend per share (PKR)</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. 5.50"
@@ -266,7 +302,7 @@ export default function AddDividendScreen() {
             ) : (
               <>
                 <Text style={styles.fieldLabel}>
-                  Total Dividend Amount (PKR)
+                  Total dividend amount (PKR)
                 </Text>
                 <TextInput
                   style={styles.input}
@@ -276,47 +312,58 @@ export default function AddDividendScreen() {
                   onChangeText={setTotalAmount}
                   keyboardType="decimal-pad"
                 />
-                {/* Show calculated per share in totalAmount mode */}
-                {sharesNum > 0 &&
-                  totalAmountNum > 0 &&
-                  !isNaN(sharesNum) &&
-                  !isNaN(totalAmountNum) && (
-                    <View style={styles.calculatedRow}>
-                      <Text style={styles.calculatedLabel}>Per Share:</Text>
-                      <Text style={styles.calculatedValue}>
-                        PKR{" "}
-                        {(totalAmountNum / sharesNum).toLocaleString("en-PK", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        })}
-                      </Text>
-                    </View>
-                  )}
               </>
             )}
 
-            {/* Total Preview */}
-            {totalPreview !== null && (
-              <View style={styles.totalPreview}>
-                <Text style={styles.totalLabel}>Total Dividend</Text>
-                <Text style={styles.totalValue}>
-                  PKR{" "}
-                  {totalPreview.toLocaleString("en-PK", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </Text>
-              </View>
-            )}
+            {/* Reciprocal preview — total payout in per-share mode, per-share in total-amount mode */}
+            {inputMode === "perShare"
+              ? totalPreview !== null && (
+                  <LinearGradient
+                    colors={["#0E2320", "#091513"]}
+                    style={styles.previewCard}
+                  >
+                    <View>
+                      <Text style={styles.previewLabel}>Total payout</Text>
+                      <Text style={styles.previewSub}>
+                        {sharesNum} shares × PKR {perShareNum.toFixed(2)}
+                      </Text>
+                    </View>
+                    <Text style={styles.previewValue}>
+                      PKR{" "}
+                      {totalPreview.toLocaleString("en-PK", {
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </LinearGradient>
+                )
+              : calculatedDividendPerShare !== null && (
+                  <LinearGradient
+                    colors={["#0E2320", "#091513"]}
+                    style={styles.previewCard}
+                  >
+                    <View>
+                      <Text style={styles.previewLabel}>Per share</Text>
+                      <Text style={styles.previewSub}>
+                        {sharesNum} shares ÷ PKR{" "}
+                        {totalAmountNum.toLocaleString("en-PK", {
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={styles.previewValue}>
+                      PKR {calculatedDividendPerShare.toFixed(2)}
+                    </Text>
+                  </LinearGradient>
+                )}
 
             {/* Payment Date */}
-            <Text style={styles.fieldLabel}>Payment Date</Text>
+            <Text style={styles.fieldLabel}>Payment date</Text>
             <TouchableOpacity
               style={styles.dateRow}
               onPress={() => setShowDatePicker(true)}
               activeOpacity={0.8}
             >
-              <Calendar size={18} color={colors.secondary} />
+              <Calendar size={17} color={colors.secondary} />
               <Text style={styles.dateText}>
                 {paymentDate.toLocaleDateString("en-PK", {
                   day: "2-digit",
@@ -348,7 +395,7 @@ export default function AddDividendScreen() {
               {submitting ? (
                 <ActivityIndicator color={colors.textInverse} />
               ) : (
-                <Text style={styles.saveBtnText}>Save Dividend</Text>
+                <Text style={styles.saveBtnText}>Save dividend</Text>
               )}
             </TouchableOpacity>
           </ScrollView>
@@ -374,15 +421,15 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 12,
     gap: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -390,10 +437,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 20,
-    fontFamily: fonts.sans.extrabold,
+    fontSize: 18,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
-    letterSpacing: -0.3,
+    letterSpacing: -0.1,
   },
   scroll: {
     paddingHorizontal: 20,
@@ -401,28 +448,30 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fieldLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.sans.bold,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginTop: 12,
-    marginBottom: 2,
+    letterSpacing: 0.12,
+    marginTop: 14,
+    marginBottom: 8,
   },
   input: {
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 15,
     fontSize: 15,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   notesInput: {
-    minHeight: 80,
+    minHeight: 64,
     textAlignVertical: "top",
-    paddingTop: 13,
+    paddingTop: 14,
+    fontFamily: fonts.sans.medium,
   },
   symbolRow: {
     flexDirection: "row",
@@ -432,20 +481,20 @@ const styles = StyleSheet.create({
   symbolInput: {
     flex: 1,
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 15,
     fontSize: 15,
     fontFamily: fonts.sans.semibold,
     letterSpacing: 0.5,
     color: colors.textPrimary,
   },
   searchBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+    width: 54,
+    height: 54,
+    borderRadius: 16,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -455,108 +504,118 @@ const styles = StyleSheet.create({
   searchBtnDisabled: { opacity: 0.4 },
   fieldHint: {
     fontSize: 12,
+    fontFamily: fonts.sans.medium,
     color: colors.textMuted,
     paddingHorizontal: 2,
-  },
-  totalPreview: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: colors.secondaryMuted,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.secondary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     marginTop: 4,
   },
-  totalLabel: {
-    fontSize: 13,
-    fontFamily: fonts.sans.bold,
-    color: colors.secondary,
+  stockChip: {
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.secondaryGlow,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
   },
-  totalValue: {
-    fontSize: 16,
+  stockChipMeta: { flex: 1, gap: 1 },
+  stockChipSymbol: {
+    fontSize: 15,
+    fontFamily: fonts.sans.bold,
+    color: colors.textPrimary,
+  },
+  stockChipName: {
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
+  },
+  previewCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.secondaryGlow,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginTop: 14,
+  },
+  previewLabel: {
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.12,
+  },
+  previewSub: {
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textDim,
+    marginTop: 3,
+  },
+  previewValue: {
+    fontSize: 22,
     fontFamily: fonts.sans.extrabold,
     color: colors.secondary,
+    letterSpacing: -0.02,
   },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 15,
   },
   dateText: {
     fontSize: 15,
     color: colors.textPrimary,
-    fontFamily: fonts.sans.semibold,
+    fontFamily: fonts.sans.bold,
   },
   saveBtn: {
     backgroundColor: colors.secondary,
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: 18,
+    paddingVertical: 17,
     alignItems: "center",
-    marginTop: 28,
+    marginTop: 24,
   },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fonts.sans.extrabold,
     color: colors.textInverse,
   },
   modeToggleContainer: {
     flexDirection: "row",
-    gap: 10,
-    marginTop: 8,
-    marginBottom: 4,
+    backgroundColor: colors.card,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 4,
+    gap: 4,
+    marginTop: 14,
   },
   modeToggleBtn: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 999,
     alignItems: "center",
   },
   modeToggleBtnActive: {
     backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
   },
   modeToggleBtnText: {
     fontSize: 13,
-    fontFamily: fonts.sans.bold,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
   modeToggleBtnTextActive: {
     color: colors.textInverse,
-  },
-  calculatedRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 4,
-  },
-  calculatedLabel: {
-    fontSize: 13,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textSecondary,
-  },
-  calculatedValue: {
-    fontSize: 15,
-    fontFamily: fonts.sans.bold,
-    color: colors.textPrimary,
+    fontFamily: fonts.sans.extrabold,
   },
 });
