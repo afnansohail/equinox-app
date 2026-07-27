@@ -26,7 +26,7 @@ import { useAuthStore } from "../stores/authStore";
 import { deleteAllUserData } from "../services/api";
 import type { RootStackParamList } from "../navigation/types";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import { colors, fonts, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
   title: {
     fontSize: 28,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
     letterSpacing: -0.5,
     marginBottom: 20,
@@ -464,13 +464,13 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
   accountInfo: { flex: 1, gap: 4 },
   accountName: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   accountId: { fontSize: 13, color: colors.textSecondary },
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   guestBadgeText: {
     fontSize: 11,
     color: colors.warning,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
   // Link Banner
   linkBanner: {
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
   },
   linkBannerTitle: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.secondary,
   },
   linkBannerSub: { fontSize: 12, color: colors.textSecondary },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   section: { marginBottom: 20 },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textSecondary,
     letterSpacing: 0.8,
     textTransform: "uppercase",
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: colors.textPrimary,
-    fontWeight: "500",
+    fontFamily: fonts.sans.medium,
   },
   divider: { height: 1, backgroundColor: colors.border, marginLeft: 60 },
   // Modal
@@ -563,12 +563,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   modalSubtitle: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
   inputGroup: { gap: 6 },
-  inputLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+  inputLabel: { fontSize: 13, color: colors.textSecondary, fontFamily: fonts.sans.medium },
   input: {
     height: 48,
     backgroundColor: colors.backgroundSecondary,
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  linkBtnText: { fontSize: 15, fontWeight: "700", color: colors.textInverse },
+  linkBtnText: { fontSize: 15, fontFamily: fonts.sans.bold, color: colors.textInverse },
   cancelBtn: {
     height: 44,
     justifyContent: "center",
@@ -613,5 +613,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  deleteBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  deleteBtnText: { fontSize: 15, fontFamily: fonts.sans.bold, color: "#fff" },
 });
