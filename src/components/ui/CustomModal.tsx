@@ -7,7 +7,7 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts, borderRadius } from "../../constants/theme";
 
 export interface ModalButton {
   text: string;
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 20,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 24,
@@ -111,19 +111,20 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(41, 253, 230, 0.12)",
+    backgroundColor: colors.secondaryMuted,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 4,
   },
   title: {
     fontSize: 18,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     textAlign: "center",
   },
   message: {
     fontSize: 14,
+    fontFamily: fonts.sans.regular,
     color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 48,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
@@ -152,11 +153,12 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textInverse,
   },
   buttonTextDestructive: {
-    color: "#fff",
+    fontFamily: fonts.sans.semibold,
+    color: colors.textOnCoral,
   },
   buttonTextCancel: {
     color: colors.textSecondary,
