@@ -17,10 +17,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ArrowLeft, Search, Calendar, Plus, Trash2 } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Search,
+  Calendar,
+  Plus,
+  Trash2,
+  StickyNote,
+} from "lucide-react-native";
 import DatePickerModal from "../components/ui/DatePickerModal";
+import StockLogo from "../components/shared/StockLogo";
 import { useAddTransaction, usePortfolio } from "../hooks/usePortfolio";
-import { getStock } from "../services/api";
+import { useStock } from "../hooks/useStocks";
+import { getStock, type Stock } from "../services/api";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, fonts } from "../constants/theme";
 
@@ -48,6 +57,7 @@ export default function AddTransactionScreen() {
   const [symbol, setSymbol] = useState(initialSymbol);
   const [type, setType] = useState<TxKind>(initialType);
   const [notes, setNotes] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
 
   const [entries, setEntries] = useState<TransactionEntry[]>([
     {
@@ -62,9 +72,20 @@ export default function AddTransactionScreen() {
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
 
   const hasSymbolParam = !!route.params?.symbol;
+  const [manualStock, setManualStock] = useState<Stock | null>(null);
   const [symbolLoading, setSymbolLoading] = useState(false);
   const [symbolError, setSymbolError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const { data: routeStock } = useStock(hasSymbolParam ? initialSymbol : "");
+  const resolvedStock = hasSymbolParam ? (routeStock ?? null) : manualStock;
+
+  const isBuy = type === "BUY";
+  const accentColor = isBuy ? colors.secondary : colors.danger;
+  const accentMuted = isBuy ? colors.secondaryMuted : colors.dangerMuted;
+  const accentGlow = isBuy
+    ? colors.secondaryGlow
+    : "rgba(255,107,107,0.25)";
 
   const { data: holdings } = usePortfolio();
   const holding = holdings?.find(
@@ -81,6 +102,14 @@ export default function AddTransactionScreen() {
   const totalAmount = entries.reduce((sum, e) => {
     return sum + (Number(e.quantity) || 0) * (Number(e.price) || 0);
   }, 0);
+  const avgPrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0;
+  const realizedPnL = entries.reduce((sum, e) => {
+    const qty = Number(e.quantity) || 0;
+    const price = Number(e.price) || 0;
+    if (qty <= 0 || !holding) return sum;
+    return sum + (price - holding.averageBuyPrice) * qty;
+  }, 0);
+  const realizedPositive = realizedPnL >= 0;
 
   const lookupSymbol = async (sym: string) => {
     if (hasSymbolParam || !sym.trim()) return;
@@ -90,6 +119,7 @@ export default function AddTransactionScreen() {
       const stock = await getStock(sym.trim().toUpperCase());
       if (stock) {
         setSymbol(stock.symbol);
+        setManualStock(stock);
         setEntries((prev) =>
           prev.map((e) =>
             !e.price ? { ...e, price: stock.currentPrice.toString() } : e,
@@ -103,6 +133,13 @@ export default function AddTransactionScreen() {
     } finally {
       setSymbolLoading(false);
     }
+  };
+
+  const clearResolvedSymbol = () => {
+    if (hasSymbolParam) return;
+    setManualStock(null);
+    setSymbol("");
+    setSymbolError("");
   };
 
   const addEntry = () => {
@@ -136,13 +173,6 @@ export default function AddTransactionScreen() {
   const openDatePicker = (entryId: string) => {
     setActiveEntryId(entryId);
     setShowDatePicker(true);
-  };
-
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === "ios");
-    if (selectedDate && activeEntryId) {
-      updateEntry(activeEntryId, "date", selectedDate);
-    }
   };
 
   const isValidEntry = (e: TransactionEntry) =>
@@ -197,9 +227,7 @@ export default function AddTransactionScreen() {
           >
             <ArrowLeft size={22} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {type === "SELL" ? "Sell Stock" : "Buy Stock"}
-          </Text>
+          <Text style={styles.headerTitle}>Record a trade</Text>
         </View>
 
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -212,7 +240,7 @@ export default function AddTransactionScreen() {
               <TouchableOpacity
                 style={[
                   styles.typeBtn,
-                  type === "BUY" && styles.typeBtnBuyActive,
+                  type === "BUY" && { backgroundColor: colors.secondary },
                 ]}
                 onPress={() => setType("BUY")}
               >
@@ -228,17 +256,14 @@ export default function AddTransactionScreen() {
               <TouchableOpacity
                 style={[
                   styles.typeBtn,
-                  type === "SELL" && styles.typeBtnSellActive,
+                  type === "SELL" && { backgroundColor: colors.danger },
                 ]}
                 onPress={() => setType("SELL")}
               >
                 <Text
                   style={[
                     styles.typeBtnText,
-                    type === "SELL" && {
-                      color: colors.danger,
-                      fontWeight: "700",
-                    },
+                    type === "SELL" && styles.typeBtnTextActive,
                   ]}
                 >
                   Sell
@@ -247,28 +272,67 @@ export default function AddTransactionScreen() {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Stock Symbol</Text>
-              <View style={styles.symbolRow}>
-                <TextInput
+              <Text style={styles.fieldLabel}>Stock symbol</Text>
+
+              {resolvedStock ? (
+                <TouchableOpacity
                   style={[
-                    styles.input,
-                    styles.symbolInput,
-                    hasSymbolParam && styles.inputLocked,
+                    styles.stockChip,
+                    { borderColor: accentGlow },
                   ]}
-                  placeholder="e.g. OGDC, LUCK, FFC"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="characters"
-                  value={symbol}
-                  onChangeText={(t) => {
-                    setSymbol(t);
-                    setSymbolError("");
-                  }}
-                  onBlur={() => lookupSymbol(symbol)}
-                  editable={!hasSymbolParam}
-                  returnKeyType="search"
-                  onSubmitEditing={() => lookupSymbol(symbol)}
-                />
-                {!hasSymbolParam && (
+                  onPress={clearResolvedSymbol}
+                  activeOpacity={hasSymbolParam ? 1 : 0.7}
+                  disabled={hasSymbolParam}
+                >
+                  <StockLogo
+                    logoUrl={resolvedStock.logoUrl}
+                    symbol={resolvedStock.symbol}
+                    size={36}
+                  />
+                  <View style={styles.stockChipMeta}>
+                    <Text style={styles.stockChipSymbol}>
+                      {resolvedStock.symbol}
+                    </Text>
+                    <Text style={styles.stockChipName} numberOfLines={1}>
+                      {resolvedStock.name}
+                    </Text>
+                  </View>
+                  <View style={styles.stockChipRight}>
+                    <Text style={styles.stockChipPrice}>
+                      {resolvedStock.currentPrice.toFixed(2)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.stockChipPct,
+                        {
+                          color:
+                            resolvedStock.changePercent >= 0
+                              ? colors.success
+                              : colors.danger,
+                        },
+                      ]}
+                    >
+                      {resolvedStock.changePercent >= 0 ? "+" : ""}
+                      {resolvedStock.changePercent.toFixed(2)}%
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.symbolRow}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. OGDC, LUCK, FFC"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="characters"
+                    value={symbol}
+                    onChangeText={(t) => {
+                      setSymbol(t);
+                      setSymbolError("");
+                    }}
+                    onBlur={() => lookupSymbol(symbol)}
+                    returnKeyType="search"
+                    onSubmitEditing={() => lookupSymbol(symbol)}
+                  />
                   <TouchableOpacity
                     style={styles.symbolSearchBtn}
                     onPress={() => lookupSymbol(symbol)}
@@ -283,8 +347,8 @@ export default function AddTransactionScreen() {
                       <Search size={20} color={colors.secondary} />
                     )}
                   </TouchableOpacity>
-                )}
-              </View>
+                </View>
+              )}
               {!!symbolError && (
                 <Text style={styles.symbolError}>{symbolError}</Text>
               )}
@@ -292,49 +356,56 @@ export default function AddTransactionScreen() {
 
             {type === "SELL" && (
               <View style={styles.holdingHint}>
-                <Text style={styles.holdingHintText}>
-                  Available:{" "}
-                  <Text
-                    style={{
-                      color:
-                        availableQty > 0 ? colors.secondary : colors.danger,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {availableQty} shares
-                  </Text>
+                <Text style={styles.holdingHintLabel}>Available to sell</Text>
+                <Text style={styles.holdingHintValue}>
+                  {availableQty} shares
+                  {holding
+                    ? ` · avg PKR ${holding.averageBuyPrice.toFixed(2)}`
+                    : ""}
                 </Text>
               </View>
             )}
 
             <View style={styles.entriesSection}>
               <View style={styles.entriesHeader}>
-                <Text style={styles.fieldLabel}>Transaction Details</Text>
-                <TouchableOpacity style={styles.addEntryBtn} onPress={addEntry}>
-                  <Plus size={16} color={colors.secondary} />
-                  <Text style={styles.addEntryText}>Add Entry</Text>
+                <Text style={styles.entriesLabel}>
+                  Entries · {entries.length}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.addEntryBtn, { backgroundColor: accentMuted }]}
+                  onPress={addEntry}
+                >
+                  <Plus size={14} color={accentColor} />
+                  <Text style={[styles.addEntryText, { color: accentColor }]}>
+                    Add entry
+                  </Text>
                 </TouchableOpacity>
               </View>
 
               {entries.map((entry, index) => (
                 <View key={entry.id} style={styles.entryCard}>
-                  {entries.length > 1 && (
-                    <View style={styles.entryHeader}>
-                      <Text style={styles.entryNumber}>Entry {index + 1}</Text>
+                  <View style={styles.entryHeader}>
+                    <Text style={[styles.entryNumber, { color: accentColor }]}>
+                      Entry {index + 1}
+                    </Text>
+                    {entries.length > 1 && (
                       <TouchableOpacity
                         onPress={() => removeEntry(entry.id)}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        <Trash2 size={18} color={colors.danger} />
+                        <Trash2 size={16} color={colors.textDim} />
                       </TouchableOpacity>
-                    </View>
-                  )}
+                    )}
+                  </View>
 
                   <View style={styles.row2}>
                     <View style={[styles.field, { flex: 1 }]}>
-                      <Text style={styles.fieldLabel}>Quantity</Text>
+                      <Text style={styles.entryFieldLabel}>Quantity</Text>
                       <TextInput
-                        style={[styles.input, oversell && styles.inputError]}
+                        style={[
+                          styles.entryInput,
+                          oversell && styles.inputError,
+                        ]}
                         placeholder="0"
                         placeholderTextColor={colors.textMuted}
                         keyboardType="numeric"
@@ -345,9 +416,9 @@ export default function AddTransactionScreen() {
                       />
                     </View>
                     <View style={[styles.field, { flex: 1 }]}>
-                      <Text style={styles.fieldLabel}>Price (PKR)</Text>
+                      <Text style={styles.entryFieldLabel}>Price (PKR)</Text>
                       <TextInput
-                        style={styles.input}
+                        style={styles.entryInput}
                         placeholder="0.00"
                         placeholderTextColor={colors.textMuted}
                         keyboardType="decimal-pad"
@@ -357,13 +428,12 @@ export default function AddTransactionScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>Date</Text>
+                  <View style={styles.entryBottomRow}>
                     <TouchableOpacity
                       style={styles.dateInput}
                       onPress={() => openDatePicker(entry.id)}
                     >
-                      <Calendar size={18} color={colors.textSecondary} />
+                      <Calendar size={15} color={colors.textMuted} />
                       <Text style={styles.dateText}>
                         {entry.date.toLocaleDateString("en-PK", {
                           year: "numeric",
@@ -372,22 +442,21 @@ export default function AddTransactionScreen() {
                         })}
                       </Text>
                     </TouchableOpacity>
-                  </View>
 
-                  {Number(entry.quantity) > 0 && Number(entry.price) > 0 && (
-                    <View style={styles.entryTotal}>
-                      <Text style={styles.entryTotalLabel}>Subtotal:</Text>
-                      <Text style={styles.entryTotalValue}>
-                        PKR{" "}
-                        {(
-                          Number(entry.quantity) * Number(entry.price)
-                        ).toLocaleString("en-PK", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </Text>
-                    </View>
-                  )}
+                    {Number(entry.quantity) > 0 && Number(entry.price) > 0 && (
+                      <View style={styles.entrySubtotal}>
+                        <Text style={styles.entrySubtotalLabel}>Subtotal</Text>
+                        <Text style={styles.entrySubtotalValue}>
+                          PKR{" "}
+                          {(
+                            Number(entry.quantity) * Number(entry.price)
+                          ).toLocaleString("en-PK", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               ))}
             </View>
@@ -399,52 +468,88 @@ export default function AddTransactionScreen() {
               </Text>
             )}
 
-            <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>Total Amount</Text>
-              <Text style={styles.totalValue}>
-                PKR{" "}
-                {totalAmount.toLocaleString("en-PK", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </Text>
-            </View>
+            {showNotes && (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Notes (optional)</Text>
+                <TextInput
+                  style={[styles.input, styles.notesInput]}
+                  placeholder="Add a note..."
+                  placeholderTextColor={colors.textMuted}
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  autoFocus
+                />
+              </View>
+            )}
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Notes (optional)</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  { height: 80, textAlignVertical: "top", paddingTop: 14 },
-                ]}
-                placeholder="Add a note..."
-                placeholderTextColor={colors.textMuted}
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-              />
-            </View>
-
-            <View style={{ height: 80 }} />
+            <View style={{ height: 20 }} />
           </ScrollView>
         </TouchableWithoutFeedback>
 
-        <View style={styles.floatingButtonContainer}>
+        <View style={styles.footer}>
+          <View style={styles.footerTopRow}>
+            <View>
+              {type === "BUY" ? (
+                <Text style={styles.footerMeta}>
+                  {totalQuantity} shares · avg PKR {avgPrice.toFixed(2)}
+                </Text>
+              ) : (
+                <Text style={styles.footerMeta}>
+                  {totalQuantity} shares · realised P/L{" "}
+                  <Text
+                    style={{
+                      color: realizedPositive ? colors.success : colors.danger,
+                      fontFamily: fonts.sans.bold,
+                    }}
+                  >
+                    {realizedPositive ? "+" : "-"}PKR{" "}
+                    {Math.abs(realizedPnL).toLocaleString("en-PK", {
+                      maximumFractionDigits: 0,
+                    })}
+                  </Text>
+                </Text>
+              )}
+              <Text style={styles.footerTotal}>
+                PKR{" "}
+                {totalAmount.toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+            </View>
+            {!showNotes && (
+              <TouchableOpacity
+                style={styles.addNoteBtn}
+                onPress={() => setShowNotes(true)}
+              >
+                <StickyNote size={14} color={colors.textMuted} />
+                <Text style={styles.addNoteText}>Add note</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           <TouchableOpacity
-            style={[styles.submitBtn, disabled && styles.submitBtnDisabled]}
+            style={[
+              styles.submitBtn,
+              { backgroundColor: accentColor },
+              disabled && styles.submitBtnDisabled,
+            ]}
             onPress={onSubmit}
             disabled={disabled}
             activeOpacity={0.85}
           >
             {submitting ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <ActivityIndicator
+                color={isBuy ? colors.textInverse : colors.textOnCoral}
+              />
             ) : (
-              <Text style={styles.submitBtnText}>
-                Save{" "}
-                {entries.length > 1
-                  ? `${entries.filter(isValidEntry).length} `
-                  : ""}
-                {type === "BUY" ? "Buy" : "Sell"} Transaction
+              <Text
+                style={[
+                  styles.submitBtnText,
+                  { color: isBuy ? colors.textInverse : colors.textOnCoral },
+                ]}
+              >
+                Save {isBuy ? "buy" : "sell"} transaction
                 {entries.filter(isValidEntry).length > 1 ? "s" : ""}
               </Text>
             )}
@@ -480,9 +585,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -490,15 +595,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
+    letterSpacing: -0.1,
   },
-  scroll: { padding: 20, paddingTop: 28, gap: 16 },
+  scroll: { padding: 20, paddingTop: 8, gap: 16 },
   typeToggle: {
     flexDirection: "row",
     backgroundColor: colors.card,
-    borderRadius: 14,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 4,
@@ -507,35 +613,44 @@ const styles = StyleSheet.create({
   typeBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 11,
+    borderRadius: 999,
     justifyContent: "center",
     alignItems: "center",
   },
-  typeBtnBuyActive: {
-    backgroundColor: colors.secondary,
-  },
-  typeBtnSellActive: {
-    backgroundColor: "rgba(239,68,68,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.3)",
-  },
   typeBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: fonts.sans.semibold,
-    color: colors.textSecondary,
+    color: colors.textMuted,
   },
   typeBtnTextActive: {
     color: colors.textInverse,
-    fontFamily: fonts.sans.bold,
+    fontFamily: fonts.sans.extrabold,
   },
-  field: { gap: 8 },
+  field: { gap: 10 },
+  fieldLabel: {
+    fontSize: 11,
+    fontFamily: fonts.sans.bold,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.12,
+  },
   symbolRow: { flexDirection: "row", gap: 8 },
-  symbolInput: { flex: 1 },
-  symbolSearchBtn: {
-    width: 50,
-    height: 50,
+  input: {
+    flex: 1,
+    height: 56,
     backgroundColor: colors.card,
-    borderRadius: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  symbolSearchBtn: {
+    width: 56,
+    height: 56,
+    backgroundColor: colors.card,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: "center",
@@ -544,100 +659,87 @@ const styles = StyleSheet.create({
   symbolError: {
     fontSize: 12,
     color: colors.danger,
-    marginTop: 2,
   },
-  holdingHint: {
-    backgroundColor: "rgba(41,253,230,0.07)",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(41,253,230,0.15)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  holdingHintText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontFamily: fonts.sans.medium,
-    color: colors.textSecondary,
-  },
-  input: {
-    height: 50,
+  stockChip: {
+    height: 56,
+    borderRadius: 18,
     backgroundColor: colors.card,
-    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+  },
+  stockChipMeta: { flex: 1, gap: 1 },
+  stockChipSymbol: {
     fontSize: 15,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
-  inputLocked: {
-    opacity: 0.6,
+  stockChipName: {
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
   },
-  inputError: {
-    borderColor: colors.danger,
+  stockChipRight: { alignItems: "flex-end", gap: 1 },
+  stockChipPrice: {
+    fontSize: 13,
+    fontFamily: fonts.sans.bold,
+    color: colors.textPrimary,
   },
-  row2: { flexDirection: "row", gap: 12 },
-  totalCard: {
-    backgroundColor: "rgba(41,253,230,0.07)",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(41,253,230,0.2)",
-    padding: 16,
+  stockChipPct: {
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+  },
+  holdingHint: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: colors.dangerMuted,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,107,0.18)",
+    paddingHorizontal: 14,
+    paddingVertical: 11,
   },
-  totalLabel: { fontSize: 14, color: colors.textSecondary },
-  totalValue: { fontSize: 20, fontFamily: fonts.sans.bold, color: colors.secondary },
-  floatingButtonContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    paddingTop: 12,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  holdingHintLabel: {
+    fontSize: 12,
+    fontFamily: fonts.sans.medium,
+    color: colors.textSecondary,
   },
-  submitBtn: {
-    height: 54,
-    backgroundColor: colors.secondary,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  submitBtnDisabled: { opacity: 0.4 },
-  submitBtnText: {
-    fontSize: 16,
+  holdingHintValue: {
+    fontSize: 13,
     fontFamily: fonts.sans.bold,
-    color: colors.textInverse,
+    color: colors.danger,
   },
-  entriesSection: {
-    gap: 12,
-  },
+  entriesSection: { gap: 12 },
   entriesHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  entriesLabel: {
+    fontSize: 11,
+    fontFamily: fonts.sans.bold,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.12,
+  },
   addEntryBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "rgba(41,253,230,0.12)",
-    borderRadius: 8,
+    gap: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 999,
   },
   addEntryText: {
-    fontSize: 13,
-    fontFamily: fonts.sans.semibold,
-    color: colors.secondary,
+    fontSize: 12,
+    fontFamily: fonts.sans.bold,
   },
   entryCard: {
     backgroundColor: colors.card,
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 14,
@@ -647,43 +749,120 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
   },
   entryNumber: {
-    fontSize: 13,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textSecondary,
+    fontSize: 11,
+    fontFamily: fonts.sans.bold,
+    textTransform: "uppercase",
+    letterSpacing: 0.12,
   },
-  dateInput: {
-    height: 50,
-    backgroundColor: colors.card,
+  row2: { flexDirection: "row", gap: 10 },
+  entryFieldLabel: {
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
+  },
+  entryInput: {
+    height: 44,
+    backgroundColor: colors.trackDeep,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontFamily: fonts.sans.bold,
+    color: colors.textPrimary,
+  },
+  inputError: {
+    borderColor: colors.danger,
+  },
+  entryBottomRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
   },
-  dateText: {
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  entryTotal: {
+  dateInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: colors.trackDeep,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    gap: 8,
   },
-  entryTotalLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  entryTotalValue: {
-    fontSize: 15,
+  dateText: {
+    fontSize: 14,
     fontFamily: fonts.sans.semibold,
     color: colors.textPrimary,
+  },
+  entrySubtotal: { alignItems: "flex-end", gap: 1 },
+  entrySubtotalLabel: {
+    fontSize: 10,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
+  },
+  entrySubtotalValue: {
+    fontSize: 14,
+    fontFamily: fonts.sans.bold,
+    color: colors.textPrimary,
+  },
+  notesInput: {
+    height: undefined,
+    minHeight: 64,
+    paddingTop: 14,
+    paddingBottom: 14,
+    textAlignVertical: "top",
+  },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
+    backgroundColor: colors.backgroundSecondary,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 12,
+  },
+  footerTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  footerMeta: {
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
+  },
+  footerTotal: {
+    fontSize: 20,
+    fontFamily: fonts.sans.extrabold,
+    color: colors.textPrimary,
+    letterSpacing: -0.02,
+    marginTop: 2,
+  },
+  addNoteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingBottom: 4,
+  },
+  addNoteText: {
+    fontSize: 12,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+  },
+  submitBtn: {
+    height: 54,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  submitBtnDisabled: { opacity: 0.4 },
+  submitBtnText: {
+    fontSize: 15,
+    fontFamily: fonts.sans.extrabold,
   },
 });
