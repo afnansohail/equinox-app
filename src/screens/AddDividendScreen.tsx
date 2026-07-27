@@ -22,7 +22,7 @@ import DatePickerModal from "../components/ui/DatePickerModal";
 import { useAddDividend } from "../hooks/useDividends";
 import { getStock } from "../services/api";
 import type { RootStackParamList } from "../navigation/types";
-import { colors } from "../constants/theme";
+import { colors, fonts } from "../constants/theme";
 
 type Route = RouteProp<RootStackParamList, "AddDividend">;
 type Nav = NativeStackNavigationProp<RootStackParamList, "AddDividend">;
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
     letterSpacing: -0.3,
   },
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.6,
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     letterSpacing: 0.5,
     color: colors.textPrimary,
   },
@@ -472,12 +472,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.secondary,
   },
   totalValue: {
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.secondary,
   },
   dateRow: {
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 15,
     color: colors.textPrimary,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
   saveBtn: {
     backgroundColor: colors.secondary,
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: {
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textInverse,
   },
   modeToggleContainer: {
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   },
   modeToggleBtnText: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textSecondary,
   },
   modeToggleBtnTextActive: {
@@ -551,12 +551,12 @@ const styles = StyleSheet.create({
   },
   calculatedLabel: {
     fontSize: 13,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textSecondary,
   },
   calculatedValue: {
     fontSize: 15,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
 });
