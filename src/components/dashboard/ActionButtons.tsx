@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { ArrowUpRight, ArrowDownRight, History, RefreshCw } from "lucide-react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts, borderRadius } from "../../constants/theme";
 
 interface ActionButtonsProps {
   onBuy: () => void;
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   actionIconCircle: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: borderRadius.xl,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -85,8 +85,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
 });

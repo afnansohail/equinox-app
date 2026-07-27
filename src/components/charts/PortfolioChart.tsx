@@ -18,7 +18,7 @@ import Svg, {
   Text as SvgText,
   Rect,
 } from "react-native-svg";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 
 type ChartMode = "absolute" | "relative";
 
@@ -425,10 +425,11 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
   },
   toggleTextActive: {
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
   container: {
@@ -454,11 +455,12 @@ const styles = StyleSheet.create({
   tooltipValue: {
     color: colors.textPrimary,
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
   },
   tooltipLabel: {
     color: colors.textMuted,
     fontSize: 10,
+    fontFamily: fonts.sans.medium,
   },
 });
 

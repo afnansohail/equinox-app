@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts, borderRadius } from "../../constants/theme";
 import type { PortfolioHolding } from "../../services/api";
 
 type Mode = "today" | "allTime";
@@ -292,8 +292,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   toggle: {
@@ -315,10 +315,11 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
   },
   toggleTextActive: {
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
   barRowContainer: {
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
   barLabel: {
     width: 48,
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   barChart: {
@@ -360,7 +361,7 @@ const styles = StyleSheet.create({
   },
   pnlBadgeText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: fonts.sans.bold,
   },
   splitDivider: {
     height: 1,
@@ -388,6 +389,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
 });

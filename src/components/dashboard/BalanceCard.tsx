@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { TrendingUp, TrendingDown } from "lucide-react-native";
 import PortfolioChart from "../charts/PortfolioChart";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR, formatPercentage } from "../../utils/format";
 import { ChartPoint, FilterPeriod } from "../../utils/portfolio";
 
@@ -207,16 +207,18 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   balanceLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
     marginBottom: 6,
-    letterSpacing: 0.3,
+    letterSpacing: 0.16,
+    textTransform: "uppercase",
   },
   balanceValue: {
-    fontSize: 32,
-    fontWeight: "800",
+    fontSize: 38,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.03,
     marginBottom: 10,
   },
   pnlBlock: {
@@ -234,8 +236,9 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   pnlRowLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
   pnlRowRight: {
     flexDirection: "row",

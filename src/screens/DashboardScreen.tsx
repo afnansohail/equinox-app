@@ -28,7 +28,7 @@ import { useRefreshStocks } from "../hooks/useStocks";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuthStore } from "../stores/authStore";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
-import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import { colors, fonts, TAB_BAR_HEIGHT } from "../constants/theme";
 import { FilterPeriod } from "../utils/portfolio";
 
 type Nav = CompositeNavigationProp<
@@ -215,18 +215,20 @@ const styles = StyleSheet.create({
   },
   welcomeLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     letterSpacing: 0.2,
   },
   welcomeName: {
-    fontSize: 16,
+    fontSize: 17,
     color: colors.textPrimary,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
+    letterSpacing: -0.1,
   },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,

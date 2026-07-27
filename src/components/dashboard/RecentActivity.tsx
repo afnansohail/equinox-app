@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR } from "../../utils/format";
 import { Transaction } from "../../services/api";
 
@@ -79,13 +79,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   seeAllText: {
-    fontSize: 13,
+    fontSize: 12,
+    fontFamily: fonts.sans.bold,
     color: colors.secondary,
-    fontWeight: "500",
   },
   txRow: {
     flexDirection: "row",
@@ -108,12 +108,13 @@ const styles = StyleSheet.create({
   },
   txTitle: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   txDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
   },
   txRight: {
     alignItems: "flex-end",
@@ -121,11 +122,11 @@ const styles = StyleSheet.create({
   },
   txAmount: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   txStatus: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
   },
 });
