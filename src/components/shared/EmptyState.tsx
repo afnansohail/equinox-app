@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontFamily: fonts.sans.semibold,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     marginBottom: 8,
     textAlign: "center",

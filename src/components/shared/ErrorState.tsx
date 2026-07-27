@@ -1,6 +1,6 @@
 import React from "react";
 import { Text, TouchableOpacity, View, StyleSheet } from "react-native";
-import { colors, borderRadius, fonts } from "../../constants/theme";
+import { colors, fonts, borderRadius } from "../../constants/theme";
 
 interface ErrorStateProps {
   message: string;
