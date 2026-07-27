@@ -28,10 +28,11 @@ export default function RangeBar({ label, low, high, value }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
       <View style={styles.labelRow}>
-        <Text style={styles.edgeText}>{hasRange ? fmt(min) : "—"}</Text>
-        <Text style={styles.edgeText}>{hasRange ? fmt(max) : "—"}</Text>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.edgeText}>
+          {hasRange ? `${fmt(min)} — ${fmt(max)}` : "—"}
+        </Text>
       </View>
       <View style={styles.trackWrap}>
         <View style={styles.track} />
@@ -47,47 +48,47 @@ export default function RangeBar({ label, low, high, value }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     paddingVertical: 10,
-    gap: 6,
-  },
-  label: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontFamily: fonts.sans.semibold,
+    gap: 8,
   },
   labelRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  label: {
+    fontSize: 11,
+    letterSpacing: 0.12,
+    textTransform: "uppercase",
+    color: colors.textMuted,
+    fontFamily: fonts.sans.semibold,
   },
   edgeText: {
     fontSize: 12,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     fontFamily: fonts.sans.semibold,
   },
   trackWrap: {
-    height: 18,
+    height: 14,
     justifyContent: "center",
   },
   track: {
-    height: 5,
+    height: 4,
     borderRadius: 999,
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.trackNeutral,
   },
   fill: {
     position: "absolute",
     left: 0,
-    height: 5,
+    height: 4,
     borderRadius: 999,
-    backgroundColor: colors.secondaryMuted,
+    backgroundColor: colors.secondary,
   },
   dot: {
     position: "absolute",
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.secondary,
-    borderWidth: 2,
-    borderColor: colors.background,
-    top: 1,
-    marginLeft: -8,
+    marginLeft: -6,
   },
 });

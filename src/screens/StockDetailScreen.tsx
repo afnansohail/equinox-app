@@ -17,7 +17,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ArrowLeft,
   Heart,
-  RefreshCw,
   TrendingUp,
   TrendingDown,
   Moon,
@@ -218,32 +217,20 @@ export default function StockDetailScreen() {
         </TouchableOpacity>
 
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {stock?.name ?? symbol}
+          {stock?.sector ?? symbol}
         </Text>
 
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={handleToggleWishlist}
-            disabled={toggleWishlistMutation.isPending}
-          >
-            <Heart
-              size={20}
-              color={isInWishlist ? colors.danger : colors.textSecondary}
-              fill={isInWishlist ? colors.danger : "transparent"}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={onRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={20}
-              color={refreshing ? colors.textMuted : colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.iconBtn, isInWishlist && styles.iconBtnActive]}
+          onPress={handleToggleWishlist}
+          disabled={toggleWishlistMutation.isPending}
+        >
+          <Heart
+            size={18}
+            color={isInWishlist ? colors.secondary : colors.textSecondary}
+            fill={isInWishlist ? colors.secondary : "transparent"}
+          />
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (
@@ -284,7 +271,7 @@ export default function StockDetailScreen() {
             </View>
             {stock.isShariahCompliant && (
               <View style={styles.shariahBadge}>
-                <Moon size={12} color="#22C55E" />
+                <Moon size={12} color={colors.success} />
                 <Text style={styles.shariahText}>Shariah</Text>
               </View>
             )}
@@ -309,14 +296,14 @@ export default function StockDetailScreen() {
               ]}
             >
               {isPositive ? (
-                <TrendingUp size={14} color="#22C55E" />
+                <TrendingUp size={14} color={colors.success} />
               ) : (
                 <TrendingDown size={14} color={colors.danger} />
               )}
               <Text
                 style={[
                   styles.changeChipText,
-                  { color: isPositive ? "#22C55E" : colors.danger },
+                  { color: isPositive ? colors.success : colors.danger },
                 ]}
               >
                 {isPositive ? "+" : ""}
@@ -384,9 +371,22 @@ export default function StockDetailScreen() {
                     100
                   : 0;
               const todayPositive = todayPnL >= 0;
+              const dividendsReceived = (dividends ?? [])
+                .filter((d) => d.stockSymbol.toUpperCase() === symbol.toUpperCase())
+                .reduce((sum, d) => sum + d.totalAmount, 0);
               return (
                 <View style={[styles.statsCard, { marginTop: 12 }]}>
-                  <Text style={styles.statsCardTitle}>Your Position</Text>
+                  <View style={styles.positionHeaderRow}>
+                    <Text style={[styles.statsCardTitle, { marginBottom: 0 }]}>
+                      Your Position
+                    </Text>
+                    <Text style={styles.positionAvgCost}>
+                      Avg cost PKR{" "}
+                      {holding.averageBuyPrice.toLocaleString("en-PK", {
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
                   {/* Row 1: Shares held | Current value */}
                   <View style={styles.statRow}>
                     <View style={styles.statBox}>
@@ -410,7 +410,7 @@ export default function StockDetailScreen() {
                       <Text
                         style={[
                           styles.statValue,
-                          { color: todayPositive ? "#22C55E" : colors.danger },
+                          { color: todayPositive ? colors.success : colors.danger },
                         ]}
                       >
                         {todayPositive ? "+" : ""}
@@ -429,7 +429,7 @@ export default function StockDetailScreen() {
                         ]}
                       >
                         {todayPositive ? (
-                          <TrendingUp size={11} color="#22C55E" />
+                          <TrendingUp size={11} color={colors.success} />
                         ) : (
                           <TrendingDown size={11} color={colors.danger} />
                         )}
@@ -437,7 +437,7 @@ export default function StockDetailScreen() {
                           style={[
                             styles.percentagePillText,
                             {
-                              color: todayPositive ? "#22C55E" : colors.danger,
+                              color: todayPositive ? colors.success : colors.danger,
                             },
                           ]}
                         >
@@ -451,7 +451,7 @@ export default function StockDetailScreen() {
                       <Text
                         style={[
                           styles.statValue,
-                          { color: posPositive ? "#22C55E" : colors.danger },
+                          { color: posPositive ? colors.success : colors.danger },
                         ]}
                       >
                         {posPositive ? "+" : ""}
@@ -470,14 +470,14 @@ export default function StockDetailScreen() {
                         ]}
                       >
                         {posPositive ? (
-                          <TrendingUp size={11} color="#22C55E" />
+                          <TrendingUp size={11} color={colors.success} />
                         ) : (
                           <TrendingDown size={11} color={colors.danger} />
                         )}
                         <Text
                           style={[
                             styles.percentagePillText,
-                            { color: posPositive ? "#22C55E" : colors.danger },
+                            { color: posPositive ? colors.success : colors.danger },
                           ]}
                         >
                           {posPositive ? "+" : ""}
@@ -524,7 +524,7 @@ export default function StockDetailScreen() {
                               styles.statValue,
                               {
                                 color: realizedPositive
-                                  ? "#22C55E"
+                                  ? colors.success
                                   : colors.danger,
                               },
                             ]}
@@ -545,7 +545,7 @@ export default function StockDetailScreen() {
                             ]}
                           >
                             {realizedPositive ? (
-                              <TrendingUp size={11} color="#22C55E" />
+                              <TrendingUp size={11} color={colors.success} />
                             ) : (
                               <TrendingDown size={11} color={colors.danger} />
                             )}
@@ -554,7 +554,7 @@ export default function StockDetailScreen() {
                                 styles.percentagePillText,
                                 {
                                   color: realizedPositive
-                                    ? "#22C55E"
+                                    ? colors.success
                                     : colors.danger,
                                 },
                               ]}
@@ -566,6 +566,17 @@ export default function StockDetailScreen() {
                         </View>
                       </View>
                       <View style={styles.statBox} />
+                    </View>
+                  )}
+                  {dividendsReceived > 0 && (
+                    <View style={styles.dividendsReceivedRow}>
+                      <Text style={styles.statLabel}>Dividends received</Text>
+                      <Text style={styles.dividendsReceivedValue}>
+                        PKR{" "}
+                        {dividendsReceived.toLocaleString("en-PK", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -626,20 +637,24 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 16,
+    textAlign: "center",
+    fontSize: 13,
     fontFamily: fonts.sans.semibold,
-    color: colors.textPrimary,
+    color: colors.textMuted,
   },
-  headerRight: { flexDirection: "row", gap: 6 },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: "center",
     alignItems: "center",
+  },
+  iconBtnActive: {
+    backgroundColor: colors.secondaryMuted,
+    borderColor: colors.secondaryGlow,
   },
   loadingWrap: {
     flex: 1,
@@ -679,13 +694,13 @@ const styles = StyleSheet.create({
   shariahBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(34,197,94,0.12)",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: 5,
+    backgroundColor: colors.successMuted,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
   },
-  shariahText: { fontSize: 11, fontFamily: fonts.sans.semibold, color: "#22C55E" },
+  shariahText: { fontSize: 11, fontFamily: fonts.sans.bold, color: colors.success },
   priceSection: { marginBottom: 24, gap: 10 },
   priceValue: {
     fontSize: 38,
@@ -705,11 +720,11 @@ const styles = StyleSheet.create({
   changeChipText: { fontSize: 13, fontFamily: fonts.sans.semibold },
   statsCard: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
     paddingBottom: 4,
     gap: 0,
   },
@@ -720,6 +735,28 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     textTransform: "uppercase",
     marginBottom: 8,
+  },
+  positionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  positionAvgCost: {
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+  },
+  dividendsReceivedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+  },
+  dividendsReceivedValue: {
+    fontSize: 14,
+    fontFamily: fonts.sans.bold,
+    color: colors.secondary,
   },
   statRow: {
     flexDirection: "row",
@@ -767,10 +804,10 @@ const styles = StyleSheet.create({
   sellBtn: {
     flex: 1,
     height: 52,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -780,9 +817,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   buyBtn: {
-    flex: 1,
+    flex: 1.6,
     height: 52,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: colors.secondary,
     justifyContent: "center",
     alignItems: "center",
