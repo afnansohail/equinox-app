@@ -15,7 +15,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   Search,
   AlertCircle,
-  Heart,
   ChevronRight,
   TrendingUp,
   TrendingDown,
@@ -47,7 +46,7 @@ const WatchlistRow = memo(function WatchlistRow({
       activeOpacity={0.7}
       onPress={() => onPress(stock.symbol)}
     >
-      <StockLogo logoUrl={stock.logoUrl} symbol={stock.symbol} size={44} />
+      <StockLogo logoUrl={stock.logoUrl} symbol={stock.symbol} size={40} />
       <View style={styles.stockMeta}>
         <Text style={styles.stockSymbol}>{stock.symbol}</Text>
         <Text style={styles.stockName} numberOfLines={1}>
@@ -72,14 +71,14 @@ const WatchlistRow = memo(function WatchlistRow({
           ]}
         >
           {isUp ? (
-            <TrendingUp size={11} color="#22C55E" />
+            <TrendingUp size={11} color={colors.success} />
           ) : (
             <TrendingDown size={11} color={colors.danger} />
           )}
           <Text
             style={[
               styles.changeText,
-              { color: isUp ? "#22C55E" : colors.danger },
+              { color: isUp ? colors.success : colors.danger },
             ]}
           >
             {isUp ? "+" : ""}
@@ -220,12 +219,12 @@ export default function SearchScreen() {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View style={styles.sectionHeader}>
-              <Heart
-                size={15}
-                color={colors.secondary}
-                fill={colors.secondary}
-              />
-              <Text style={styles.sectionTitle}>Watchlist</Text>
+              <Text style={styles.sectionTitle}>
+                Watchlist{" "}
+                <Text style={styles.sectionCount}>
+                  {wishlistItems?.length ?? 0}
+                </Text>
+              </Text>
             </View>
           }
           ListEmptyComponent={
@@ -273,7 +272,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     backgroundColor: colors.card,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 16,
@@ -288,7 +287,7 @@ const styles = StyleSheet.create({
   searchBtn: {
     width: 50,
     height: 50,
-    borderRadius: 14,
+    borderRadius: 18,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -299,7 +298,7 @@ const styles = StyleSheet.create({
   clearBtn: {
     width: 44,
     height: 50,
-    borderRadius: 14,
+    borderRadius: 18,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
@@ -326,16 +325,17 @@ const styles = StyleSheet.create({
   // Watchlist list
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
   sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
     marginTop: 20,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 16,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
+  },
+  sectionCount: {
+    color: colors.textMuted,
+    fontFamily: fonts.sans.semibold,
   },
   emptyWrap: {
     paddingTop: 48,
