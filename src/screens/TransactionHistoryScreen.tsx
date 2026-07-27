@@ -31,7 +31,7 @@ import {
   useDeleteTransaction,
   useUpdateTransaction,
 } from "../hooks/usePortfolio";
-import { colors } from "../constants/theme";
+import { colors, fonts } from "../constants/theme";
 import type { Transaction } from "../services/api";
 
 type FilterType = "all" | "BUY" | "SELL";
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   filterRow: {
@@ -543,18 +543,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textPrimary,
     borderColor: "transparent",
   },
-  filterText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary },
-  filterTextActive: { color: colors.textInverse },
+  filterText: { fontSize: 13, fontFamily: fonts.sans.semibold, color: colors.textMuted },
+  filterTextActive: { fontFamily: fonts.sans.bold, color: colors.textInverse },
   scroll: { paddingHorizontal: 20, paddingBottom: 40, gap: 10 },
   empty: {
     paddingTop: 60,
     alignItems: "center",
     gap: 8,
   },
-  emptyTitle: { fontSize: 17, fontWeight: "700", color: colors.textPrimary },
+  emptyTitle: { fontSize: 17, fontFamily: fonts.sans.bold, color: colors.textPrimary },
   emptySubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     textAlign: "center",
   },
   txCard: {
@@ -579,19 +580,19 @@ const styles = StyleSheet.create({
   },
   txMeta: { flex: 1, gap: 3 },
   txTopRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  txSymbol: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  txSymbol: { fontSize: 14, fontFamily: fonts.sans.bold, color: colors.textPrimary },
   txTypeBadge: {
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  txTypeBadgeText: { fontSize: 11, fontWeight: "700" },
-  txDetail: { fontSize: 13, color: colors.textSecondary },
-  txDate: { fontSize: 12, color: colors.textMuted },
-  txNotes: { fontSize: 12, color: colors.textMuted, fontStyle: "italic" },
+  txTypeBadgeText: { fontSize: 11, fontFamily: fonts.sans.bold },
+  txDetail: { fontSize: 12, fontFamily: fonts.sans.medium, color: colors.textMuted },
+  txDate: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted },
+  txNotes: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted, fontStyle: "italic" },
   txRight: { alignItems: "flex-end", gap: 4, flexShrink: 0 },
-  txAmount: { fontSize: 14, fontWeight: "700", color: colors.textPrimary },
-  txStatus: { fontSize: 12, fontWeight: "500" },
+  txAmount: { fontSize: 14, fontFamily: fonts.sans.bold, color: colors.textPrimary },
+  txStatus: { fontSize: 11, fontFamily: fonts.sans.medium },
   searchRow: {
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -610,6 +611,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
+    fontFamily: fonts.sans.medium,
     color: colors.textPrimary,
     padding: 0,
   },
@@ -639,7 +641,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   modalSymbolRow: {
@@ -650,7 +652,7 @@ const styles = StyleSheet.create({
   },
   modalSymbol: {
     fontSize: 20,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
   },
   modalFieldRow: {
@@ -664,9 +666,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.2,
   },
   modalInput: {
     backgroundColor: colors.background,
@@ -676,6 +680,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
+    fontFamily: fonts.sans.medium,
     color: colors.textPrimary,
   },
   modalNotesInput: {
@@ -695,6 +700,7 @@ const styles = StyleSheet.create({
   },
   dateBtnText: {
     fontSize: 15,
+    fontFamily: fonts.sans.medium,
     color: colors.textPrimary,
   },
   datePickerDone: {
@@ -704,7 +710,7 @@ const styles = StyleSheet.create({
   },
   datePickerDoneText: {
     fontSize: 15,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.secondary,
   },
   modalTotal: {
@@ -717,13 +723,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   modalTotalLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textSecondary,
+    fontSize: 13,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
   },
   modalTotalValue: {
     fontSize: 18,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   modalActions: {
@@ -744,8 +750,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(239,68,68,0.3)",
   },
   deleteBtnText: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 14,
+    fontFamily: fonts.sans.semibold,
     color: colors.danger,
   },
   btnDisabled: {
@@ -765,8 +771,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
   },
   saveBtnText: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 14,
+    fontFamily: fonts.sans.semibold,
     color: colors.background,
   },
   errorBox: {
@@ -780,7 +786,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
+    fontFamily: fonts.sans.medium,
     color: colors.danger,
-    fontWeight: "500",
   },
 });
