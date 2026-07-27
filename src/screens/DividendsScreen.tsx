@@ -23,6 +23,7 @@ import { Plus, X, Edit3, Trash2, Calendar } from "lucide-react-native";
 
 import DividendSummaryCard from "../components/dividends/DividendSummaryCard";
 import DividendStockRanking from "../components/dividends/DividendStockRanking";
+import DividendPayoutChart from "../components/dividends/DividendPayoutChart";
 import { DividendRow } from "../components/dividends/DividendRow";
 import Toast from "../components/shared/Toast";
 import DatePickerModal from "../components/ui/DatePickerModal";
@@ -309,6 +310,8 @@ export default function DividendsScreen() {
               selectedSymbol={selectedSymbol}
               onSymbolPress={setSelectedSymbol}
             />
+
+            <DividendPayoutChart dividends={dividends ?? []} />
 
             <Text style={styles.sectionTitle}>
               All Records (
