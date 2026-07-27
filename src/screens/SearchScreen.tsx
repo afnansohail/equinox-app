@@ -25,7 +25,7 @@ import { getStock, type WishlistItem } from "../services/api";
 import { useWishlist } from "../hooks/useWishlist";
 import StockLogo from "../components/shared/StockLogo";
 import type { RootStackParamList } from "../navigation/types";
-import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import { colors, fonts, TAB_BAR_HEIGHT } from "../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type SearchState = "idle" | "loading" | "not_found" | "error";
@@ -259,10 +259,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 26,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.02,
   },
   inputRow: {
     flexDirection: "row",
@@ -278,8 +278,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: 16,
     fontSize: 15,
-    fontWeight: "600",
-    letterSpacing: 0.5,
+    fontFamily: fonts.sans.semibold,
+    letterSpacing: 0.2,
     color: colors.textPrimary,
   },
   inputError: {
@@ -314,11 +314,13 @@ const styles = StyleSheet.create({
   },
   feedbackText: {
     fontSize: 13,
+    fontFamily: fonts.sans.medium,
     color: colors.danger,
   },
   loadingHint: {
     fontSize: 13,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     paddingHorizontal: 4,
   },
   // Watchlist list
@@ -332,7 +334,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   emptyWrap: {
@@ -343,12 +345,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     textAlign: "center",
     lineHeight: 20,
   },
@@ -367,10 +370,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   stockMeta: { flex: 1, gap: 3 },
-  stockSymbol: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
-  stockName: { fontSize: 12, color: colors.textSecondary },
+  stockSymbol: { fontSize: 15, fontFamily: fonts.sans.bold, color: colors.textPrimary },
+  stockName: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted },
   stockRight: { alignItems: "flex-end", gap: 4 },
-  stockPrice: { fontSize: 14, fontWeight: "600", color: colors.textPrimary },
+  stockPrice: { fontSize: 14, fontFamily: fonts.sans.semibold, color: colors.textPrimary },
   changeChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -379,5 +382,5 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
   },
-  changeText: { fontSize: 11, fontWeight: "600" },
+  changeText: { fontSize: 11, fontFamily: fonts.sans.semibold },
 });
