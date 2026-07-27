@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Dimensions,
   PanResponder,
-  TouchableOpacity,
 } from "react-native";
 import Svg, {
   Path,
@@ -18,6 +17,7 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 import { colors, fonts } from "../../constants/theme";
+import { SegmentedToggle } from "../ui/SegmentedToggle";
 
 type ChartMode = "absolute" | "relative";
 
@@ -201,42 +201,14 @@ export default function PortfolioChart({
         </View>
 
         {relativeData !== null && (
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[
-                styles.toggleBtn,
-                chartMode === "absolute" && styles.toggleBtnActive,
-              ]}
-              onPress={() => setChartMode("absolute")}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  chartMode === "absolute" && styles.toggleTextActive,
-                ]}
-              >
-                Value
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.toggleBtn,
-                chartMode === "relative" && styles.toggleBtnActive,
-              ]}
-              onPress={() => setChartMode("relative")}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  chartMode === "relative" && styles.toggleTextActive,
-                ]}
-              >
-                Return %
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <SegmentedToggle
+            options={[
+              { label: "Value", value: "absolute" },
+              { label: "Return %", value: "relative" },
+            ]}
+            value={chartMode}
+            onChange={setChartMode}
+          />
         )}
       </View>
 
@@ -426,32 +398,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.sans.semibold,
     color: colors.textSecondary,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    backgroundColor: colors.background,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 3,
-    gap: 2,
-  },
-  toggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 7,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.secondary,
-  },
-  toggleText: {
-    fontSize: 11,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
-  },
-  toggleTextActive: {
-    fontFamily: fonts.sans.bold,
-    color: colors.textInverse,
   },
   container: {
     position: "relative",

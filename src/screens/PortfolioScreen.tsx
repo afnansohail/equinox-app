@@ -130,7 +130,10 @@ export default function PortfolioScreen() {
 
         {holdings && holdings.length > 0 && (
           <Text style={styles.sectionTitle}>
-            Holdings ({selectedSector ? filteredHoldings.length : holdings.length})
+            Holdings{" "}
+            <Text style={styles.sectionTitleCount}>
+              {selectedSector ? filteredHoldings.length : holdings.length}
+            </Text>
           </Text>
         )}
       </>
@@ -282,6 +285,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     marginBottom: 12,
+  },
+  sectionTitleCount: {
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
   emptyCard: {
     backgroundColor: colors.card,

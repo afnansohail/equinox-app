@@ -3,13 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  useWindowDimensions,
   FlatList,
   ListRenderItem,
   TouchableOpacity,
 } from "react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR } from "../../utils/format";
+import RankedBar from "../ui/RankedBar";
 import type { Dividend, ScrapedPayoutBySymbol } from "../../services/api";
 import {
   buildDividendRanking,
@@ -35,8 +35,6 @@ export default function DividendStockRanking({
   holdingMeta,
   onSymbolPress,
 }: DividendStockRankingProps) {
-  const { width } = useWindowDimensions();
-  const barMaxWidth = width - 40 - 68 - 64 - 72 - 40;
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   const ranked = useMemo(
@@ -76,8 +74,6 @@ export default function DividendStockRanking({
 
   const renderRow: ListRenderItem<RankedDividendStock> = ({ item, index }) => {
     const scoreValue = item.score;
-    const barWidth =
-      (Math.max(0, Math.min(100, scoreValue)) / 100) * barMaxWidth;
     const isActive = activeIdx === index;
     const isETF = item.isETF;
 
@@ -102,13 +98,7 @@ export default function DividendStockRanking({
           ) : (
             <>
               <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.bar,
-                    isActive && styles.barActive,
-                    { width: barWidth },
-                  ]}
-                />
+                <RankedBar value={scoreValue} trackColor={colors.trackNeutral} />
               </View>
               <Text
                 style={[styles.scoreText, isActive && styles.scoreTextActive]}
@@ -160,10 +150,6 @@ export default function DividendStockRanking({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.heading}>Score ranking</Text>
-      </View>
-      <View style={styles.columnLabels}>
-        <Text style={styles.labelSymbol}>Symbol</Text>
-        <Text style={styles.labelScore}>Score</Text>
         <Text style={styles.labelAmount}>Payout PKR</Text>
       </View>
       <FlatList
@@ -180,45 +166,23 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
   },
-  header: { marginBottom: 10 },
-  heading: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  columnLabels: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    marginBottom: 8,
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
-  labelSymbol: {
-    width: 60,
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  labelScore: {
-    flex: 1,
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
+  heading: {
+    fontSize: 16,
+    fontFamily: fonts.sans.bold,
+    color: colors.textPrimary,
   },
   labelAmount: {
-    width: 70,
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-    textAlign: "right",
+    letterSpacing: 1,
   },
   row: {
     gap: 10,
@@ -232,45 +196,39 @@ const styles = StyleSheet.create({
   rowTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
   },
   symbol: {
-    width: 55,
-    fontSize: 12,
-    fontWeight: "700",
+    width: 44,
+    fontSize: 13,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
   },
   symbolActive: { color: colors.secondary },
   barTrack: {
     flex: 1,
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: "hidden",
   },
-  bar: { height: 8, backgroundColor: colors.secondary, borderRadius: 4 },
-  barActive: { backgroundColor: colors.secondary },
   scoreText: {
-    width: 56,
-    fontSize: 11,
-    fontWeight: "600",
+    width: 26,
+    fontSize: 13,
+    fontFamily: fonts.sans.semibold,
     color: colors.secondary,
-    textAlign: "center",
+    textAlign: "right",
   },
-  scoreTextActive: { fontWeight: "700" },
+  scoreTextActive: { fontFamily: fonts.sans.bold },
   etfLabel: {
     flex: 1,
     fontSize: 11,
-    fontWeight: "500",
+    fontFamily: fonts.sans.medium,
     color: colors.textMuted,
     marginLeft: 8,
   },
   etfLabelActive: { color: colors.secondary },
   amount: {
-    width: 68,
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textPrimary,
+    width: 46,
+    fontSize: 13,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textSecondary,
     textAlign: "right",
   },
   amountActive: { color: colors.secondary },
@@ -279,7 +237,7 @@ const styles = StyleSheet.create({
   },
   yieldText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.secondary,
   },
   breakdownRow: {
@@ -298,14 +256,14 @@ const styles = StyleSheet.create({
   },
   breakdownChipLabel: {
     fontSize: 10,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   breakdownChipValue: {
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     marginTop: 2,
   },

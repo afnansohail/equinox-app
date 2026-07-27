@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, fonts } from "../../constants/theme";
 import { formatPKR } from "../../utils/format";
-import { aggregateDividendsByMonth } from "../../utils/dividendAggregation";
+import { aggregateDividendsRolling12Months } from "../../utils/dividendAggregation";
 import type { Dividend } from "../../services/api";
 
 interface DividendSummaryCardProps {
@@ -19,10 +19,16 @@ export default function DividendSummaryCard({
   topPayer,
   dividends,
 }: DividendSummaryCardProps) {
-  const monthly = useMemo(() => aggregateDividendsByMonth(dividends), [dividends]);
+  const monthly = useMemo(
+    () => aggregateDividendsRolling12Months(dividends),
+    [dividends],
+  );
   const maxAmount = Math.max(...monthly.map((m) => m.amount), 1);
-  const peak = monthly.reduce((a, b) => (b.amount > a.amount ? b : a), monthly[0]);
-  const hasPayouts = peak.amount > 0;
+  const hasPayouts = monthly.some((m) => m.amount > 0);
+  const [activeMonthKey, setActiveMonthKey] = useState<string | null>(null);
+  const activeMonth = monthly.find(
+    (m) => `${m.year}-${m.month}` === activeMonthKey,
+  );
 
   return (
     <LinearGradient
@@ -44,48 +50,63 @@ export default function DividendSummaryCard({
         <View style={styles.chartBlock}>
           <View style={styles.chartHeader}>
             <Text style={styles.chartHeaderLabel}>Payout by month</Text>
-            <Text style={styles.chartHeaderPeak}>
-              Peak {peak.monthLabel} ·{" "}
-              {peak.amount.toLocaleString("en-PK", {
-                maximumFractionDigits: 0,
-              })}
-            </Text>
+            {activeMonth && (
+              <Text style={styles.chartHeaderPeak}>
+                {activeMonth.monthLabel} ·{" "}
+                {activeMonth.amount.toLocaleString("en-PK", {
+                  maximumFractionDigits: 0,
+                })}
+              </Text>
+            )}
           </View>
           <View style={styles.bars}>
             {monthly.map((m) => {
-              const isPeak = m.month === peak.month;
+              const key = `${m.year}-${m.month}`;
+              const isActive = key === activeMonthKey;
               const heightPct =
                 m.amount > 0 ? Math.max((m.amount / maxAmount) * 100, 6) : 0;
               return (
-                <View
-                  key={m.month}
-                  style={[
-                    styles.bar,
-                    {
-                      height: `${Math.max(heightPct, 3)}%`,
-                      backgroundColor: isPeak
-                        ? colors.secondary
-                        : m.amount > 0
-                          ? "#1B4038"
-                          : colors.trackNeutral,
-                    },
-                  ]}
-                />
+                <Pressable
+                  key={key}
+                  style={styles.barTouchTarget}
+                  onPressIn={() => setActiveMonthKey(key)}
+                  onPressOut={() =>
+                    setActiveMonthKey((curr) => (curr === key ? null : curr))
+                  }
+                  hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
+                >
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: `${Math.max(heightPct, 3)}%`,
+                        backgroundColor: isActive
+                          ? colors.secondary
+                          : m.amount > 0
+                            ? "#1B4038"
+                            : colors.trackNeutral,
+                      },
+                    ]}
+                  />
+                </Pressable>
               );
             })}
           </View>
           <View style={styles.monthLabels}>
-            {monthly.map((m) => (
-              <Text
-                key={m.month}
-                style={[
-                  styles.monthLabel,
-                  m.month === peak.month && styles.monthLabelActive,
-                ]}
-              >
-                {m.monthLabel[0]}
-              </Text>
-            ))}
+            {monthly.map((m) => {
+              const key = `${m.year}-${m.month}`;
+              return (
+                <Text
+                  key={key}
+                  style={[
+                    styles.monthLabel,
+                    key === activeMonthKey && styles.monthLabelActive,
+                  ]}
+                >
+                  {m.monthLabel[0]}
+                </Text>
+              );
+            })}
           </View>
         </View>
       )}
@@ -162,8 +183,12 @@ const styles = StyleSheet.create({
     gap: 5,
     height: 64,
   },
-  bar: {
+  barTouchTarget: {
     flex: 1,
+    height: "100%",
+    justifyContent: "flex-end",
+  },
+  bar: {
     borderRadius: 3,
     minHeight: 3,
   },

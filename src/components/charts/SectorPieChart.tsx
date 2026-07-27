@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { colors, fonts } from "../../constants/theme";
+import { SegmentedToggle } from "../ui/SegmentedToggle";
 
 // ─── Types & helpers ─────────────────────────────────────────────────────────
 
@@ -169,50 +170,18 @@ export default function SectorPieChart({
       {/* Header: title + mode toggle */}
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>Sector Allocation</Text>
-        <View style={styles.toggle}>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              mode === "value" && styles.toggleBtnActive,
-            ]}
-            onPress={() => {
-              setMode("value");
-              setActiveIdx(null);
-              onSectorPress?.(null);
-            }}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                mode === "value" && styles.toggleTextActive,
-              ]}
-            >
-              By Value
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              mode === "shares" && styles.toggleBtnActive,
-            ]}
-            onPress={() => {
-              setMode("shares");
-              setActiveIdx(null);
-              onSectorPress?.(null);
-            }}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                mode === "shares" && styles.toggleTextActive,
-              ]}
-            >
-              By Shares
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedToggle
+          options={[
+            { label: "Value", value: "value" },
+            { label: "Shares", value: "shares" },
+          ]}
+          value={mode}
+          onChange={(next) => {
+            setMode(next);
+            setActiveIdx(null);
+            onSectorPress?.(null);
+          }}
+        />
       </View>
 
       {/* Donut chart */}
@@ -318,32 +287,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
-  },
-  toggle: {
-    flexDirection: "row",
-    backgroundColor: colors.background,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 3,
-    gap: 2,
-  },
-  toggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 7,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.secondary,
-  },
-  toggleText: {
-    fontSize: 11,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
-  },
-  toggleTextActive: {
-    fontFamily: fonts.sans.bold,
-    color: colors.textInverse,
   },
   chartWrap: {
     alignSelf: "center",

@@ -13,6 +13,7 @@ interface SegmentedToggleProps<T extends string> {
   onChange: (value: T) => void;
   activeColor?: string;
   activeTextColor?: string;
+  trackColor?: string;
 }
 
 export function SegmentedToggle<T extends string>({
@@ -21,9 +22,10 @@ export function SegmentedToggle<T extends string>({
   onChange,
   activeColor = colors.secondary,
   activeTextColor = colors.textInverse,
+  trackColor = colors.trackDeep,
 }: SegmentedToggleProps<T>) {
   return (
-    <View style={styles.track}>
+    <View style={[styles.track, { backgroundColor: trackColor }]}>
       {options.map((option) => {
         const isActive = option.value === value;
         return (
@@ -52,7 +54,6 @@ export function SegmentedToggle<T extends string>({
 const styles = StyleSheet.create({
   track: {
     flexDirection: "row",
-    backgroundColor: colors.trackDeep,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,

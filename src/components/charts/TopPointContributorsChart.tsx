@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { colors, fonts, borderRadius } from "../../constants/theme";
+import { View, Text, StyleSheet } from "react-native";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR } from "../../utils/format";
+import { SegmentedToggle } from "../ui/SegmentedToggle";
 import type { PortfolioHolding } from "../../services/api";
 
 type Mode = "today" | "allTime";
@@ -119,42 +120,15 @@ export default function TopPointContributorsChart({
       {/* Header: title + mode toggle */}
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>Today's movers</Text>
-        <View style={styles.toggle}>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              mode === "today" && styles.toggleBtnActive,
-            ]}
-            onPress={() => setMode("today")}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                mode === "today" && styles.toggleTextActive,
-              ]}
-            >
-              Today
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              mode === "allTime" && styles.toggleBtnActive,
-            ]}
-            onPress={() => setMode("allTime")}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                mode === "allTime" && styles.toggleTextActive,
-              ]}
-            >
-              All-Time
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedToggle
+          options={[
+            { label: "Today", value: "today" },
+            { label: "All-time", value: "allTime" },
+          ]}
+          value={mode}
+          onChange={setMode}
+          trackColor={colors.cardHover}
+        />
       </View>
 
       {topContributors.length === 0 ? (
@@ -261,32 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
-  },
-  toggle: {
-    flexDirection: "row",
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 3,
-    gap: 2,
-  },
-  toggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 7,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.secondary,
-  },
-  toggleText: {
-    fontSize: 11,
-    fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
-  },
-  toggleTextActive: {
-    fontFamily: fonts.sans.bold,
-    color: colors.textInverse,
   },
   barRowContainer: {
     flexDirection: "row",

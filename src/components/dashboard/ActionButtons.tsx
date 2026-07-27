@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { ArrowUpRight, ArrowDownRight, History, RefreshCw } from "lucide-react-native";
+import { Plus, ArrowDown, History, RefreshCw } from "lucide-react-native";
 import { colors, fonts, borderRadius } from "../../constants/theme";
 
 interface ActionButtonsProps {
@@ -19,13 +19,13 @@ export const ActionButtons = React.memo(({
   return (
     <View style={styles.actionsRow}>
       <ActionBtn
-        icon={<ArrowUpRight size={20} color={colors.textInverse} />}
+        icon={<Plus size={20} color={colors.textInverse} strokeWidth={2.4} />}
         label="Buy"
         onPress={onBuy}
         primary
       />
       <ActionBtn
-        icon={<ArrowDownRight size={20} color={colors.danger} />}
+        icon={<ArrowDown size={20} color={colors.danger} strokeWidth={2.2} />}
         label="Sell"
         onPress={onSell}
       />
@@ -84,8 +84,8 @@ const styles = StyleSheet.create({
   actionIconCircle: {
     width: 52,
     height: 52,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.cardHover,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: "center",
@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 11,
     fontFamily: fonts.sans.semibold,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
 });

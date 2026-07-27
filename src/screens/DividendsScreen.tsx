@@ -312,13 +312,14 @@ export default function DividendsScreen() {
             />
 
             <Text style={styles.sectionTitle}>
-              All Records (
-              {selectedSymbol
-                ? (dividends ?? []).filter(
-                    (d) => d.stockSymbol === selectedSymbol,
-                  ).length
-                : (dividends?.length ?? 0)}
-              )
+              All Records{" "}
+              <Text style={styles.sectionTitleCount}>
+                {selectedSymbol
+                  ? (dividends ?? []).filter(
+                      (d) => d.stockSymbol === selectedSymbol,
+                    ).length
+                  : (dividends?.length ?? 0)}
+              </Text>
             </Text>
           </>
         )}
@@ -714,6 +715,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     marginBottom: 12,
+  },
+  sectionTitleCount: {
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
   emptyCard: {
     backgroundColor: colors.card,
