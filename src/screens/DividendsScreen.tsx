@@ -35,7 +35,7 @@ import {
 } from "../hooks/useDividends";
 import { usePortfolio } from "../hooks/usePortfolio";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
-import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import { colors, fonts, TAB_BAR_HEIGHT } from "../constants/theme";
 import type { Dividend } from "../services/api";
 import { buildDividendRanking } from "../utils/dividendRanking";
 
@@ -685,10 +685,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 26,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.02,
   },
   addBtn: {
     width: 40,
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     marginBottom: 12,
   },
@@ -717,12 +717,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     textAlign: "center",
   },
   modalOverlay: {
@@ -747,7 +748,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textPrimary,
   },
   modalScrollContent: {
@@ -768,7 +769,7 @@ const styles = StyleSheet.create({
   },
   modalSymbol: {
     fontSize: 18,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   modalFieldRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
@@ -777,10 +778,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalLabel: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
     marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.2,
   },
   modalInput: {
     paddingHorizontal: 12,
@@ -791,6 +794,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: colors.textPrimary,
     fontSize: 14,
+    fontFamily: fonts.sans.medium,
   },
   modalNotesInput: { minHeight: 80 },
   dateBtn: {
@@ -804,7 +808,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
-  dateBtnText: { color: colors.textPrimary, fontSize: 14 },
+  dateBtnText: { color: colors.textPrimary, fontSize: 14, fontFamily: fonts.sans.medium },
   modalTotal: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -816,13 +820,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTotalLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.textSecondary,
+    fontSize: 13,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
   },
   modalTotalValue: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   errorBox: {
@@ -832,7 +836,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
   },
-  errorText: { fontSize: 13, color: colors.danger },
+  errorText: { fontSize: 13, fontFamily: fonts.sans.medium, color: colors.danger },
   modalActions: {
     flexDirection: "row",
     gap: 8,
@@ -847,7 +851,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 6,
   },
-  deleteBtnText: { fontSize: 14, fontWeight: "600", color: colors.danger },
+  deleteBtnText: { fontSize: 14, fontFamily: fonts.sans.semibold, color: colors.danger },
   saveBtn: {
     flex: 1,
     flexDirection: "row",
@@ -860,7 +864,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.background,
   },
   btnDisabled: { opacity: 0.5 },
@@ -885,9 +889,9 @@ const styles = StyleSheet.create({
     borderColor: colors.secondary,
   },
   modeToggleBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontFamily: fonts.sans.bold,
+    color: colors.textMuted,
   },
   modeToggleBtnTextActive: {
     color: colors.textInverse,
@@ -905,13 +909,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   calculatedLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
   },
   calculatedValue: {
     fontSize: 15,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
 });
