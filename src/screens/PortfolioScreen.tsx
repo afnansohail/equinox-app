@@ -24,7 +24,7 @@ import Toast from "../components/shared/Toast";
 import { usePortfolioData } from "../hooks/usePortfolioData";
 import { useRefreshStocks } from "../hooks/useStocks";
 import type { RootStackParamList, MainTabParamList } from "../navigation/types";
-import { colors, TAB_BAR_HEIGHT } from "../constants/theme";
+import { colors, fonts, TAB_BAR_HEIGHT } from "../constants/theme";
 import type { PortfolioHolding } from "../services/api";
 
 type Nav = CompositeNavigationProp<
@@ -240,10 +240,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 26,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.02,
   },
   addBtn: {
     width: 40,
@@ -268,18 +268,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChipText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
     color: colors.secondary,
   },
   filterChipClear: {
     fontSize: 12,
+    fontFamily: fonts.sans.bold,
     color: colors.secondary,
-    fontWeight: "700",
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     marginBottom: 12,
   },
@@ -295,12 +295,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     textAlign: "center",
   },
   emptyBtn: {
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
 });

@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TrendingUp, TrendingDown } from "lucide-react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR, formatPercentage } from "../../utils/format";
 import { Transaction } from "../../services/api";
 
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
     marginBottom: 12,
   },
@@ -148,10 +148,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   summaryLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    letterSpacing: 0.3,
-    marginBottom: 4,
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+    letterSpacing: 0.1,
+    textTransform: "uppercase",
   },
   realizedValueRow: {
     flexDirection: "row",
@@ -160,9 +161,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   summaryValue: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 19,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
+    letterSpacing: -0.02,
   },
   summaryPill: {
     flexDirection: "row",
@@ -175,7 +177,7 @@ const styles = StyleSheet.create({
   },
   summaryPillText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
   soldTxCard: {
     flexDirection: "row",
@@ -189,17 +191,19 @@ const styles = StyleSheet.create({
   },
   soldTxSymbol: {
     fontSize: 14,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   soldTxMeta: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     marginTop: 2,
   },
   soldTxDate: {
-    fontSize: 11,
-    color: colors.textMuted,
+    fontSize: 10,
+    fontFamily: fonts.sans.medium,
+    color: colors.textDim,
     marginTop: 2,
   },
   soldTxRight: {
@@ -208,16 +212,16 @@ const styles = StyleSheet.create({
   },
   soldTxAmount: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   soldTxPnL: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
   soldTxStatus: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.danger,
   },
 });

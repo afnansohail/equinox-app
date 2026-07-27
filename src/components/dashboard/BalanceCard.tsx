@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   pnlRowAmount: {
     fontSize: 14,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
   },
   pnlBadge: {
     flexDirection: "row",
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   },
   pnlBadgeText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
   chartWrap: {
     marginTop: 12,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   },
   filterPillText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
   },
   filterPillTextActive: {

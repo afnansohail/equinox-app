@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { TrendingUp, TrendingDown, ChevronRight, Moon } from "lucide-react-native";
 import StockLogo from "../shared/StockLogo";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR, formatPercentage } from "../../utils/format";
 import { PortfolioHolding } from "../../services/api";
 
@@ -133,8 +133,8 @@ const styles = StyleSheet.create({
   holdingMeta: { flex: 1, gap: 4 },
   holdingTop: { flexDirection: "row", alignItems: "center", gap: 6 },
   holdingSymbol: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   shariahBadge: {
@@ -143,11 +143,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
-  holdingSubtitle: { fontSize: 12, color: colors.textSecondary },
+  holdingSubtitle: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted },
   holdingRight: { alignItems: "flex-end", gap: 5 },
   holdingValue: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   gainChip: {
@@ -158,5 +158,5 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
   },
-  gainChipText: { fontSize: 11, fontWeight: "600" },
+  gainChipText: { fontSize: 11, fontFamily: fonts.sans.semibold },
 });

@@ -7,7 +7,7 @@ import {
   Dimensions,
 } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 
 // ─── Types & helpers ─────────────────────────────────────────────────────────
 
@@ -337,8 +337,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontFamily: fonts.sans.bold,
     color: colors.textPrimary,
   },
   toggle: {
@@ -360,10 +360,11 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
   },
   toggleTextActive: {
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
   chartWrap: {
@@ -383,26 +384,28 @@ const styles = StyleSheet.create({
   },
   centerPct: {
     fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.5,
+    fontFamily: fonts.sans.extrabold,
+    letterSpacing: -0.02,
   },
   centerName: {
     fontSize: 10,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     textAlign: "center",
     lineHeight: 13,
     paddingHorizontal: 4,
   },
   centerSub: {
     fontSize: 9,
-    color: colors.textMuted,
+    fontFamily: fonts.sans.medium,
+    color: colors.textDim,
     textAlign: "center",
     marginTop: 1,
   },
   centerHint: {
     fontSize: 11,
+    fontFamily: fonts.sans.medium,
     color: colors.textMuted,
-    fontWeight: "500",
     textAlign: "center",
     lineHeight: 15,
   },
@@ -441,12 +444,13 @@ const styles = StyleSheet.create({
   },
   legendName: {
     fontSize: 11,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
     flex: 1,
   },
   legendPct: {
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     flexShrink: 0,
   },
   othersStrip: {
@@ -456,10 +460,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   othersLabel: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontFamily: fonts.sans.semibold,
     color: colors.textMuted,
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
   },
   othersRow: {
     flexDirection: "row",
@@ -484,10 +489,11 @@ const styles = StyleSheet.create({
   },
   otherText: {
     fontSize: 10,
-    color: colors.textSecondary,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
   },
   otherPct: {
     fontSize: 10,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
 });

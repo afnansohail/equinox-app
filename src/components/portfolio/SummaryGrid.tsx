@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TrendingUp, TrendingDown } from "lucide-react-native";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR, formatPercentage } from "../../utils/format";
 
 interface SummaryGridProps {
@@ -155,15 +155,17 @@ const styles = StyleSheet.create({
   smallCard: { flex: 1, paddingVertical: 12 },
   smallCardNoPad: { flex: 1, paddingVertical: 10, paddingHorizontal: 12 },
   summaryLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    letterSpacing: 0.3,
-    marginBottom: 4,
+    fontSize: 11,
+    fontFamily: fonts.sans.semibold,
+    color: colors.textMuted,
+    letterSpacing: 0.1,
+    textTransform: "uppercase",
   },
   summaryValue: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 19,
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
+    letterSpacing: -0.02,
   },
   summaryPill: {
     flexDirection: "row",
@@ -176,6 +178,6 @@ const styles = StyleSheet.create({
   },
   summaryPillText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
   },
 });
