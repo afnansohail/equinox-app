@@ -23,7 +23,6 @@ import { Plus, X, Edit3, Trash2, Calendar } from "lucide-react-native";
 
 import DividendSummaryCard from "../components/dividends/DividendSummaryCard";
 import DividendStockRanking from "../components/dividends/DividendStockRanking";
-import DividendPayoutChart from "../components/dividends/DividendPayoutChart";
 import { DividendRow } from "../components/dividends/DividendRow";
 import Toast from "../components/shared/Toast";
 import DatePickerModal from "../components/ui/DatePickerModal";
@@ -299,6 +298,7 @@ export default function DividendsScreen() {
           totalAmount={totalAmount}
           highestScoreSymbol={highestScoreSymbol}
           topPayer={topPayer}
+          dividends={dividends ?? []}
         />
 
         {(dividends?.length ?? 0) > 0 && (
@@ -310,8 +310,6 @@ export default function DividendsScreen() {
               selectedSymbol={selectedSymbol}
               onSymbolPress={setSelectedSymbol}
             />
-
-            <DividendPayoutChart dividends={dividends ?? []} />
 
             <Text style={styles.sectionTitle}>
               All Records (
@@ -367,7 +365,8 @@ export default function DividendsScreen() {
             style={styles.addBtn}
             onPress={() => navigation.navigate("AddDividend", {})}
           >
-            <Plus size={20} color={colors.textInverse} />
+            <Plus size={16} color={colors.textInverse} />
+            <Text style={styles.addBtnText}>Log</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.skeletonContainer}>
@@ -389,7 +388,8 @@ export default function DividendsScreen() {
           style={styles.addBtn}
           onPress={() => navigation.navigate("AddDividend", {})}
         >
-          <Plus size={20} color={colors.textInverse} />
+          <Plus size={16} color={colors.textInverse} />
+          <Text style={styles.addBtnText}>Log</Text>
         </TouchableOpacity>
       </View>
 
@@ -694,12 +694,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.02,
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 999,
     backgroundColor: colors.secondary,
     justifyContent: "center",
-    alignItems: "center",
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontFamily: fonts.sans.bold,
+    color: colors.textInverse,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
   sectionTitle: {

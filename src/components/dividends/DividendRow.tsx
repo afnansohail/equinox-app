@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { Trash2, Edit3 } from "lucide-react-native";
 import StockLogo from "../shared/StockLogo";
-import { colors } from "../../constants/theme";
+import { colors, fonts } from "../../constants/theme";
 import { formatPKR } from "../../utils/format";
 import type { Dividend } from "../../services/api";
 
@@ -37,7 +37,7 @@ export const DividendRow = memo(function DividendRow({
       <StockLogo
         logoUrl={dividend.stockLogoUrl}
         symbol={dividend.stockSymbol}
-        size={44}
+        size={40}
       />
 
       <View style={styles.meta}>
@@ -88,23 +88,36 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: 12,
   },
   meta: { flex: 1, gap: 3 },
-  symbol: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
-  detail: { fontSize: 12, color: colors.textSecondary },
-  date: { fontSize: 11, color: colors.textMuted },
+  symbol: {
+    fontSize: 14,
+    fontFamily: fonts.sans.bold,
+    color: colors.textPrimary,
+  },
+  detail: {
+    fontSize: 12,
+    fontFamily: fonts.sans.medium,
+    color: colors.textMuted,
+  },
+  date: {
+    fontSize: 11,
+    fontFamily: fonts.sans.medium,
+    color: colors.textDim,
+  },
   right: { alignItems: "flex-end", gap: 3 },
   total: {
     fontSize: 14,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.secondary,
   },
   notes: {
     fontSize: 11,
+    fontFamily: fonts.sans.medium,
     color: colors.textMuted,
     maxWidth: 100,
   },

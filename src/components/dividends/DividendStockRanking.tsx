@@ -159,12 +159,12 @@ export default function DividendStockRanking({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Dividend Score Ranking</Text>
+        <Text style={styles.heading}>Score ranking</Text>
       </View>
       <View style={styles.columnLabels}>
         <Text style={styles.labelSymbol}>Symbol</Text>
         <Text style={styles.labelScore}>Score</Text>
-        <Text style={styles.labelAmount}>Payout</Text>
+        <Text style={styles.labelAmount}>Payout PKR</Text>
       </View>
       <FlatList
         data={ranked}
@@ -178,21 +178,13 @@ export default function DividendStockRanking({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     marginBottom: 16,
   },
   header: { marginBottom: 10 },
   heading: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: "700",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    color: colors.textPrimary,
   },
   columnLabels: {
     flexDirection: "row",
