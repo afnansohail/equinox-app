@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { TrendingUp, ShieldCheck, Lock } from "lucide-react-native";
-import { colors } from "../constants/theme";
+import { colors, fonts } from "../constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 const { height } = Dimensions.get("window");
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 36,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
     letterSpacing: -1,
   },
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 15,
     color: colors.textPrimary,
-    fontWeight: "500",
+    fontFamily: fonts.sans.medium,
     flex: 1,
   },
   authSection: { gap: 12 },
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.sans.bold,
     color: colors.textInverse,
   },
   secondaryBtn: {
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: fonts.sans.semibold,
     color: colors.textPrimary,
   },
   guestBtn: {

@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft } from "lucide-react-native";
 import { useAuthStore } from "../stores/authStore";
-import { colors } from "../constants/theme";
+import { colors, fonts } from "../constants/theme";
 import CustomModal from "../components/ui/CustomModal";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -166,14 +166,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: "800",
+    fontFamily: fonts.sans.extrabold,
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: { fontSize: 15, color: colors.textSecondary },
   form: { gap: 16 },
   field: { gap: 8 },
-  label: { fontSize: 13, fontWeight: "500", color: colors.textSecondary },
+  label: { fontSize: 13, fontFamily: fonts.sans.medium, color: colors.textSecondary },
   input: {
     height: 52,
     backgroundColor: colors.card,
@@ -192,12 +192,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  submitBtnText: { fontSize: 16, fontWeight: "700", color: colors.textInverse },
+  submitBtnText: { fontSize: 16, fontFamily: fonts.sans.bold, color: colors.textInverse },
   switchRow: {
     flexDirection: "row",
     justifyContent: "center",
     paddingTop: 4,
   },
   switchText: { fontSize: 14, color: colors.textSecondary },
-  switchLink: { fontSize: 14, color: colors.secondary, fontWeight: "600" },
+  switchLink: { fontSize: 14, color: colors.secondary, fontFamily: fonts.sans.semibold },
 });
