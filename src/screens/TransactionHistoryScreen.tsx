@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
 import {
-  FlatList,
+  SectionList,
   ScrollView,
   Text,
   View,
@@ -31,19 +31,33 @@ import {
   useDeleteTransaction,
   useUpdateTransaction,
 } from "../hooks/usePortfolio";
+import { computeRealizedPnL } from "../utils/portfolio";
 import { colors, fonts } from "../constants/theme";
 import type { Transaction } from "../services/api";
 
 type FilterType = "all" | "BUY" | "SELL";
 
+function formatSectionDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-PK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 const TransactionRow = React.memo(function TransactionRow({
   transaction,
+  realizedPnl,
   onPress,
 }: {
   transaction: Transaction;
+  realizedPnl?: number;
   onPress: () => void;
 }) {
   const isBuy = transaction.transactionType === "BUY";
+  const showPnl = !isBuy && realizedPnl !== undefined;
+  const pnlPositive = (realizedPnl ?? 0) >= 0;
 
   return (
     <TouchableOpacity
@@ -57,15 +71,15 @@ const TransactionRow = React.memo(function TransactionRow({
             styles.txIconCircle,
             {
               backgroundColor: isBuy
-                ? "rgba(34,197,94,0.12)"
-                : "rgba(239,68,68,0.12)",
+                ? colors.secondaryMuted
+                : colors.dangerMuted,
             },
           ]}
         >
           {isBuy ? (
-            <ArrowUpRight size={18} color="#22C55E" />
+            <ArrowUpRight size={17} color={colors.secondary} />
           ) : (
-            <ArrowDownRight size={18} color={colors.danger} />
+            <ArrowDownRight size={17} color={colors.danger} />
           )}
         </View>
         <View style={styles.txMeta}>
@@ -76,15 +90,15 @@ const TransactionRow = React.memo(function TransactionRow({
                 styles.txTypeBadge,
                 {
                   backgroundColor: isBuy
-                    ? "rgba(34,197,94,0.12)"
-                    : "rgba(239,68,68,0.12)",
+                    ? colors.secondaryMuted
+                    : colors.dangerMuted,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.txTypeBadgeText,
-                  { color: isBuy ? "#22C55E" : colors.danger },
+                  { color: isBuy ? colors.secondary : colors.danger },
                 ]}
               >
                 {transaction.transactionType}
@@ -95,7 +109,6 @@ const TransactionRow = React.memo(function TransactionRow({
             {transaction.quantity} shares @ PKR{" "}
             {transaction.pricePerShare.toFixed(2)}
           </Text>
-          <Text style={styles.txDate}>{transaction.transactionDate}</Text>
           {transaction.notes && (
             <Text style={styles.txNotes} numberOfLines={1}>
               {transaction.notes}
@@ -105,19 +118,24 @@ const TransactionRow = React.memo(function TransactionRow({
       </View>
       <View style={styles.txRight}>
         <Text style={styles.txAmount}>
-          PKR{" "}
           {transaction.totalAmount.toLocaleString("en-PK", {
             maximumFractionDigits: 0,
           })}
         </Text>
-        <Text
-          style={[
-            styles.txStatus,
-            { color: !isBuy ? colors.danger : "#22C55E" },
-          ]}
-        >
-          {isBuy ? "Bought" : "Sold"}
-        </Text>
+        {showPnl && (
+          <Text
+            style={[
+              styles.txPnl,
+              { color: pnlPositive ? colors.success : colors.danger },
+            ]}
+          >
+            {pnlPositive ? "+" : "-"}PKR{" "}
+            {Math.abs(realizedPnl ?? 0).toLocaleString("en-PK", {
+              maximumFractionDigits: 0,
+            })}{" "}
+            P/L
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -210,6 +228,11 @@ export default function TransactionHistoryScreen() {
     }
   };
 
+  const { txPnL } = useMemo(
+    () => computeRealizedPnL(transactions ?? []),
+    [transactions],
+  );
+
   const displayTx = useMemo(() => {
     let filtered = transactions ?? [];
 
@@ -230,11 +253,28 @@ export default function TransactionHistoryScreen() {
     return filtered;
   }, [transactions, filter, searchQuery]);
 
+  const sections = useMemo(() => {
+    const groups: { title: string; data: Transaction[] }[] = [];
+    for (const tx of displayTx) {
+      const last = groups[groups.length - 1];
+      if (last && last.title === tx.transactionDate) {
+        last.data.push(tx);
+      } else {
+        groups.push({ title: tx.transactionDate, data: [tx] });
+      }
+    }
+    return groups;
+  }, [displayTx]);
+
   const renderTransaction: ListRenderItem<Transaction> = useCallback(
     ({ item }) => (
-      <TransactionRow transaction={item} onPress={() => openEditModal(item)} />
+      <TransactionRow
+        transaction={item}
+        realizedPnl={txPnL[item.id]}
+        onPress={() => openEditModal(item)}
+      />
     ),
-    [openEditModal],
+    [openEditModal, txPnL],
   );
 
   const keyExtractor = useCallback((item: Transaction) => item.id, []);
@@ -306,13 +346,22 @@ export default function TransactionHistoryScreen() {
         ))}
       </View>
 
-      <FlatList
-        data={displayTx}
+      <SectionList
+        sections={sections}
         renderItem={renderTransaction}
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionHeader}>
+            {formatSectionDate(section.title)}
+          </Text>
+        )}
         keyExtractor={keyExtractor}
         ListEmptyComponent={emptyComponent}
+        ItemSeparatorComponent={({ trailingItem }) =>
+          trailingItem ? <View style={styles.rowDivider} /> : null
+        }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        stickySectionHeadersEnabled={false}
         initialNumToRender={15}
         maxToRenderPerBatch={10}
         windowSize={5}
@@ -540,12 +589,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.secondary,
     borderColor: "transparent",
   },
   filterText: { fontSize: 13, fontFamily: fonts.sans.semibold, color: colors.textMuted },
   filterTextActive: { fontFamily: fonts.sans.bold, color: colors.textInverse },
-  scroll: { paddingHorizontal: 20, paddingBottom: 40, gap: 10 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
   empty: {
     paddingTop: 60,
     alignItems: "center",
@@ -559,15 +608,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   txCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
+    paddingVertical: 10,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   txLeft: { flex: 1, flexDirection: "row", gap: 12 },
   txIconCircle: {
@@ -586,13 +635,25 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
-  txTypeBadgeText: { fontSize: 11, fontFamily: fonts.sans.bold },
+  txTypeBadgeText: {
+    fontSize: 10,
+    fontFamily: fonts.sans.extrabold,
+    letterSpacing: 0.08,
+  },
   txDetail: { fontSize: 12, fontFamily: fonts.sans.medium, color: colors.textMuted },
-  txDate: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted },
   txNotes: { fontSize: 11, fontFamily: fonts.sans.medium, color: colors.textMuted, fontStyle: "italic" },
   txRight: { alignItems: "flex-end", gap: 4, flexShrink: 0 },
   txAmount: { fontSize: 14, fontFamily: fonts.sans.bold, color: colors.textPrimary },
-  txStatus: { fontSize: 11, fontFamily: fonts.sans.medium },
+  txPnl: { fontSize: 11, fontFamily: fonts.sans.semibold },
+  sectionHeader: {
+    fontSize: 11,
+    fontFamily: fonts.sans.bold,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.14,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
   searchRow: {
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -601,11 +662,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 10,
   },
   searchInput: {
