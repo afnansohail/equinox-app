@@ -14,7 +14,7 @@ import {
 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../stores/authStore";
-import { colors } from "../constants/theme";
+import { colors, fonts } from "../constants/theme";
 import type {
   RootStackParamList,
   MainTabParamList,
@@ -72,7 +72,7 @@ function GuestLoaderScreen() {
         alignItems: "center",
       }}
     >
-      <ActivityIndicator size="large" color={colors.primary} />
+      <ActivityIndicator size="large" color={colors.secondary} />
     </View>
   );
 }
@@ -90,8 +90,8 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#0e0e0e",
-          borderTopColor: "rgba(255,255,255,0.08)",
+          backgroundColor: colors.backgroundSecondary,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: Platform.OS === "ios" ? 84 : 70 + bottomPadding,
           paddingBottom: bottomPadding,
@@ -100,11 +100,11 @@ function MainTabs() {
           paddingRight: 6,
           position: "absolute",
         },
-        tabBarActiveTintColor: colors.primary, // #f5f5f5 near-white when selected
-        tabBarInactiveTintColor: colors.textMuted, // #555 dimmed when inactive
+        tabBarActiveTintColor: colors.secondary, // teal when selected
+        tabBarInactiveTintColor: colors.textDim, // dimmed when inactive
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontFamily: "Inter_500Medium",
+          fontSize: 10,
+          fontFamily: fonts.sans.semibold,
           marginTop: 2,
         },
       }}
