@@ -26,7 +26,19 @@ module.exports = {
     web: {
       favicon: "./assets/favicon.png",
     },
-    plugins: ["expo-secure-store", "expo-font", "@react-native-community/datetimepicker"],
+    plugins: [
+      "expo-secure-store",
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          android: {
+            reactNativeArchitectures: ["arm64-v8a"],
+          },
+        },
+      ],
+    ],
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
