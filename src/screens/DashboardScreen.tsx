@@ -118,15 +118,43 @@ export default function DashboardScreen() {
       const portfolioSymbols = holdings?.map((h) => h.stockSymbol) ?? [];
       const wishlistSymbols = wishlist?.map((w) => w.stockSymbol) ?? [];
       const symbols = [...new Set([...portfolioSymbols, ...wishlistSymbols])];
-      if (symbols.length > 0) await refreshMutation.mutateAsync(symbols);
-      await refetchHistory();
-      setToastConfig({ type: "success", msg: "Data updated" });
-    } catch (error: any) {
-      console.error("Error refreshing dashboard:", error);
-      setToastConfig({
-        type: "error",
-        msg: error?.message || "Could not refresh data",
-      });
+
+      // Run independently: a stock-price refresh failure must not prevent the
+      // chart's history refetch from running (and vice versa) — previously
+      // these were sequential awaits, so a single failed price refresh meant
+      // the history data never even got a chance to update.
+      const [priceResult, historyResult] = await Promise.allSettled([
+        symbols.length > 0
+          ? refreshMutation.mutateAsync(symbols)
+          : Promise.resolve(),
+        refetchHistory(),
+      ]);
+
+      const failures: string[] = [];
+      if (priceResult.status === "rejected") {
+        console.error("Error refreshing stock prices:", priceResult.reason);
+        failures.push(
+          priceResult.reason?.message || "Could not refresh stock prices",
+        );
+      }
+      if (historyResult.status === "rejected") {
+        console.error("Error refreshing portfolio history:", historyResult.reason);
+        failures.push("Could not refresh the value chart");
+      } else if (historyResult.value.isError) {
+        const historyError = historyResult.value.error as any;
+        console.error("Portfolio history query failed:", historyError);
+        failures.push(
+          historyError?.message
+            ? `Could not refresh the value chart: ${historyError.message}`
+            : "Could not refresh the value chart",
+        );
+      }
+
+      if (failures.length > 0) {
+        setToastConfig({ type: "error", msg: failures.join(" · ") });
+      } else {
+        setToastConfig({ type: "success", msg: "Data updated" });
+      }
     } finally {
       setRefreshing(false);
     }

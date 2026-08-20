@@ -563,44 +563,50 @@ export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
     symbols: upperSymbols,
   });
   const payload = response.data as { data: any[] };
+  const scrapedStocks = Array.isArray(payload?.data) ? payload.data : [];
 
   const refreshed: Stock[] = [];
 
   await Promise.all(
-    payload.data.map(async (stock) => {
-      const existing = existingMap.get(stock.symbol);
-      const { error: upsertErr } = await supabase.from("stocks").upsert(
-        buildPriceUpsertPayload({
-          ...stock,
-          name: existing?.name ?? stock.name ?? stock.symbol,
+    scrapedStocks.map(async (stock) => {
+      try {
+        const existing = existingMap.get(stock.symbol);
+        const { error: upsertErr } = await supabase.from("stocks").upsert(
+          buildPriceUpsertPayload({
+            ...stock,
+            name: existing?.name ?? stock.name ?? stock.symbol,
+            high: stock.high,
+            low: stock.low,
+          }),
+          { onConflict: "symbol" },
+        );
+
+        if (upsertErr)
+          console.error("Stock refresh upsert failed:", upsertErr);
+
+        refreshed.push({
+          symbol: stock.symbol,
+          name: existing?.name ?? stock.name,
+          currentPrice: stock.currentPrice,
+          previousClose: stock.previousClose,
+          change: stock.change,
+          changePercent: stock.changePercent,
+          volume: stock.volume,
+          marketCap: stock.marketCap,
           high: stock.high,
           low: stock.low,
-        }),
-        { onConflict: "symbol" },
-      );
-
-      if (upsertErr) console.error("Stock refresh upsert failed:", upsertErr);
-
-      refreshed.push({
-        symbol: stock.symbol,
-        name: existing?.name ?? stock.name,
-        currentPrice: stock.currentPrice,
-        previousClose: stock.previousClose,
-        change: stock.change,
-        changePercent: stock.changePercent,
-        volume: stock.volume,
-        marketCap: stock.marketCap,
-        high: stock.high,
-        low: stock.low,
-        high52Week: stock.high52Week,
-        low52Week: stock.low52Week,
-        sector: existing?.sector ?? stock.sector,
-        logoUrl: existing?.logoUrl ?? stock.logoUrl,
-        isShariahCompliant:
-          existing?.isShariahCompliant ?? stock.isShariahCompliant,
-        lastUpdated: stock.lastUpdated,
-        source: stock.source,
-      });
+          high52Week: stock.high52Week,
+          low52Week: stock.low52Week,
+          sector: existing?.sector ?? stock.sector,
+          logoUrl: existing?.logoUrl ?? stock.logoUrl,
+          isShariahCompliant:
+            existing?.isShariahCompliant ?? stock.isShariahCompliant,
+          lastUpdated: stock.lastUpdated,
+          source: stock.source,
+        });
+      } catch (error) {
+        console.error(`Stock refresh failed for ${stock?.symbol}:`, error);
+      }
     }),
   );
 
