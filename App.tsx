@@ -4,6 +4,7 @@ import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useIsRestoring } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import {
   Archivo_400Regular,
@@ -44,7 +45,7 @@ export default function App() {
 
   if (!fontsLoaded || loading) {
     return (
-      <View style={styles.loadingRoot}>
+      <View style={styles.loadingCentered}>
         <ActivityIndicator size="large" color={colors.secondary} />
       </View>
     );
@@ -55,10 +56,12 @@ export default function App() {
       client={queryClient}
       persistOptions={persistOptions}
     >
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <AppContent />
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={styles.loadingRoot}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <AppContent />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     </PersistQueryClientProvider>
   );
 }
@@ -83,6 +86,9 @@ function AppContent() {
 
 const styles = StyleSheet.create({
   loadingRoot: {
+    flex: 1,
+  },
+  loadingCentered: {
     flex: 1,
     backgroundColor: colors.background,
     alignItems: "center",

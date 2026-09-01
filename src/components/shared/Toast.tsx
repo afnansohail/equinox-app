@@ -1,11 +1,14 @@
-﻿import React, { useEffect, useRef } from "react";
-import {
-  Text,
-  StyleSheet,
-  Animated,
-  TouchableOpacity,
-  PanResponder,
-} from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Text, StyleSheet, TouchableOpacity } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { colors } from "../../constants/theme";
 
 export interface ToastConfig {
@@ -19,48 +22,46 @@ interface ToastProps {
   onClose?: () => void;
 }
 
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const ENTER_OFFSET = 20;
+const DISMISS_DISTANCE = 40;
+const DISMISS_VELOCITY = 800; // px/s — a flick is enough, distance alone isn't required
+
 export default function Toast({ config, onClose }: ToastProps) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(ENTER_OFFSET);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClose = () => {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    onClose?.();
+  };
 
   const dismiss = () => {
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 20,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => onClose?.());
+    opacity.set(withTiming(0, { duration: 200, easing: EASE_OUT }));
+    translateY.set(
+      withTiming(
+        ENTER_OFFSET,
+        { duration: 200, easing: EASE_OUT },
+        (finished) => {
+          if (finished) scheduleOnRN(handleClose);
+        },
+      ),
+    );
   };
 
   useEffect(() => {
     if (!config) {
-      opacity.setValue(0);
-      translateY.setValue(20);
+      opacity.set(0);
+      translateY.set(ENTER_OFFSET);
       return;
     }
 
     // Reset and animate in
-    translateY.setValue(20);
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 280,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 280,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    translateY.set(ENTER_OFFSET);
+    opacity.set(withTiming(1, { duration: 280, easing: EASE_OUT }));
+    translateY.set(withTiming(0, { duration: 280, easing: EASE_OUT }));
 
     const duration = config.duration ?? 3000;
     dismissTimer.current = setTimeout(dismiss, duration);
@@ -71,25 +72,37 @@ export default function Toast({ config, onClose }: ToastProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 5,
-      onPanResponderMove: (_, gs) => {
-        translateY.setValue(gs.dy);
-      },
-      onPanResponderRelease: (_, gs) => {
-        if (Math.abs(gs.dy) > 40 || Math.abs(gs.vy) > 0.8) {
-          dismiss();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    }),
-  ).current;
+  const dragGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      translateY.set(e.translationY);
+    })
+    .onEnd((e) => {
+      const dragged = Math.abs(e.translationY) > DISMISS_DISTANCE;
+      const flicked = Math.abs(e.velocityY) > DISMISS_VELOCITY;
+      if (dragged || flicked) {
+        // Continue off-screen in the direction the user threw it — same path in and out
+        const direction = e.translationY < 0 ? -1 : 1;
+        opacity.set(withTiming(0, { duration: 180, easing: EASE_OUT }));
+        translateY.set(
+          withTiming(
+            direction * 120,
+            { duration: 180, easing: EASE_OUT },
+            (finished) => {
+              if (finished) scheduleOnRN(handleClose);
+            },
+          ),
+        );
+      } else {
+        translateY.set(
+          withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY }),
+        );
+      }
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.get(),
+    transform: [{ translateY: translateY.get() }],
+  }));
 
   if (!config) return null;
 
@@ -122,25 +135,17 @@ export default function Toast({ config, onClose }: ToastProps) {
     : "rgba(255, 107, 107, 0.35)";
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          opacity,
-          transform: [{ translateY }],
-          borderColor,
-        },
-      ]}
-      {...panResponder.panHandlers}
-    >
-      <TouchableOpacity
-        onPress={dismiss}
-        activeOpacity={1}
-        style={styles.inner}
-      >
-        <Text style={styles.text}>{displayMsg}</Text>
-      </TouchableOpacity>
-    </Animated.View>
+    <GestureDetector gesture={dragGesture}>
+      <Animated.View style={[styles.container, animatedStyle, { borderColor }]}>
+        <TouchableOpacity
+          onPress={dismiss}
+          activeOpacity={1}
+          style={styles.inner}
+        >
+          <Text style={styles.text}>{displayMsg}</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

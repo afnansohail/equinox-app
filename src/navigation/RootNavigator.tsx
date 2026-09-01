@@ -45,7 +45,6 @@ function AuthNavigator() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
-        animation: "none",
       }}
     >
       <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
@@ -181,41 +180,27 @@ export default function RootNavigator() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.background },
-            animation: "none",
           }}
         >
-          <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen
-            name="StockDetail"
-            component={StockDetailScreen}
-            options={{
-              headerShown: false,
-              animation: "none",
-            }}
+            name="MainTabs"
+            component={MainTabs}
+            options={{ animation: "none" }}
           />
+          <Stack.Screen name="StockDetail" component={StockDetailScreen} />
           <Stack.Screen
             name="AddTransaction"
             component={AddTransactionScreen}
-            options={{
-              headerShown: false,
-              animation: "none",
-            }}
+            options={{ presentation: "modal" }}
           />
           <Stack.Screen
             name="TransactionHistory"
             component={TransactionHistoryScreen}
-            options={{
-              headerShown: false,
-              animation: "none",
-            }}
           />
           <Stack.Screen
             name="AddDividend"
             component={AddDividendScreen}
-            options={{
-              headerShown: false,
-              animation: "none",
-            }}
+            options={{ presentation: "modal" }}
           />
         </Stack.Navigator>
       )}

@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Plus, ArrowDown, History, RefreshCw } from "lucide-react-native";
 import { colors, fonts, borderRadius } from "../../constants/theme";
+import { ScalePressable } from "../ui/ScalePressable";
 
 interface ActionButtonsProps {
   onBuy: () => void;
@@ -55,18 +56,14 @@ function ActionBtn({
   primary?: boolean;
 }) {
   return (
-    <TouchableOpacity
-      style={styles.actionBtn}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <ScalePressable style={styles.actionBtn} onPress={onPress} scaleTo={0.95}>
       <View
         style={[styles.actionIconCircle, primary && styles.actionIconPrimary]}
       >
         {icon}
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
-    </TouchableOpacity>
+    </ScalePressable>
   );
 }
 
