@@ -2,7 +2,7 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    - cron: '0 3 */3 * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Query Supabase (resets the 7-day inactivity clock)
+      - name: Query Supabase (Supabase requires activity on most days of the trailing week, not just a recent ping)
         run: |
           curl -sf "${{ secrets.SUPABASE_URL }}/rest/v1/stocks?select=symbol&limit=1" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
