@@ -6,6 +6,18 @@ import type { Subscription } from "@supabase/supabase-js";
 // Store subscription reference outside Zustand state to avoid re-renders
 let authSubscription: Subscription | null = null;
 
+// Supabase calls have no built-in timeout - if the project is slow/unresponsive
+// (e.g. paused, or throttled from exceeding its Disk IO budget), an unwrapped
+// await here hangs forever and the loading spinner never goes away.
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out")), ms),
+    ),
+  ]);
+}
+
 interface AuthState {
   user: any | null;
   session: any | null;
@@ -45,7 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await withTimeout(supabase.auth.getSession(), 15000);
 
       if (session) {
         const isAnon = session.user?.is_anonymous ?? false;
@@ -88,7 +100,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signInAnonymously: async () => {
     try {
-      const { data, error } = await supabase.auth.signInAnonymously();
+      const { data, error } = await withTimeout(
+        supabase.auth.signInAnonymously(),
+        15000,
+      );
       if (error) throw error;
 
       set({
