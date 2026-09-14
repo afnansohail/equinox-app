@@ -47,3 +47,4 @@ yarn-error.*
 !README.md
 !readme.md
 *.apk
+*.temp
