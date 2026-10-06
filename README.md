@@ -23,7 +23,7 @@ Add Transaction → Transaction History
 
 ## Tech Stack
 
-- **Frontend**: Expo SDK 52, React Native, TypeScript
+- **Frontend**: Expo SDK 57, React Native 0.86, TypeScript
 - **State Management**: Zustand, React Query
 - **UI**: NativeWind (Tailwind CSS), Victory Native (Charts)
 - **Backend**: Supabase (PostgreSQL + Auth)

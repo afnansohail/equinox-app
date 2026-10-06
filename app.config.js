@@ -6,11 +6,6 @@ module.exports = {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "dark",
-    splash: {
-      image: "./assets/splash-icon.png",
-      resizeMode: "contain",
-      backgroundColor: "#0A0A0A",
-    },
     ios: {
       supportsTablet: true,
     },
@@ -27,6 +22,18 @@ module.exports = {
       favicon: "./assets/favicon.png",
     },
     plugins: [
+      // SDK 57 no longer reads a top-level `splash` key — the splash screen is
+      // configured only through this plugin's options.
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/splash-icon.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#0A0A0A",
+        },
+      ],
+      "expo-status-bar",
       "expo-secure-store",
       "expo-font",
       "@react-native-community/datetimepicker",
