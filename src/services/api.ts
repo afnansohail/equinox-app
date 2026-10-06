@@ -203,6 +203,44 @@ function buildPriceUpsertPayload(stock: {
   };
 }
 
+type ScrapedSnapshot = {
+  symbol: string;
+  tradeDate?: string | null;
+  currentPrice: number;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  volume: number;
+};
+
+/**
+ * Records each scraped quote as that trading day's row in
+ * stock_prices_history — the only source the portfolio history chart reads.
+ * Upserting on (stock_symbol, date) means the last scrape of a session wins,
+ * i.e. the row converges on the closing price. Must run after the `stocks`
+ * upsert (FK). Failures are logged, never thrown: a missed snapshot only
+ * leaves a gap the chart carries forward over.
+ */
+async function recordPriceSnapshots(stocks: ScrapedSnapshot[]): Promise<void> {
+  const rows = stocks
+    .filter((s) => s.tradeDate && s.currentPrice > 0)
+    .map((s) => ({
+      stock_symbol: s.symbol,
+      date: s.tradeDate,
+      open: s.open ?? null,
+      high: s.high ?? null,
+      low: s.low ?? null,
+      close: s.currentPrice,
+      volume: Math.trunc(s.volume || 0),
+    }));
+  if (rows.length === 0) return;
+
+  const { error } = await supabase
+    .from("stock_prices_history")
+    .upsert(rows, { onConflict: "stock_symbol,date" });
+  if (error) console.error("Price snapshot upsert failed:", error);
+}
+
 export async function getStock(
   symbol: string,
   options?: { forceScrape?: boolean; preserveNonPriceFromDb?: boolean },
@@ -272,6 +310,7 @@ export async function getStock(
     await supabase.from("stocks").upsert(buildStockUpsertPayload(merged), {
       onConflict: "symbol",
     });
+    await recordPriceSnapshots([merged]);
 
     return {
       symbol: merged.symbol,
@@ -296,7 +335,10 @@ export async function getStock(
     };
   } catch (error) {
     console.error("Error scraping stock", error);
-    return null;
+    // Serve the last persisted quote rather than failing the whole screen.
+    return dbStock && toNumber(dbStock.current_price) > 0
+      ? mapDbStock(dbStock)
+      : null;
   }
 }
 
@@ -394,6 +436,7 @@ export async function getPortfolioHoldings(
             { onConflict: "symbol" },
           );
         }
+        await recordPriceSnapshots(payload.data);
       } catch (error) {
         console.error("Error background scraping stale symbols:", error);
       }
@@ -565,6 +608,12 @@ export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
   const payload = response.data as { data: any[] };
   const scrapedStocks = Array.isArray(payload?.data) ? payload.data : [];
 
+  // The endpoint answers 200 even when every symbol failed to scrape; surface
+  // that instead of letting the caller report a successful refresh.
+  if (scrapedStocks.length === 0) {
+    throw new Error("Could not fetch live prices from PSX");
+  }
+
   const refreshed: Stock[] = [];
 
   await Promise.all(
@@ -609,6 +658,7 @@ export async function refreshStockPrices(symbols: string[]): Promise<Stock[]> {
       }
     }),
   );
+  await recordPriceSnapshots(scrapedStocks);
 
   return refreshed;
 }
@@ -961,30 +1011,114 @@ export async function getScrapedPayouts(
 }
 
 /**
- * Calls the Vercel portfolio-history endpoint which fetches PSX EOD data
- * server-side and returns a pre-computed day-by-day value series.
- * Only called on explicit manual refresh — not on every mount.
+ * Builds a day-by-day portfolio value series from the daily closes recorded
+ * in stock_prices_history (see recordPriceSnapshots). PSX blocked its EOD
+ * timeseries API in Oct 2026, so the series only covers days on which the
+ * app captured a snapshot; gaps carry the last known close forward.
  */
 export async function getPortfolioHistory(
   holdings: PortfolioHolding[],
   transactions: Transaction[],
 ): Promise<PortfolioHistoryPoint[]> {
-  if (!vercelApiUrl || holdings.length === 0) return [];
+  if (holdings.length === 0) return [];
 
-  const response = await axios.post(`${vercelApiUrl}/api/portfolio-history`, {
-    holdings: holdings.map((h) => ({
-      symbol: h.stockSymbol,
-      averageBuyPrice: h.averageBuyPrice,
-      quantity: h.quantity,
-    })),
-    transactions: transactions.map((t) => ({
-      symbol: t.stockSymbol,
-      type: t.transactionType,
-      quantity: t.quantity,
-      pricePerShare: t.pricePerShare,
-      transactionDate: t.transactionDate,
-    })),
-  });
+  // Include fully-sold symbols so the invested line stays correct for the
+  // period they were held.
+  const symbols = [
+    ...new Set(
+      [
+        ...holdings.map((h) => h.stockSymbol),
+        ...transactions.map((t) => t.stockSymbol),
+      ].map((s) => s.toUpperCase()),
+    ),
+  ];
 
-  return (response.data?.data ?? []) as PortfolioHistoryPoint[];
+  // PostgREST caps responses at 1000 rows, so page through the history.
+  const PAGE_SIZE = 1000;
+  const rows: { stock_symbol: string; date: string; close: string | number }[] =
+    [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("stock_prices_history")
+      .select("stock_symbol, date, close")
+      .in("stock_symbol", symbols)
+      .order("date", { ascending: true })
+      .order("stock_symbol", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+
+  // Rows arrive date-ascending, so walking them in order lets each symbol's
+  // last-seen close stand in for days it has no snapshot.
+  const closesByDate = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    const close = toNumber(row.close);
+    if (close <= 0) continue;
+    if (!closesByDate.has(row.date)) closesByDate.set(row.date, new Map());
+    closesByDate.get(row.date)!.set(row.stock_symbol, close);
+  }
+  const allDates = [...closesByDate.keys()].sort();
+
+  const txBySymbol = new Map<string, Transaction[]>();
+  for (const tx of transactions) {
+    const sym = tx.stockSymbol.toUpperCase();
+    if (!txBySymbol.has(sym)) txBySymbol.set(sym, []);
+    txBySymbol.get(sym)!.push(tx);
+  }
+  for (const list of txBySymbol.values()) {
+    list.sort((a, b) => a.transactionDate.localeCompare(b.transactionDate));
+  }
+
+  const lastClose = new Map<string, number>();
+  const result: PortfolioHistoryPoint[] = [];
+
+  for (const date of allDates) {
+    for (const [sym, close] of closesByDate.get(date)!) {
+      lastClose.set(sym, close);
+    }
+
+    let marketValue = 0;
+    let invested = 0;
+    let hasShares = false;
+
+    for (const sym of symbols) {
+      let sharesHeld = 0;
+      let netInvested = 0;
+
+      for (const tx of txBySymbol.get(sym) ?? []) {
+        if (tx.transactionDate.slice(0, 10) > date) break;
+        if (tx.transactionType === "BUY") {
+          sharesHeld += Number(tx.quantity);
+          netInvested += Number(tx.quantity) * Number(tx.pricePerShare);
+        } else {
+          const qty = Math.min(Number(tx.quantity), sharesHeld);
+          sharesHeld = Math.max(0, sharesHeld - qty);
+          // Deduct the cost basis of sold shares (approximate: use sell price)
+          netInvested -= qty * Number(tx.pricePerShare);
+        }
+      }
+
+      if (sharesHeld <= 0) continue;
+      invested += Math.max(0, netInvested);
+
+      const close = lastClose.get(sym);
+      if (close === undefined) continue;
+
+      hasShares = true;
+      marketValue += sharesHeld * close;
+    }
+
+    if (hasShares) {
+      const [y, m, d] = date.split("-").map(Number);
+      result.push({
+        timestamp: Math.floor(Date.UTC(y, m - 1, d) / 1000),
+        marketValue: Math.round(marketValue),
+        invested: Math.round(invested),
+      });
+    }
+  }
+
+  return result;
 }

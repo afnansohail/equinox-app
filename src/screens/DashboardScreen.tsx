@@ -119,16 +119,15 @@ export default function DashboardScreen() {
       const wishlistSymbols = wishlist?.map((w) => w.stockSymbol) ?? [];
       const symbols = [...new Set([...portfolioSymbols, ...wishlistSymbols])];
 
-      // Run independently: a stock-price refresh failure must not prevent the
-      // chart's history refetch from running (and vice versa) — previously
-      // these were sequential awaits, so a single failed price refresh meant
-      // the history data never even got a chance to update.
-      const [priceResult, historyResult] = await Promise.allSettled([
+      // History is read from the price snapshots the price refresh writes, so
+      // it runs after it — but as a settled result, so a failed price refresh
+      // still lets the chart refetch whatever history is already stored.
+      const [priceResult] = await Promise.allSettled([
         symbols.length > 0
           ? refreshMutation.mutateAsync(symbols)
           : Promise.resolve(),
-        refetchHistory(),
       ]);
+      const [historyResult] = await Promise.allSettled([refetchHistory()]);
 
       const failures: string[] = [];
       if (priceResult.status === "rejected") {

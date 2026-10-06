@@ -102,6 +102,10 @@ export function useRefreshStocks() {
 
         // ── 3. Invalidate the stocks list so Markets screen stays in sync ───
         queryClient.invalidateQueries({ queryKey: ["stocks"] });
+
+        // ── 4. The refresh recorded today's price snapshots, which the ──────
+        // portfolio history chart is built from.
+        queryClient.invalidateQueries({ queryKey: ["portfolioHistory"] });
       } catch (error) {
         console.error("Error patching stock caches after refresh:", error);
       }

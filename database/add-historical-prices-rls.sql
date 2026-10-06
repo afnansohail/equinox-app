@@ -5,8 +5,8 @@
 ALTER TABLE stock_prices_history ENABLE ROW LEVEL SECURITY;
 
 -- Grant access
-GRANT SELECT, INSERT ON TABLE public.stock_prices_history TO anon;
-GRANT SELECT, INSERT ON TABLE public.stock_prices_history TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.stock_prices_history TO anon;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.stock_prices_history TO authenticated;
 
 -- Public read access (anyone can view historical prices)
 DROP POLICY IF EXISTS "Anyone can view historical prices" ON stock_prices_history;
@@ -17,3 +17,9 @@ CREATE POLICY "Anyone can view historical prices" ON stock_prices_history
 DROP POLICY IF EXISTS "Anyone can insert historical prices" ON stock_prices_history;
 CREATE POLICY "Anyone can insert historical prices" ON stock_prices_history 
   FOR INSERT WITH CHECK (true);
+
+-- Public update access (daily snapshots are upserted on (stock_symbol, date),
+-- so a later scrape on the same trading day overwrites the earlier close)
+DROP POLICY IF EXISTS "Anyone can update historical prices" ON stock_prices_history;
+CREATE POLICY "Anyone can update historical prices" ON stock_prices_history 
+  FOR UPDATE USING (true) WITH CHECK (true);

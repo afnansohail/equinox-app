@@ -40,8 +40,8 @@ export function useTransactions() {
 }
 
 /**
- * Fetches a day-by-day portfolio market-value series from the Vercel
- * portfolio-history endpoint (PSX EOD data, server-side computed).
+ * Builds a day-by-day portfolio market-value series from the daily price
+ * snapshots recorded in Supabase (stock_prices_history).
  *
  * staleTime: Infinity — never re-fetches on its own.
  * Only refreshed when:
