@@ -121,7 +121,10 @@ export default function PortfolioChart({
   if (data.length < 2) {
     return (
       <View style={[styles.container, { width, height }]}>
-        <Text style={styles.emptyText}>Not enough data to display chart</Text>
+        <Text style={styles.emptyText}>
+          Value history builds up from daily price snapshots.{"\n"}
+          Check back after the next trading day.
+        </Text>
       </View>
     );
   }

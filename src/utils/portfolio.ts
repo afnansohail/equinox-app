@@ -34,63 +34,35 @@ export function getFilterStartDate(filter: FilterPeriod): Date | null {
 
 export type ChartPoint = { value: number; invested?: number; label?: string };
 
+/**
+ * Maps the recorded value history onto the selected period. Returns [] when
+ * fewer than two points fall in range — the chart then shows its empty state
+ * rather than a made-up line (history only accrues from daily price
+ * snapshots, so a new range legitimately has no data yet).
+ */
 export function buildChartFromHistory(
   history: PortfolioHistoryPoint[] | undefined,
   filter: FilterPeriod,
-  fallbackData?: {
-    currentValue: number;
-    transactions?: Array<{ transactionDate: string; totalAmount: number }>;
-  },
 ): ChartPoint[] {
-  if (history && history.length >= 2) {
-    const startDate = getFilterStartDate(filter);
-    const startTs = startDate ? Math.floor(startDate.getTime() / 1000) : null;
+  if (!history || history.length < 2) return [];
 
-    const filtered = startTs
-      ? history.filter((p) => p.timestamp >= startTs)
-      : history;
+  const startDate = getFilterStartDate(filter);
+  const startTs = startDate ? Math.floor(startDate.getTime() / 1000) : null;
 
-    if (filtered.length >= 2) {
-      return filtered.map((p) => ({
-        value: p.marketValue,
-        invested: p.invested,
-        label: new Date(p.timestamp * 1000).toLocaleDateString("en-PK", {
-          month: "short",
-          day: "numeric",
-        }),
-      }));
-    }
-  }
+  const filtered = startTs
+    ? history.filter((p) => p.timestamp >= startTs)
+    : history;
 
-  if (fallbackData?.transactions && fallbackData.transactions.length > 0) {
-    const sorted = [...fallbackData.transactions].sort(
-      (a, b) =>
-        new Date(a.transactionDate).getTime() -
-        new Date(b.transactionDate).getTime(),
-    );
-    const firstBuyDate = new Date(sorted[0].transactionDate);
-    const today = new Date();
-    const firstBuyAmount = sorted[0].totalAmount;
+  if (filtered.length < 2) return [];
 
-    return [
-      {
-        value: firstBuyAmount,
-        label: firstBuyDate.toLocaleDateString("en-PK", {
-          month: "short",
-          day: "numeric",
-        }),
-      },
-      {
-        value: fallbackData.currentValue,
-        label: today.toLocaleDateString("en-PK", {
-          month: "short",
-          day: "numeric",
-        }),
-      },
-    ];
-  }
-
-  return [];
+  return filtered.map((p) => ({
+    value: p.marketValue,
+    invested: p.invested,
+    label: new Date(p.timestamp * 1000).toLocaleDateString("en-PK", {
+      month: "short",
+      day: "numeric",
+    }),
+  }));
 }
 
 export function computeRealizedPnL(transactions: Transaction[]): {

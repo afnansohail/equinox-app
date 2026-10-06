@@ -64,15 +64,8 @@ export function useDashboardData(chartFilter: FilterPeriod) {
 
   const chartData = useMemo(
     () =>
-      // Suppress fallback chart while history is still loading to avoid a
-      // diagonal two-point line appearing briefly on first open.
-      isHistoryLoading
-        ? []
-        : buildChartFromHistory(portfolioHistory, chartFilter, {
-            currentValue: totalValue,
-            transactions: transactions ?? [],
-          }),
-    [portfolioHistory, chartFilter, totalValue, transactions, isHistoryLoading],
+      isHistoryLoading ? [] : buildChartFromHistory(portfolioHistory, chartFilter),
+    [portfolioHistory, chartFilter, isHistoryLoading],
   );
 
   // Extract net invested series for dual-line chart
